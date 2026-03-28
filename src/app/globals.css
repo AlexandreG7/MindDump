@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Clean modern palette ── */
+    --background: 40 20% 97%;          /* #F8F7F5 - very light warm off-white */
+    --foreground: 220 20% 14%;         /* #1C2333 - dark navy text */
+    --card: 0 0% 100%;                 /* pure white */
+    --card-foreground: 220 20% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 14%;
+    --primary: 24 85% 53%;             /* #F97316 - orange */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;          /* #F2F3F5 - light blue-gray */
+    --secondary-foreground: 220 15% 32%;
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 10% 48%;   /* #717789 */
+    --accent: 150 30% 93%;
+    --accent-foreground: 150 40% 22%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;             /* #E4E6EB */
+    --input: 220 13% 91%;
+    --ring: 24 85% 53%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  /* ── Paper notepad style (shopping lists) ── */
+  .paper-list {
+    background:
+      repeating-linear-gradient(
+        transparent,
+        transparent 31px,
+        hsl(30 22% 80%) 31px,
+        hsl(30 22% 80%) 32px
+      ),
+      linear-gradient(135deg, hsl(40 45% 93%) 0%, hsl(35 38% 91%) 100%);
+    box-shadow:
+      2px 3px 12px hsl(30 15% 70% / 0.4),
+      inset 0 0 40px hsl(40 30% 90% / 0.3);
+    border: 1px solid hsl(30 22% 80%);
+    position: relative;
+  }
+
+  .paper-list::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 40px;
+    bottom: 0;
+    width: 2px;
+    background: hsl(0 60% 75% / 0.4);
+  }
+
+  .paper-list::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,0 Q10,6 20,2 Q30,0 40,3 Q50,6 60,1 Q70,0 80,4 Q90,6 100,2 Q110,0 120,3 Q130,6 140,1 Q150,0 160,4 Q170,6 180,2 Q190,0 200,3 L200,6 L0,6 Z' fill='%23ede7db'/%3E%3C/svg%3E") repeat-x;
+  }
+
+  /* ── Clean recipe card ── */
+  .recipe-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid hsl(220 13% 91%);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    overflow: hidden;
+  }
+
+  .recipe-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.09), 0 1px 4px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+  }
+
+  /* ── Checkerboard grid (shopping list items) ── */
+  .checkerboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+  }
+
+  .checkerboard-grid > *:nth-child(4n+1),
+  .checkerboard-grid > *:nth-child(4n+4) {
+    background: hsl(40 38% 92%);
+  }
+
+  .checkerboard-grid > *:nth-child(4n+2),
+  .checkerboard-grid > *:nth-child(4n+3) {
+    background: hsl(40 32% 94%);
+  }
+
+  .checkerboard-grid > * {
+    padding: 0.625rem 0.75rem;
+    border: 1px solid hsl(30 22% 85%);
+    margin: -0.5px;
+  }
+
+  /* ── Handwritten font ── */
+  .handwritten {
+    font-family: 'Caveat', cursive;
+    font-size: 1.2rem;
+    line-height: 1.4;
+  }
+
+  /* ── Tags ── */
+  .tag-recipe {
+    background: hsl(24 80% 92%);
+    color: hsl(24 70% 35%);
+    font-size: 0.7rem;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+
+  /* ── Strikethrough ── */
+  .checked-item {
+    text-decoration: line-through;
+    text-decoration-color: hsl(0 50% 60%);
+    text-decoration-thickness: 2px;
+    opacity: 0.5;
+  }
+
+  /* ── Masonry grid ── */
+  .masonry-grid {
+    columns: 1;
+    column-gap: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .masonry-grid {
+      columns: 2;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .masonry-grid {
+      columns: 3;
+    }
+  }
+
+  .masonry-grid > * {
+    break-inside: avoid;
+    margin-bottom: 1.25rem;
+    display: inline-block;
+    width: 100%;
+  }
+}

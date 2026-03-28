@@ -1,0 +1,23 @@
+{
+  "name": "minddump-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for MindDump — manage recipes, todos, and shopping lists from Claude",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "start:sse": "MCP_TRANSPORT=sse tsx src/index.ts",
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "dev:sse": "MCP_TRANSPORT=sse tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^20.14.0"
+  }
+}

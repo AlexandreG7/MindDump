@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma:*)",
+      "Bash(/usr/local/bin/npx prisma:*)",
+      "Bash(node_modules/.bin/prisma db:*)",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//Users/alexandreguerlach/.nvm/versions/**)",
+      "mcp__MCP_DOCKER__browser_navigate",
+      "mcp__MCP_DOCKER__browser_take_screenshot",
+      "mcp__MCP_DOCKER__browser_click",
+      "Bash(docker exec:*)",
+      "Bash(docker restart:*)"
+    ]
+  }
+}
