@@ -29,6 +29,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  Copy,
   LayoutDashboard,
   CheckSquare,
   Calendar,
@@ -71,6 +72,63 @@ export default function ProfilePage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+
+  // ── API Keys state ─────────────────────────────────────────────
+  interface ApiKeyItem {
+    id: string;
+    name: string;
+    key: string;
+    createdAt: string;
+  }
+  const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("MCP");
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
+  const [apiKeyCopied, setApiKeyCopied] = useState(false);
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+
+  const fetchApiKeys = useCallback(() => {
+    fetch("/api/auth/api-key")
+      .then((r) => r.json())
+      .then((data) => setApiKeys(Array.isArray(data) ? data : []));
+  }, []);
+
+  useEffect(() => {
+    if (isReady) fetchApiKeys();
+  }, [isReady, fetchApiKeys]);
+
+  const createApiKey = async () => {
+    setApiKeyLoading(true);
+    const res = await fetch("/api/auth/api-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newKeyName.trim() || "MCP" }),
+    });
+    const data = await res.json();
+    setApiKeyLoading(false);
+    if (res.ok) {
+      setNewlyCreatedKey(data.key);
+      setNewKeyName("MCP");
+      fetchApiKeys();
+    }
+  };
+
+  const deleteApiKey = async (id: string) => {
+    await fetch("/api/auth/api-key", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    fetchApiKeys();
+  };
+
+  const copyApiKey = () => {
+    if (newlyCreatedKey) {
+      navigator.clipboard.writeText(newlyCreatedKey);
+      setApiKeyCopied(true);
+      setTimeout(() => setApiKeyCopied(false), 2000);
+    }
+  };
 
   // ── Password state ────────────────────────────────────────────
   const [pwdCurrent, setPwdCurrent] = useState("");
@@ -299,6 +357,88 @@ export default function ProfilePage() {
           </form>
         </section>
       )}
+
+      {/* ── Clés API ──────────────────────────────────────────── */}
+      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-base font-semibold">Clés API</h2>
+          </div>
+          <Dialog open={apiKeyDialogOpen} onOpenChange={(open) => {
+            setApiKeyDialogOpen(open);
+            if (!open) { setNewlyCreatedKey(null); setApiKeyCopied(false); }
+          }}>
+            <DialogTrigger asChild>
+              <Button size="sm"><Plus className="h-4 w-4 mr-2" />Nouvelle clé</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>
+                {newlyCreatedKey ? "Clé créée" : "Créer une clé API"}
+              </DialogTitle></DialogHeader>
+              {newlyCreatedKey ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+                    Sauvegardez cette clé maintenant. Elle ne sera plus affichée en entier.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input value={newlyCreatedKey} readOnly className="font-mono text-xs" />
+                    <Button size="sm" variant={apiKeyCopied ? "default" : "outline"} onClick={copyApiKey} className="shrink-0">
+                      {apiKeyCopied
+                        ? <><Check className="h-3.5 w-3.5 mr-1" />Copié !</>
+                        : <><Copy className="h-3.5 w-3.5 mr-1" />Copier</>}
+                    </Button>
+                  </div>
+                  <DialogClose asChild>
+                    <Button variant="outline" className="w-full">Fermer</Button>
+                  </DialogClose>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Nom de la clé</Label>
+                    <Input placeholder="Ex: MCP, Claude Desktop…" value={newKeyName}
+                      onChange={(e) => setNewKeyName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && createApiKey()} autoFocus />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button className="flex-1" onClick={createApiKey} disabled={apiKeyLoading}>
+                      {apiKeyLoading ? "Création…" : "Créer"}
+                    </Button>
+                    <DialogClose asChild><Button variant="outline">Annuler</Button></DialogClose>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-1">
+          Clés pour connecter le serveur MCP ou d&apos;autres intégrations.
+        </p>
+        {apiKeys.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Aucune clé API</p>
+        ) : (
+          <div className="space-y-2">
+            {apiKeys.map((k) => (
+              <div key={k.id} className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl bg-secondary/30">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{k.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{k.key}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(k.createdAt).toLocaleDateString("fr-FR")}
+                  </span>
+                  <button onClick={() => deleteApiKey(k.id)}
+                    className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* ── Feature flags ───────────────────────────────────────── */}
       <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
