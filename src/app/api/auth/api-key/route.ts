@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { randomBytes } from "crypto";
 
+export const dynamic = "force-dynamic";
+
 // GET — lister les API keys de l'utilisateur
 export async function GET() {
   const user = await getSessionUser();
