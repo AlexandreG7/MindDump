@@ -1,90 +1,98 @@
 ---
 name: hellofresh
-description: Extraire une recette depuis des photos de fiches HelloFresh (face avant = image, face arrière = ingrédients + étapes) et la créer dans MindDump
+description: Extraire une recette depuis des photos de fiches HelloFresh ou depuis une URL HelloFresh, créer dans MindDump avec auto-enrichissement (images, étapes détaillées, ingrédients)
 user_invocable: true
 ---
 
 # Skill : Import recette HelloFresh
 
-L'utilisateur fournit une ou deux photos d'une fiche recette HelloFresh :
-- **Face avant** : contient la photo du plat, le titre, le temps de préparation, le nombre de portions, et parfois le niveau de difficulté
-- **Face arrière** : contient la liste des ingrédients (avec quantités et unités) et les étapes de préparation numérotées
+L'utilisateur fournit soit :
+- **Des photos** d'une fiche recette HelloFresh (face avant = image du plat, face arrière = ingrédients + étapes)
+- **Une URL HelloFresh** (ex: `https://www.hellofresh.fr/recipes/...`)
+- **Le nom d'une recette** HelloFresh
 
-## Étapes à suivre
+## Import depuis une URL HelloFresh
 
-### 1. Lire les images
-
-Utilise le tool `Read` pour lire chaque image fournie par l'utilisateur. Si l'utilisateur ne précise pas laquelle est l'avant/arrière, déduis-le du contenu (la face avant a une grande photo de plat, la face arrière a du texte dense avec ingrédients et étapes).
-
-### 2. Extraire les données de la face avant
-
-Depuis la photo de la face avant, extrais :
-- **title** : le nom du plat (en français)
-- **description** : le sous-titre ou description courte s'il y en a
-- **prepTime** : temps de préparation en minutes (icône horloge)
-- **cookTime** : temps de cuisson en minutes si indiqué séparément, sinon null
-- **servings** : nombre de personnes (souvent 2 ou 4)
-
-### 3. Extraire les données de la face arrière
-
-Depuis la photo de la face arrière, extrais :
-- **ingredients** : liste de `{ name, quantity, unit }` — attention aux formats HelloFresh :
-  - "2 pcs" → quantity: "2", unit: "pièces"
-  - "150 g" → quantity: "150", unit: "g"
-  - "1 sachet" → quantity: "1", unit: "sachet"
-  - "½" → quantity: "0.5"
-  - Sépare bien chaque ingrédient, même ceux groupés par étape
-- **steps** : liste ordonnée des étapes de préparation. Chaque étape est un texte clair et concis. HelloFresh numérote ses étapes (1, 2, 3...). Extrais le texte de chaque étape sans le numéro.
-
-### 4. Sauvegarder l'image de la face avant
-
-Si une face avant est fournie, sauvegarde la photo originale dans `public/uploads/recipes/` pour l'utiliser comme image de la recette. Utilise le format :
-```
-public/uploads/recipes/hellofresh-{timestamp}.jpg
-```
-
-### 5. Créer la recette via l'API
-
-Appelle l'API locale pour créer la recette :
+Si l'utilisateur donne une URL HelloFresh, crée la recette via l'API avec `sourceUrl` pour déclencher l'auto-enrichissement :
 
 ```bash
-curl -s -X POST http://localhost:3000/api/recipes \
+curl -s -X POST "$MINDDUMP_URL/api/recipes" \
+  -H "Authorization: Bearer $MINDDUMP_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "...",
-    "description": "...",
+    "title": "Nom de la recette",
+    "steps": [],
+    "ingredients": [],
     "servings": 4,
-    "prepTime": 30,
-    "cookTime": null,
-    "steps": ["Étape 1...", "Étape 2...", ...],
-    "ingredients": [
-      {"name": "...", "quantity": "...", "unit": "..."},
-      ...
-    ],
-    "planned": false
+    "groupId": "cmniwr7g7000314ldmn9onpns",
+    "sourceUrl": "https://www.hellofresh.fr/recipes/..."
   }'
 ```
 
-Puis uploade l'image si disponible :
+L'API enrichira automatiquement la recette (image, description, étapes avec photos, ingrédients, temps de préparation/cuisson) depuis HelloFresh.
+
+Si l'utilisateur utilise le tool MCP `create_recipe` (qui ne supporte pas `sourceUrl`), appelle ensuite l'enrichissement manuellement :
 
 ```bash
-curl -s -X POST http://localhost:3000/api/recipes/{id}/image \
-  -F "image=@public/uploads/recipes/hellofresh-{timestamp}.jpg"
+curl -s -X PUT "$MINDDUMP_URL/api/recipes/{id}" \
+  -H "Authorization: Bearer $MINDDUMP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.hellofresh.fr/recipes/...", "forceImage": true}'
 ```
 
-### 6. Confirmer à l'utilisateur
+## Import depuis des photos
 
-Affiche un résumé de la recette créée :
+L'utilisateur fournit une ou deux photos d'une fiche recette HelloFresh :
+- **Face avant** : contient la photo du plat, le titre, le temps de préparation, le nombre de portions
+- **Face arrière** : contient la liste des ingrédients et les étapes de préparation numérotées
+
+### 1. Lire les images
+
+Utilise le tool `Read` pour lire chaque image. Déduis laquelle est l'avant/arrière du contenu.
+
+### 2. Extraire les données
+
+Depuis la face avant :
+- **title**, **description**, **prepTime** (min), **cookTime** (min), **servings**
+
+Depuis la face arrière :
+- **ingredients** : liste de `{ name, quantity, unit }`
+- **steps** : liste ordonnée des étapes (texte sans numéro)
+
+### 3. Créer la recette via MCP
+
+Utilise `create_recipe` avec toutes les données extraites. Le groupId par défaut est `cmniwr7g7000314ldmn9onpns` (Famille).
+
+### 4. Enrichir automatiquement
+
+Après la création, cherche la recette correspondante sur HelloFresh et enrichis-la pour récupérer les images HD (hero + étapes). Cherche l'URL HelloFresh en utilisant le titre :
+
+```
+https://www.hellofresh.fr/search?q=NOM+DE+LA+RECETTE
+```
+
+Puis appelle l'enrichissement avec l'URL trouvée :
+
+```bash
+curl -s -X PUT "$MINDDUMP_URL/api/recipes/{id}" \
+  -H "Authorization: Bearer $MINDDUMP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "URL_HELLOFRESH_TROUVEE", "forceImage": true}'
+```
+
+### 5. Confirmer à l'utilisateur
+
+Affiche un résumé :
 - Titre
-- Nombre d'ingrédients extraits
-- Nombre d'étapes extraites
-- Si l'image a été attachée
+- Nombre d'ingrédients et d'étapes
+- Si l'image HD a été importée
+- Nombre de photos d'étapes importées
 - Lien vers la recette : `/recipes/{id}`
 
 ## Notes
 
-- Les fiches HelloFresh ont un format très standardisé, profites-en pour être précis
-- Les quantités sont souvent pour 2 personnes sur la fiche, mais le user peut vouloir ajuster — extrait tel quel, il ajustera via le sélecteur de portions
-- Si une seule photo est fournie (face arrière uniquement), extrais ce que tu peux et crée la recette sans image
-- Si le texte est difficilement lisible, indique les champs incertains à l'utilisateur
-- Les étapes HelloFresh contiennent parfois des sous-titres en gras (ex: "CUIRE LES PÂTES") — ignore le sous-titre et garde uniquement le texte descriptif de l'étape
+- Les fiches HelloFresh ont un format standardisé — sois précis dans l'extraction
+- Les quantités sont souvent pour 2 personnes sur la fiche
+- Si une seule photo est fournie (face arrière), crée sans image puis enrichis
+- L'enrichissement récupère : image HD du plat, photos des étapes, description, temps de cuisson
+- Le serveur Hetzner est bloqué par HelloFresh pour le scraping HTML, mais l'API `gw.hellofresh.com` fonctionne avec un token Bearer (configuré en env var `HELLOFRESH_TOKEN`)
