@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 
 export const dynamic = "force-dynamic";
 
@@ -18,20 +16,6 @@ async function fetchPage(url: string): Promise<string> {
   });
   if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
   return res.text();
-}
-
-async function downloadImage(
-  imageUrl: string,
-  filename: string
-): Promise<string> {
-  const res = await fetch(imageUrl);
-  if (!res.ok) throw new Error(`Failed to download image: ${res.status}`);
-  const buffer = Buffer.from(await res.arrayBuffer());
-  const dir = path.join(process.cwd(), "public/uploads/recipes");
-  await mkdir(dir, { recursive: true });
-  const filePath = path.join(dir, filename);
-  await writeFile(filePath, buffer);
-  return `/uploads/recipes/${filename}`;
 }
 
 function extractText(html: string, regex: RegExp): string | null {
@@ -250,47 +234,7 @@ export async function POST(req: NextRequest) {
     const html = await fetchPage(url);
     const scraped = parseRecipePage(html);
 
-    // Generate a slug for filenames
-    const slug = scraped.title
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 40);
-
-    // Download hero image
-    let heroPath: string | null = null;
-    if (scraped.heroImage) {
-      try {
-        heroPath = await downloadImage(
-          scraped.heroImage,
-          `hf-${slug}-hero.jpg`
-        );
-      } catch {
-        // Hero image download failed, continue without it
-      }
-    }
-
-    // Download step images
-    const stepsWithLocalImages: { text: string; image: string | null }[] = [];
-    for (let i = 0; i < scraped.steps.length; i++) {
-      const step = scraped.steps[i];
-      let localImage: string | null = null;
-      if (step.image) {
-        try {
-          localImage = await downloadImage(
-            step.image,
-            `hf-${slug}-step-${i + 1}.jpg`
-          );
-        } catch {
-          // Step image download failed
-        }
-      }
-      stepsWithLocalImages.push({ text: step.text, image: localImage });
-    }
-
-    // Create recipe in DB
+    // Use CDN URLs directly (publicly accessible, no download needed)
     const recipe = await prisma.recipe.create({
       data: {
         title: scraped.title,
@@ -298,15 +242,14 @@ export async function POST(req: NextRequest) {
         servings: scraped.servings,
         prepTime: scraped.prepTime,
         cookTime: scraped.cookTime,
-        steps: JSON.stringify(stepsWithLocalImages),
-        image: heroPath,
+        steps: JSON.stringify(scraped.steps),
+        image: scraped.heroImage,
         planned: false,
         userId: user.id,
         groupId: groupId || null,
       },
     });
 
-    // Create ingredients
     if (scraped.ingredients.length > 0) {
       await prisma.recipeIngredient.createMany({
         data: scraped.ingredients.map((ing) => ({
@@ -322,9 +265,9 @@ export async function POST(req: NextRequest) {
       id: recipe.id,
       title: recipe.title,
       ingredientCount: scraped.ingredients.length,
-      stepCount: stepsWithLocalImages.length,
-      hasImage: !!heroPath,
-      stepImages: stepsWithLocalImages.filter((s) => s.image).length,
+      stepCount: scraped.steps.length,
+      hasImage: !!scraped.heroImage,
+      stepImages: scraped.steps.filter((s) => s.image).length,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Erreur inconnue";

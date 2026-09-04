@@ -246,7 +246,9 @@ export default function RecipesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: importUrl, groupId: currentGroupId }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error("Reponse invalide du serveur"); }
       if (!res.ok) throw new Error(data.error || "Erreur inconnue");
       setImportUrl("");
       setImportOpen(false);
