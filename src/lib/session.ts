@@ -3,12 +3,14 @@ import { authOptions } from "./auth";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { prisma } from "./prisma";
+import { ensureDefaultGroup } from "./defaultGroup";
 
 const DEV_USER = {
   id: "dev-user",
   name: "Dev User",
   email: "dev@minddump.local",
   image: null,
+  publicId: "dev123",
 };
 
 async function ensureDevUser() {
@@ -21,9 +23,11 @@ async function ensureDevUser() {
         id: DEV_USER.id,
         name: DEV_USER.name,
         email: DEV_USER.email,
+        publicId: DEV_USER.publicId,
       },
     });
   }
+  await ensureDefaultGroup(DEV_USER.id, DEV_USER.name);
   return DEV_USER;
 }
 

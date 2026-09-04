@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { ensureDefaultGroup } from "@/lib/defaultGroup";
+import { generateUniquePublicId } from "@/lib/publicId";
 
 export async function POST(req: NextRequest) {
   const { name, email, password } = await req.json();
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const publicId = await generateUniquePublicId();
+
   const user = await prisma.user.create({
     data: {
       name: name || null,
@@ -35,6 +38,7 @@ export async function POST(req: NextRequest) {
       password: hashPassword(password),
       emailVerified: new Date(),
       role: "user",
+      publicId,
     },
   });
 

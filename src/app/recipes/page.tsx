@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
   BookOpen,
   BookMarked,
   Users,
+  UtensilsCrossed,
 } from "lucide-react";
 
 interface Ingredient {
@@ -61,9 +63,9 @@ type Tab = "catalogue" | "prevues";
 
 export default function RecipesPage() {
   const { isReady } = useAuth();
+  const router = useRouter();
   const { currentGroupId } = useGroupContext();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -469,16 +471,15 @@ export default function RecipesPage() {
               recipe={recipe}
               lists={lists}
               activeTab={activeTab}
-              isExpanded={expandedRecipe === recipe.id}
-              onToggleExpand={() =>
-                setExpandedRecipe(expandedRecipe === recipe.id ? null : recipe.id)
-              }
+              isExpanded={false}
+              onToggleExpand={() => {}}
               onUpdate={updateRecipe}
               onDelete={deleteRecipe}
               onAddToList={addToShoppingList}
               onUploadImage={uploadImage}
               onRemoveImage={removeImage}
               onSaveToCatalogue={() => setActiveTab("catalogue")}
+              onOpenDetail={() => router.push(`/recipes/${recipe.id}`)}
             />
           ))}
         </div>
@@ -501,6 +502,7 @@ function RecipeCard({
   onUploadImage,
   onRemoveImage,
   onSaveToCatalogue,
+  onOpenDetail,
 }: {
   recipe: Recipe;
   lists: ShoppingList[];
@@ -513,6 +515,7 @@ function RecipeCard({
   onUploadImage: (recipeId: string, file: File) => void;
   onRemoveImage: (recipeId: string) => void;
   onSaveToCatalogue: () => void;
+  onOpenDetail: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(recipe.title);
@@ -524,7 +527,10 @@ function RecipeCard({
     recipe.ingredients.map((i) => ({ ...i }))
   );
   const [editSteps, setEditSteps] = useState<string[]>(() => {
-    try { return JSON.parse(recipe.steps); } catch { return []; }
+    try {
+      const parsed = JSON.parse(recipe.steps);
+      return parsed.map((s: string | { text: string }) => typeof s === "string" ? s : s.text);
+    } catch { return []; }
   });
   const [addingIngredient, setAddingIngredient] = useState(false);
   const [newIng, setNewIng] = useState({ name: "", quantity: "", unit: "" });
@@ -533,7 +539,10 @@ function RecipeCard({
   const cardImageRef = useRef<HTMLInputElement>(null);
 
   const steps: string[] = (() => {
-    try { return JSON.parse(recipe.steps); } catch { return []; }
+    try {
+      const parsed = JSON.parse(recipe.steps);
+      return parsed.map((s: string | { text: string }) => typeof s === "string" ? s : s.text);
+    } catch { return []; }
   })();
 
   const startEditing = () => {
@@ -543,7 +552,10 @@ function RecipeCard({
     setEditCookTime(String(recipe.cookTime || ""));
     setEditDescription(recipe.description || "");
     setEditIngredients(recipe.ingredients.map((i) => ({ ...i })));
-    try { setEditSteps(JSON.parse(recipe.steps)); } catch { setEditSteps([]); }
+    try {
+      const parsed = JSON.parse(recipe.steps);
+      setEditSteps(parsed.map((s: string | { text: string }) => typeof s === "string" ? s : s.text));
+    } catch { setEditSteps([]); }
     setPendingEditImage(null);
     setEditing(true);
   };
@@ -716,50 +728,47 @@ function RecipeCard({
   // ── View mode ──
   return (
     <div className="recipe-card group/card">
-      {/* Recipe image */}
-      {recipe.image && (
-        <div className="relative group/img">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={recipe.image}
-            alt={recipe.title}
-            className="w-full h-44 object-cover cursor-pointer"
-            onClick={onToggleExpand}
-          />
-          {/* Planned badge on image — uniquement dans l'onglet Prévues */}
-          {recipe.planned && activeTab === "prevues" && (
-            <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-primary text-white text-xs font-medium px-2.5 py-1 rounded-full">
-              <CalendarCheck className="h-3 w-3" />
-              Prévue
-            </div>
-          )}
-          <button
-            onClick={() => cardImageRef.current?.click()}
-            className="absolute bottom-2 right-2 p-1.5 bg-black/50 rounded-full text-white opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-black/70"
-          >
-            <Camera className="h-3.5 w-3.5" />
-          </button>
-          <input ref={cardImageRef} type="file" accept="image/*" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) onUploadImage(recipe.id, f); }}
-          />
-        </div>
-      )}
+      {/* Recipe image or placeholder */}
+      <div className="relative group/img cursor-pointer" onClick={onOpenDetail}>
+        {recipe.image ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={recipe.image}
+              alt={recipe.title}
+              className="w-full h-44 object-cover"
+            />
+          </>
+        ) : (
+          <div className="recipe-thumbnail-placeholder">
+            <UtensilsCrossed className="h-10 w-10 text-orange-300 relative z-10" />
+          </div>
+        )}
+        {/* Planned badge on image */}
+        {recipe.planned && activeTab === "prevues" && (
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-primary text-white text-xs font-medium px-2.5 py-1 rounded-full z-10">
+            <CalendarCheck className="h-3 w-3" />
+            Prévue
+          </div>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); cardImageRef.current?.click(); }}
+          className="absolute bottom-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-black/50 z-10"
+        >
+          <Camera className="h-3.5 w-3.5" />
+        </button>
+        <input ref={cardImageRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onUploadImage(recipe.id, f); }}
+        />
+      </div>
 
       {/* Header */}
       <div className="p-5 pb-3">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 cursor-pointer min-w-0" onClick={onToggleExpand}>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="handwritten text-2xl font-semibold leading-tight">
-                {recipe.title}
-              </h2>
-              {recipe.planned && !recipe.image && activeTab === "prevues" && (
-                <span className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
-                  <CalendarCheck className="h-3 w-3" />
-                  Prévue
-                </span>
-              )}
-            </div>
+          <div className="flex-1 cursor-pointer min-w-0" onClick={onOpenDetail}>
+            <h2 className="handwritten text-2xl font-semibold leading-tight">
+              {recipe.title}
+            </h2>
             {(recipe.prepTime || recipe.cookTime) && (
               <div className="flex gap-3 mt-1.5">
                 {recipe.prepTime && (
@@ -779,19 +788,6 @@ function RecipeCard({
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Users className="h-3 w-3" />{recipe.servings}
             </span>
-            {!recipe.image && (
-              <button
-                onClick={() => cardImageRef.current?.click()}
-                className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 transition-opacity"
-              >
-                <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            )}
-            {!recipe.image && (
-              <input ref={cardImageRef} type="file" accept="image/*" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) onUploadImage(recipe.id, f); }}
-              />
-            )}
             <button
               onClick={startEditing}
               className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 transition-opacity"
@@ -906,39 +902,21 @@ function RecipeCard({
 
         <div className="flex-1" />
 
-        {steps.length > 0 && !isExpanded && (
-          <button onClick={onToggleExpand} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            {steps.length} étape{steps.length > 1 ? "s" : ""} →
-          </button>
-        )}
-        {isExpanded && (
-          <button onClick={onToggleExpand} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            Réduire
+        {steps.length > 0 && (
+          <button
+            onClick={onOpenDetail}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+          >
+            <UtensilsCrossed className="h-3.5 w-3.5" />
+            Cuisiner
           </button>
         )}
       </div>
 
-      {/* Expanded: description + steps */}
-      {isExpanded && (steps.length > 0 || recipe.description) && (
-        <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
-          {recipe.description && (
-            <p className="text-sm text-muted-foreground italic leading-relaxed">{recipe.description}</p>
-          )}
-          {steps.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Etapes</p>
-              <ol className="space-y-3">
-                {steps.map((step, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
-                      {i + 1}
-                    </span>
-                    <span className="text-sm leading-relaxed text-foreground">{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
+      {/* Description */}
+      {recipe.description && (
+        <div className="px-5 pb-4 border-t border-border pt-3">
+          <p className="text-sm text-muted-foreground italic leading-relaxed">{recipe.description}</p>
         </div>
       )}
     </div>

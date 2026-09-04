@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
-import { assertGroupMember, buildResourceWhere } from "@/lib/groupAuth";
+import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
 
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
@@ -29,12 +29,10 @@ export async function POST(req: NextRequest) {
   if (!user) return unauthorized();
 
   const body = await req.json();
-  const groupId: string | null = body.groupId || null;
+  const groupId = await resolveGroupId(user.id, body.groupId);
 
-  if (groupId) {
-    const err = await assertGroupMember(groupId, user.id);
-    if (err) return err;
-  }
+  const err = await assertGroupMember(groupId, user.id);
+  if (err) return err;
 
   const todo = await prisma.todo.create({
     data: {

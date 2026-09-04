@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
 import { verifyPassword } from "./password";
 import { ensureDefaultGroup } from "./defaultGroup";
+import { generateUniquePublicId } from "./publicId";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -70,6 +71,11 @@ export const authOptions: NextAuthOptions = {
   events: {
     // Créer le groupe par défaut à la première connexion (Google OAuth ou autre)
     async createUser({ user }) {
+      const publicId = await generateUniquePublicId();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { publicId },
+      });
       await ensureDefaultGroup(user.id, user.name);
     },
   },

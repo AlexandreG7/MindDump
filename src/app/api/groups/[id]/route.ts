@@ -37,15 +37,25 @@ export async function PATCH(
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
-  const { name } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: "Nom requis" }, { status: 400 });
+  const body = await req.json();
 
   const group = await prisma.group.findFirst({ where: { id: params.id, ownerId: user.id } });
   if (!group) return NextResponse.json({ error: "Groupe introuvable ou non autorisé" }, { status: 404 });
 
+  const data: Record<string, unknown> = {};
+  if (body.name?.trim()) data.name = body.name.trim();
+  if (typeof body.shareTodos === "boolean") data.shareTodos = body.shareTodos;
+  if (typeof body.shareCalendar === "boolean") data.shareCalendar = body.shareCalendar;
+  if (typeof body.shareLists === "boolean") data.shareLists = body.shareLists;
+  if (typeof body.shareRecipes === "boolean") data.shareRecipes = body.shareRecipes;
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
+  }
+
   const updated = await prisma.group.update({
     where: { id: params.id },
-    data: { name: name.trim() },
+    data,
     include: {
       members: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
     },

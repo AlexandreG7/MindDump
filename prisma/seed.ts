@@ -9,6 +9,15 @@ function hashPassword(password: string): string {
   return `${salt}:${hash}`;
 }
 
+function generatePublicId(): string {
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+  let result = "";
+  for (let i = 0; i < 6; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return result;
+}
+
 async function ensureDefaultGroup(userId: string, userName?: string | null) {
   const existing = await prisma.group.findFirst({
     where: { ownerId: userId, isDefault: true },
@@ -26,7 +35,6 @@ async function ensureDefaultGroup(userId: string, userName?: string | null) {
 }
 
 async function main() {
-  // ── Compte admin ──────────────────────────────────────────────
   const admin = await prisma.user.upsert({
     where: { email: "admin@minddump.com" },
     update: {},
@@ -36,11 +44,11 @@ async function main() {
       password: hashPassword("Admin123!"),
       role: "admin",
       emailVerified: new Date(),
+      publicId: generatePublicId(),
     },
   });
   await ensureDefaultGroup(admin.id, admin.name);
 
-  // ── Compte utilisateur ────────────────────────────────────────
   const user = await prisma.user.upsert({
     where: { email: "user@minddump.com" },
     update: {},
@@ -50,18 +58,19 @@ async function main() {
       password: hashPassword("User123!"),
       role: "user",
       emailVerified: new Date(),
+      publicId: generatePublicId(),
     },
   });
   await ensureDefaultGroup(user.id, user.name);
 
-  console.log("✅ Comptes et groupes créés :");
-  console.log(`   🔑 Admin  : admin@minddump.com  /  Admin123!  → groupe "Famille de Admin"`);
-  console.log(`   👤 User   : user@minddump.com   /  User123!   → groupe "Famille de Utilisateur"`);
+  console.log("Comptes et groupes crees :");
+  console.log(`   Admin  : admin@minddump.com  /  Admin123!`);
+  console.log(`   User   : user@minddump.com   /  User123!`);
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Erreur seed :", e);
+    console.error("Erreur seed :", e);
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());

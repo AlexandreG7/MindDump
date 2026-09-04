@@ -36,6 +36,9 @@ import {
   ShoppingCart,
   ChefHat,
   Sliders,
+  Hash,
+  UserPlus,
+  Share2,
 } from "lucide-react";
 import { useFeaturesContext, type FeatureKey } from "@/components/FeaturesContext";
 
@@ -53,6 +56,10 @@ interface Group {
   isDefault: boolean;
   createdAt: string;
   members: Member[];
+  shareTodos: boolean;
+  shareCalendar: boolean;
+  shareLists: boolean;
+  shareRecipes: boolean;
 }
 
 export default function ProfilePage() {
@@ -63,9 +70,32 @@ export default function ProfilePage() {
   const userEmail = session?.user?.email ?? "";
   const userImage = session?.user?.image;
 
+  // ── Public ID state ────────────────────────────────────────────
+  const [publicId, setPublicId] = useState<string | null>(null);
+  const [publicIdCopied, setPublicIdCopied] = useState(false);
+
+  useEffect(() => {
+    if (isReady) {
+      fetch("/api/users/me").then((r) => r.json()).then((data) => {
+        if (data?.publicId) setPublicId(data.publicId);
+      });
+    }
+  }, [isReady]);
+
+  const copyPublicId = () => {
+    if (publicId) {
+      navigator.clipboard.writeText(`#${publicId}`);
+      setPublicIdCopied(true);
+      setTimeout(() => setPublicIdCopied(false), 2000);
+    }
+  };
+
   // ── Groups state ──────────────────────────────────────────────
   const [ownedGroups, setOwnedGroups] = useState<Group[]>([]);
   const [memberGroups, setMemberGroups] = useState<Group[]>([]);
+  const [inviteById, setInviteById] = useState<Record<string, string>>({});
+  const [inviteByIdError, setInviteByIdError] = useState<Record<string, string>>({});
+  const [inviteByIdSuccess, setInviteByIdSuccess] = useState<Record<string, string>>({});
   const [createOpen, setCreateOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
@@ -223,6 +253,40 @@ export default function ProfilePage() {
     refreshGroups();
   };
 
+  const addMemberById = async (groupId: string) => {
+    const id = inviteById[groupId]?.replace(/^#/, "").trim();
+    if (!id) return;
+    setInviteByIdError((prev) => ({ ...prev, [groupId]: "" }));
+    setInviteByIdSuccess((prev) => ({ ...prev, [groupId]: "" }));
+
+    const res = await fetch(`/api/groups/${groupId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publicId: id }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setInviteByIdError((prev) => ({ ...prev, [groupId]: data.error }));
+    } else {
+      setInviteByIdSuccess((prev) => ({ ...prev, [groupId]: "Membre ajouté !" }));
+      setInviteById((prev) => ({ ...prev, [groupId]: "" }));
+      fetchGroups();
+      refreshGroups();
+      setTimeout(() => setInviteByIdSuccess((prev) => ({ ...prev, [groupId]: "" })), 2000);
+    }
+  };
+
+  const toggleSharing = async (groupId: string, field: string, value: boolean) => {
+    await fetch(`/api/groups/${groupId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    fetchGroups();
+    refreshGroups();
+  };
+
   const generateInvite = async (groupId: string) => {
     const res = await fetch(`/api/groups/${groupId}/invite`, {
       method: "POST",
@@ -300,11 +364,26 @@ export default function ProfilePage() {
               </span>
             </div>
           )}
-          <div>
+          <div className="flex-1">
             <p className="font-medium text-base">{userName || "—"}</p>
             <p className="text-sm text-muted-foreground">{userEmail}</p>
           </div>
         </div>
+        {publicId && (
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40">
+            <Hash className="h-4 w-4 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">Mon identifiant</p>
+              <p className="text-sm font-mono font-semibold">#{publicId}</p>
+            </div>
+            <Button size="sm" variant={publicIdCopied ? "default" : "outline"} onClick={copyPublicId} className="shrink-0">
+              {publicIdCopied ? <><Check className="h-3.5 w-3.5 mr-1" />Copié !</> : <><Copy className="h-3.5 w-3.5 mr-1" />Copier</>}
+            </Button>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Partage ton identifiant pour que d&apos;autres utilisateurs puissent t&apos;inviter dans un groupe.
+        </p>
       </section>
 
       {/* ── Changer le mot de passe ─────────────────────────────── */}
@@ -636,25 +715,76 @@ export default function ProfilePage() {
               ))}
             </div>
 
+            {/* Sharing config (owner only, non-default groups) */}
+            {group.isOwner && !group.isDefault && (
+              <div className="border-t border-border p-3 bg-secondary/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Modules partagés</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {([
+                    { field: "shareTodos", label: "Todos", icon: CheckSquare, value: group.shareTodos },
+                    { field: "shareCalendar", label: "Calendrier", icon: Calendar, value: group.shareCalendar },
+                    { field: "shareLists", label: "Courses", icon: ShoppingCart, value: group.shareLists },
+                    { field: "shareRecipes", label: "Recettes", icon: ChefHat, value: group.shareRecipes },
+                  ] as const).map(({ field, label, icon: Icon, value }) => (
+                    <button
+                      key={field}
+                      onClick={() => toggleSharing(group.id, field, !value)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                        value ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Invite */}
             {(group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin") && (
-              <div className="border-t border-border p-3 bg-secondary/20">
-                {inviteLinks[group.id] ? (
-                  <div className="flex gap-2">
-                    <Input value={inviteLinks[group.id]} readOnly className="text-xs h-8 bg-white" />
-                    <Button size="sm" variant={copiedId === group.id ? "default" : "outline"}
-                      onClick={() => copyLink(group.id)} className="shrink-0">
-                      {copiedId === group.id
-                        ? <><Check className="h-3.5 w-3.5 mr-1" />Copié !</>
-                        : <><LinkIcon className="h-3.5 w-3.5 mr-1" />Copier</>}
-                    </Button>
-                  </div>
-                ) : (
-                  <Button size="sm" variant="outline" className="w-full" onClick={() => generateInvite(group.id)}>
-                    <LinkIcon className="h-3.5 w-3.5 mr-2" />Générer un lien d&apos;invitation
+              <div className="border-t border-border p-3 bg-secondary/20 space-y-2">
+                {/* Invite by public ID */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Inviter par ID (ex: #abc123)"
+                    value={inviteById[group.id] || ""}
+                    onChange={(e) => setInviteById((prev) => ({ ...prev, [group.id]: e.target.value }))}
+                    onKeyDown={(e) => e.key === "Enter" && addMemberById(group.id)}
+                    className="text-xs h-8"
+                  />
+                  <Button size="sm" variant="outline" onClick={() => addMemberById(group.id)} className="shrink-0">
+                    <UserPlus className="h-3.5 w-3.5 mr-1" />Ajouter
                   </Button>
+                </div>
+                {inviteByIdError[group.id] && (
+                  <p className="text-xs text-destructive">{inviteByIdError[group.id]}</p>
                 )}
-                <p className="text-xs text-muted-foreground mt-1.5">Lien valide 7 jours</p>
+                {inviteByIdSuccess[group.id] && (
+                  <p className="text-xs text-green-600">{inviteByIdSuccess[group.id]}</p>
+                )}
+
+                {/* Invite by link */}
+                <div className="pt-1 border-t border-border/50">
+                  {inviteLinks[group.id] ? (
+                    <div className="flex gap-2">
+                      <Input value={inviteLinks[group.id]} readOnly className="text-xs h-8 bg-white" />
+                      <Button size="sm" variant={copiedId === group.id ? "default" : "outline"}
+                        onClick={() => copyLink(group.id)} className="shrink-0">
+                        {copiedId === group.id
+                          ? <><Check className="h-3.5 w-3.5 mr-1" />Copié !</>
+                          : <><LinkIcon className="h-3.5 w-3.5 mr-1" />Copier</>}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="ghost" className="w-full text-xs" onClick={() => generateInvite(group.id)}>
+                      <LinkIcon className="h-3.5 w-3.5 mr-2" />Ou générer un lien d&apos;invitation
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </div>

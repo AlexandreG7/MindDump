@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { NextResponse } from "next/server";
+import { ensureDefaultGroup } from "./defaultGroup";
 
 /**
  * Vérifie que l'utilisateur est membre du groupe.
@@ -13,6 +14,20 @@ export async function assertGroupMember(groupId: string, userId: string) {
     return NextResponse.json({ error: "Non membre de ce groupe" }, { status: 403 });
   }
   return null; // OK
+}
+
+/**
+ * Résout le groupId pour une création de ressource.
+ * Si groupId fourni → le retourne tel quel.
+ * Sinon → retourne le groupe par défaut de l'utilisateur.
+ */
+export async function resolveGroupId(
+  userId: string,
+  groupId: string | null | undefined
+): Promise<string> {
+  if (groupId) return groupId;
+  const defaultGroup = await ensureDefaultGroup(userId);
+  return defaultGroup.id;
 }
 
 /**
