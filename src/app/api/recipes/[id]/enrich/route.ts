@@ -5,6 +5,21 @@ import { parseHelloFreshPage, fetchHelloFreshPage } from "@/lib/hellofresh";
 
 export const dynamic = "force-dynamic";
 
+function stripHtml(text: string): string {
+  return text
+    .replace(/<li>/gi, "- ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function extractRecipeId(url: string): string | null {
   const match = url.match(/([0-9a-f]{20,})(?:\?|$)/);
   return match ? match[1] : null;
@@ -139,7 +154,8 @@ function parseAPIResponse(data: HFRecipeAPI, targetServings: number) {
   if (data.steps) {
     const sorted = [...data.steps].sort((a, b) => a.index - b.index);
     for (const step of sorted) {
-      const text = step.instructionsMarkdown || step.instructions || "";
+      const raw = step.instructionsMarkdown || step.instructions || "";
+      const text = stripHtml(raw);
       let image: string | null = null;
       if (step.images?.[0]) {
         const img = step.images[0];
