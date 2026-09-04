@@ -31,6 +31,8 @@ import {
   BookMarked,
   Users,
   UtensilsCrossed,
+  Download,
+  Loader2,
 } from "lucide-react";
 
 interface Ingredient {
@@ -72,6 +74,10 @@ export default function RecipesPage() {
   const [activeTab, setActiveTab] = useState<Tab>("catalogue");
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
   const [newRecipe, setNewRecipe] = useState({
     title: "",
     description: "",
@@ -230,6 +236,29 @@ export default function RecipesPage() {
     });
   };
 
+  const importFromHelloFresh = async () => {
+    if (!importUrl.trim()) return;
+    setImporting(true);
+    setImportError("");
+    try {
+      const res = await fetch("/api/recipes/import-hellofresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl, groupId: currentGroupId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur inconnue");
+      setImportUrl("");
+      setImportOpen(false);
+      fetchRecipes();
+      router.push(`/recipes/${data.id}`);
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const plannedCount = recipes.filter((r) => r.planned).length;
 
   if (!isReady) return null;
@@ -244,6 +273,47 @@ export default function RecipesPage() {
             {recipes.length} recette{recipes.length !== 1 ? "s" : ""} au catalogue
           </p>
         </div>
+        <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) { setImportUrl(""); setImportError(""); } }}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="shrink-0">
+              <Download className="h-4 w-4 mr-2" />
+              HelloFresh
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Importer depuis HelloFresh</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Colle le lien d&apos;une recette HelloFresh pour importer automatiquement les ingredients, etapes et photos.
+              </p>
+              <Input
+                placeholder="https://www.hellofresh.fr/recipes/..."
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !importing) importFromHelloFresh(); }}
+                disabled={importing}
+              />
+              {importError && (
+                <p className="text-sm text-destructive">{importError}</p>
+              )}
+              <Button className="w-full" onClick={importFromHelloFresh} disabled={importing || !importUrl.trim()}>
+                {importing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Import en cours...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Importer la recette
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="shrink-0">
