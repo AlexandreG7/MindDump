@@ -33,6 +33,7 @@ import {
   UtensilsCrossed,
   Download,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 
 interface Ingredient {
@@ -971,6 +972,16 @@ function RecipeCard({
             </div>
           </DialogContent>
         </Dialog>
+
+        <a
+          href={`https://www.hellofresh.fr/search?q=${encodeURIComponent(recipe.title)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          HelloFresh
+        </a>
 
         <div className="flex-1" />
 
