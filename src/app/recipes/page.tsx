@@ -553,6 +553,7 @@ export default function RecipesPage() {
               onRemoveImage={removeImage}
               onSaveToCatalogue={() => setActiveTab("catalogue")}
               onOpenDetail={() => router.push(`/recipes/${recipe.id}`)}
+              onEnriched={fetchRecipes}
             />
           ))}
         </div>
@@ -576,6 +577,7 @@ function RecipeCard({
   onRemoveImage,
   onSaveToCatalogue,
   onOpenDetail,
+  onEnriched,
 }: {
   recipe: Recipe;
   lists: ShoppingList[];
@@ -589,6 +591,7 @@ function RecipeCard({
   onRemoveImage: (recipeId: string) => void;
   onSaveToCatalogue: () => void;
   onOpenDetail: () => void;
+  onEnriched: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(recipe.title);
@@ -610,6 +613,20 @@ function RecipeCard({
   const [pendingEditImage, setPendingEditImage] = useState<File | null>(null);
   const editImageRef = useRef<HTMLInputElement>(null);
   const cardImageRef = useRef<HTMLInputElement>(null);
+  const [enrichOpen, setEnrichOpen] = useState(false);
+  const [enrichUrl, setEnrichUrl] = useState("");
+  const [enriching, setEnriching] = useState(false);
+  const [enrichError, setEnrichError] = useState("");
+  const [enrichResult, setEnrichResult] = useState<{
+    image?: boolean;
+    description?: boolean;
+    steps?: boolean;
+    stepsCount?: number;
+    stepImages?: number;
+    ingredients?: number;
+    prepTime?: boolean;
+    cookTime?: boolean;
+  } | null>(null);
 
   const steps: string[] = (() => {
     try {
@@ -670,6 +687,30 @@ function RecipeCard({
 
   const togglePlanned = () => {
     onUpdate(recipe.id, { planned: !recipe.planned });
+  };
+
+  const enrichFromHelloFresh = async () => {
+    if (!enrichUrl.trim()) return;
+    setEnriching(true);
+    setEnrichError("");
+    setEnrichResult(null);
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/enrich`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: enrichUrl, forceImage: !recipe.image }),
+      });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error("Reponse invalide du serveur"); }
+      if (!res.ok) throw new Error(data.error || "Erreur inconnue");
+      setEnrichResult(data.enriched);
+      onEnriched();
+    } catch (e) {
+      setEnrichError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setEnriching(false);
+    }
   };
 
   if (editing) {
@@ -973,15 +1014,69 @@ function RecipeCard({
           </DialogContent>
         </Dialog>
 
-        <a
-          href={`https://www.hellofresh.fr/search?q=${encodeURIComponent(recipe.title)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          HelloFresh
-        </a>
+        <Dialog open={enrichOpen} onOpenChange={(open) => { setEnrichOpen(open); if (!open) { setEnrichUrl(""); setEnrichError(""); setEnrichResult(null); } }}>
+          <DialogTrigger asChild>
+            <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+              <Download className="h-3.5 w-3.5" />
+              Enrichir
+            </button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Enrichir depuis HelloFresh</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Importe les donnees manquantes (image, etapes, ingredients) depuis une recette HelloFresh.
+              </p>
+              <a
+                href={`https://www.hellofresh.fr/search?q=${encodeURIComponent(recipe.title)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Chercher &quot;{recipe.title}&quot; sur HelloFresh
+              </a>
+              <Input
+                placeholder="https://www.hellofresh.fr/recipes/..."
+                value={enrichUrl}
+                onChange={(e) => setEnrichUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !enriching) enrichFromHelloFresh(); }}
+                disabled={enriching}
+              />
+              {enrichError && (
+                <p className="text-sm text-destructive">{enrichError}</p>
+              )}
+              {enrichResult && (
+                <div className="text-sm text-green-600 space-y-1">
+                  <p className="font-medium">Recette enrichie !</p>
+                  <ul className="text-xs space-y-0.5 text-muted-foreground">
+                    {enrichResult.image && <li>Image ajoutee</li>}
+                    {enrichResult.steps && <li>{enrichResult.stepsCount} etapes importees ({enrichResult.stepImages} avec photo)</li>}
+                    {enrichResult.ingredients && enrichResult.ingredients > 0 && <li>{enrichResult.ingredients} ingredients ajoutes</li>}
+                    {enrichResult.description && <li>Description ajoutee</li>}
+                    {enrichResult.prepTime && <li>Temps de preparation ajoute</li>}
+                    {enrichResult.cookTime && <li>Temps de cuisson ajoute</li>}
+                  </ul>
+                </div>
+              )}
+              <Button className="w-full" onClick={enrichFromHelloFresh} disabled={enriching || !enrichUrl.trim()}>
+                {enriching ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Enrichissement en cours...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Enrichir la recette
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="flex-1" />
 
