@@ -138,8 +138,14 @@ interface HFRecipeAPI {
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-async function getHelloFreshToken(): Promise<string | null> {
+async function getHelloFreshToken(clientToken?: string): Promise<string | null> {
+  // 1. Client-provided token
+  if (clientToken) return clientToken;
+  // 2. Environment variable
+  if (process.env.HELLOFRESH_TOKEN) return process.env.HELLOFRESH_TOKEN;
+  // 3. Cached token
   if (cachedToken && Date.now() < cachedToken.expiresAt) return cachedToken.token;
+  // 4. Fetch from HelloFresh homepage
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
@@ -169,8 +175,8 @@ async function getHelloFreshToken(): Promise<string | null> {
   }
 }
 
-async function fetchFromHelloFreshAPI(recipeId: string): Promise<HFRecipeAPI | null> {
-  const token = await getHelloFreshToken();
+async function fetchFromHelloFreshAPI(recipeId: string, clientToken?: string): Promise<HFRecipeAPI | null> {
+  const token = await getHelloFreshToken(clientToken);
   if (!token) return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -279,7 +285,7 @@ export async function PUT(
     let scraped: ReturnType<typeof parseAPIResponse> | null = null;
 
     if (recipeHFId) {
-      const apiData = await fetchFromHelloFreshAPI(recipeHFId);
+      const apiData = await fetchFromHelloFreshAPI(recipeHFId, body.hfToken);
       if (apiData?.name) scraped = parseAPIResponse(apiData, recipe.servings);
     }
 
