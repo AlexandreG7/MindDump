@@ -695,8 +695,8 @@ function RecipeCard({
     setEnrichError("");
     setEnrichResult(null);
     try {
-      const res = await fetch(`/api/recipes/${recipe.id}/enrich`, {
-        method: "POST",
+      const res = await fetch(`/api/recipes/${recipe.id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: enrichUrl, forceImage: !recipe.image }),
       });
