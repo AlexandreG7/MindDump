@@ -10,45 +10,88 @@ function extractRecipeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+interface HFStepImage {
+  link?: string;
+  path?: string;
+}
+
 interface HFStep {
   index: number;
   instructionsMarkdown?: string;
   instructions?: string;
-  images?: { link?: string; path?: string }[];
+  images?: HFStepImage[];
+}
+
+interface HFYieldIngredient {
+  id?: string;
+  amount?: number | null;
+  unit?: string;
+}
+
+interface HFYieldSet {
+  yields: number;
+  ingredients: HFYieldIngredient[];
 }
 
 interface HFIngredient {
+  id?: string;
   name?: string;
-  slug?: string;
-}
-
-interface HFYield {
-  amount?: number;
-  unit?: string;
-  ingredient?: HFIngredient;
-}
-
-interface HFRecipeIngredient {
-  name?: string;
-  yields?: HFYield[];
 }
 
 interface HFRecipeAPI {
   name?: string;
   description?: string;
-  descriptionMarkdown?: string;
   headline?: string;
   prepTime?: string;
   totalTime?: string;
-  servings?: number;
-  yields?: number;
   imagePath?: string;
   imageLink?: string;
   steps?: HFStep[];
-  ingredients?: HFRecipeIngredient[];
+  ingredients?: HFIngredient[];
+  yields?: HFYieldSet[];
+}
+
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function getHelloFreshToken(): Promise<string | null> {
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch("https://www.hellofresh.fr/", {
+      signal: controller.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        Accept: "text/html",
+      },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const html = await res.text();
+    const match = html.match(/__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/);
+    if (!match) return null;
+    const data = JSON.parse(match[1]);
+    const auth = data?.props?.pageProps?.ssrPayload?.serverAuth;
+    if (!auth?.access_token) return null;
+    cachedToken = {
+      token: auth.access_token,
+      expiresAt: Date.now() + (auth.expires_in || 3600) * 1000 - 60000,
+    };
+    return cachedToken.token;
+  } catch {
+    clearTimeout(timeout);
+    return null;
+  }
 }
 
 async function fetchFromHelloFreshAPI(recipeId: string): Promise<HFRecipeAPI | null> {
+  const token = await getHelloFreshToken();
+  if (!token) return null;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
@@ -57,6 +100,7 @@ async function fetchFromHelloFreshAPI(recipeId: string): Promise<HFRecipeAPI | n
       {
         signal: controller.signal,
         headers: {
+          Authorization: `Bearer ${token}`,
           Accept: "application/json",
           "Accept-Language": "fr-FR,fr;q=0.9",
           "User-Agent":
@@ -73,27 +117,23 @@ async function fetchFromHelloFreshAPI(recipeId: string): Promise<HFRecipeAPI | n
   }
 }
 
-function parseAPIResponse(data: HFRecipeAPI) {
+function parseAPIResponse(data: HFRecipeAPI, targetServings: number) {
   const title = data.name || "Recette sans titre";
   const description = data.headline || data.description || null;
 
   let heroImage: string | null = null;
-  if (data.imagePath) {
-    heroImage = `https://img.hellofresh.com/q_auto,f_auto,w_1200/${data.imagePath}`;
-  } else if (data.imageLink) {
+  if (data.imageLink) {
     heroImage = data.imageLink;
+  } else if (data.imagePath) {
+    heroImage = `https://img.hellofresh.com/q_auto,f_auto,w_1200${data.imagePath}`;
   }
 
   let totalTime: number | null = null;
-  if (data.totalTime) {
-    const tm = data.totalTime.match(/PT(\d+)M/);
-    if (tm) totalTime = parseInt(tm[1]);
-  } else if (data.prepTime) {
-    const tm = data.prepTime.match(/PT(\d+)M/);
+  const timeStr = data.prepTime || data.totalTime;
+  if (timeStr) {
+    const tm = timeStr.match(/PT(\d+)M/);
     if (tm) totalTime = parseInt(tm[1]);
   }
-
-  const servings = data.yields || data.servings || 2;
 
   const steps: { text: string; image: string | null }[] = [];
   if (data.steps) {
@@ -103,29 +143,32 @@ function parseAPIResponse(data: HFRecipeAPI) {
       let image: string | null = null;
       if (step.images?.[0]) {
         const img = step.images[0];
-        if (img.link) {
-          image = img.link;
-        } else if (img.path) {
-          image = `https://img.hellofresh.com/q_auto,f_auto,w_750/${img.path}`;
-        }
+        image = img.link || (img.path ? `https://img.hellofresh.com/q_auto,f_auto,w_750${img.path}` : null);
       }
       if (text || image) steps.push({ text, image });
     }
   }
 
-  const ingredients: { name: string; quantity: string; unit: string }[] = [];
+  // Build ingredient map: id -> name
+  const ingredientNames = new Map<string, string>();
   if (data.ingredients) {
     for (const ing of data.ingredients) {
-      const name = ing.name || "";
+      if (ing.id && ing.name) ingredientNames.set(ing.id, ing.name);
+    }
+  }
+
+  // Find the yield set closest to target servings (default 2)
+  const ingredients: { name: string; quantity: string; unit: string }[] = [];
+  if (data.yields && data.yields.length > 0) {
+    const yieldSet = data.yields.find((y) => y.yields === targetServings) || data.yields[0];
+    for (const yi of yieldSet.ingredients) {
+      const name = yi.id ? ingredientNames.get(yi.id) : undefined;
       if (!name) continue;
-      let quantity = "1";
-      let unit = "";
-      if (ing.yields?.[0]) {
-        const y = ing.yields[0];
-        if (y.amount) quantity = String(y.amount);
-        if (y.unit) unit = y.unit;
-      }
-      ingredients.push({ name, quantity, unit });
+      ingredients.push({
+        name,
+        quantity: yi.amount != null ? String(yi.amount) : "",
+        unit: yi.unit || "",
+      });
     }
   }
 
@@ -134,7 +177,7 @@ function parseAPIResponse(data: HFRecipeAPI) {
     description,
     prepTime: totalTime ? Math.round(totalTime * 0.4) : null,
     cookTime: totalTime ? Math.round(totalTime * 0.6) : null,
-    servings,
+    servings: targetServings,
     ingredients,
     steps,
     heroImage,
@@ -179,15 +222,13 @@ export async function POST(
       heroImage: string | null;
     } | null = null;
 
-    // Strategy 1: Try HelloFresh API (JSON, less likely to be blocked)
     if (recipeHFId) {
       const apiData = await fetchFromHelloFreshAPI(recipeHFId);
       if (apiData?.name) {
-        scraped = parseAPIResponse(apiData);
+        scraped = parseAPIResponse(apiData, recipe.servings);
       }
     }
 
-    // Strategy 2: HTML scraping fallback
     if (!scraped) {
       try {
         const html = await fetchHelloFreshPage(targetUrl);
@@ -199,12 +240,11 @@ export async function POST(
 
     if (!scraped) {
       return NextResponse.json(
-        { error: "Impossible de recuperer les donnees HelloFresh (403). Essayez depuis votre navigateur." },
+        { error: "Impossible de recuperer les donnees HelloFresh. Le serveur est peut-etre bloque." },
         { status: 502 }
       );
     }
 
-    // Enrich: only fill in missing data, always update images
     const updates: Record<string, unknown> = {};
 
     if (!recipe.image && scraped.heroImage) {
@@ -224,7 +264,6 @@ export async function POST(
       updates.cookTime = scraped.cookTime;
     }
 
-    // Steps: replace if current steps are empty or have no images
     let currentSteps: { text: string; image?: string | null }[] = [];
     try {
       currentSteps = JSON.parse(recipe.steps);
@@ -242,7 +281,6 @@ export async function POST(
       updates.steps = JSON.stringify(scraped.steps);
     }
 
-    // Ingredients: add if recipe has none
     let addedIngredients = 0;
     if (recipe.ingredients.length === 0 && scraped.ingredients.length > 0) {
       await prisma.recipeIngredient.createMany({
