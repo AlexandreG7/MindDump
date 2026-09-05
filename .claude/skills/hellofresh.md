@@ -48,8 +48,8 @@ HF_DATA=$(curl -s "https://gw.hellofresh.com/api/recipes/$RECIPE_ID?country=FR&l
 Extraire du JSON HelloFresh :
 - `name` → title
 - `headline` ou `description` → description (supprimer les tags HTML)
-- `imagePath` → hero image : `https://img.hellofresh.com/q_auto,f_auto,w_1200{imagePath}`
-- `steps[]` → étapes triées par `index`, texte de `instructionsMarkdown` ou `instructions` (HTML strippé), image de `images[0].path` → `https://img.hellofresh.com/q_auto,f_auto,w_750{path}`
+- `imagePath` → hero image : `https://img.hellofresh.com/q_auto,f_auto,w_1200/hellofresh_s3{imagePath}`
+- `steps[]` → étapes triées par `index`, texte de `instructionsMarkdown` ou `instructions` (HTML strippé), image de `images[0].path` → `https://img.hellofresh.com/q_auto,f_auto,w_750/hellofresh_s3{path}`
 - `ingredients[]` + `yields[]` → ingrédients avec quantités pour 4 personnes
 - `prepTime` ou `totalTime` (format `PT30M`) → temps en minutes (40% prep, 60% cuisson)
 

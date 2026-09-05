@@ -262,14 +262,14 @@ export default function RecipesPage() {
 
       const stripHtml = (t: string) => t.replace(/<[^>]*>/g, "").replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
       const heroImage = recipe.imagePath
-        ? `https://img.hellofresh.com/q_auto,f_auto,w_1200${recipe.imagePath}`
+        ? `https://img.hellofresh.com/q_auto,f_auto,w_1200/hellofresh_s3${recipe.imagePath}`
         : recipe.imageLink || null;
       const steps = (recipe.steps || [])
         .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
         .map((s: { instructionsMarkdown?: string; instructions?: string; images?: { path?: string; link?: string }[] }) => ({
           text: stripHtml(s.instructionsMarkdown || s.instructions || ""),
           image: s.images?.[0]?.path
-            ? `https://img.hellofresh.com/q_auto,f_auto,w_750${s.images[0].path}`
+            ? `https://img.hellofresh.com/q_auto,f_auto,w_750/hellofresh_s3${s.images[0].path}`
             : s.images?.[0]?.link || null,
         }))
         .filter((s: { text: string; image: string | null }) => s.text || s.image);
@@ -772,14 +772,14 @@ function RecipeCard({
 
       const stripHtml = (t: string) => t.replace(/<[^>]*>/g, "").replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
       const heroImage = hfData.imagePath
-        ? `https://img.hellofresh.com/q_auto,f_auto,w_1200${hfData.imagePath}`
+        ? `https://img.hellofresh.com/q_auto,f_auto,w_1200/hellofresh_s3${hfData.imagePath}`
         : hfData.imageLink || null;
       const steps = (hfData.steps || [])
         .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
         .map((s: { instructionsMarkdown?: string; instructions?: string; images?: { path?: string; link?: string }[] }) => ({
           text: stripHtml(s.instructionsMarkdown || s.instructions || ""),
           image: s.images?.[0]?.path
-            ? `https://img.hellofresh.com/q_auto,f_auto,w_750${s.images[0].path}`
+            ? `https://img.hellofresh.com/q_auto,f_auto,w_750/hellofresh_s3${s.images[0].path}`
             : s.images?.[0]?.link || null,
         }))
         .filter((s: { text: string; image: string | null }) => s.text || s.image);

@@ -150,7 +150,7 @@ export function parseAPIResponse(
 ): EnrichedData {
   let heroImage: string | null = null;
   if (data.imagePath)
-    heroImage = `https://img.hellofresh.com/q_auto,f_auto,w_1200${data.imagePath}`;
+    heroImage = `https://img.hellofresh.com/q_auto,f_auto,w_1200/hellofresh_s3${data.imagePath}`;
   else if (data.imageLink) heroImage = data.imageLink;
 
   let totalTime: number | null = null;
@@ -170,7 +170,7 @@ export function parseAPIResponse(
       if (step.images?.[0]) {
         const img = step.images[0];
         image = img.path
-          ? `https://img.hellofresh.com/q_auto,f_auto,w_750${img.path}`
+          ? `https://img.hellofresh.com/q_auto,f_auto,w_750/hellofresh_s3${img.path}`
           : img.link || null;
       }
       if (text || image) steps.push({ text, image });
