@@ -123,9 +123,9 @@ export async function fetchFromHelloFreshAPI(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(
-      `https://gw.hellofresh.com/api/recipes/${recipeId}?country=FR&locale=fr-FR`,
-      {
+    const url = `https://gw.hellofresh.com/api/recipes/${recipeId}?country=FR&locale=fr-FR`;
+    console.log(`[HF API] Fetching ${url} with token ${token.substring(0, 20)}...`);
+    const res = await fetch(url, {
         signal: controller.signal,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -137,10 +137,16 @@ export async function fetchFromHelloFreshAPI(
       }
     );
     clearTimeout(timeout);
-    if (!res.ok) return null;
+    console.log(`[HF API] Response: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.log(`[HF API] Error body: ${body.substring(0, 500)}`);
+      return null;
+    }
     return await res.json();
-  } catch {
+  } catch (err) {
     clearTimeout(timeout);
+    console.log(`[HF API] Fetch error: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }
@@ -408,16 +414,20 @@ export async function fetchEnrichedData(
   const targetUrl = String(helloFreshUrl).split("?")[0];
   const recipeHFId = extractRecipeId(targetUrl);
 
+  console.log(`[HF Enrich] URL: ${targetUrl}, recipeId: ${recipeHFId}, hasClientToken: ${!!clientToken}`);
   if (recipeHFId) {
     const apiData = await fetchFromHelloFreshAPI(recipeHFId, clientToken);
+    console.log(`[HF Enrich] API result: ${apiData ? `name=${apiData.name}` : "null"}`);
     if (apiData?.name) return parseAPIResponse(apiData, targetServings);
   }
 
   try {
+    console.log("[HF Enrich] Falling back to HTML scraping...");
     const html = await fetchHelloFreshPage(targetUrl);
     const parsed = parseHelloFreshPage(html);
     return { ...parsed, heroImage: parsed.heroImage };
-  } catch {
+  } catch (err) {
+    console.log(`[HF Enrich] HTML fallback failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }

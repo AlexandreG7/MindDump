@@ -242,10 +242,19 @@ export default function RecipesPage() {
     setImporting(true);
     setImportError("");
     try {
+      let hfToken: string | undefined;
+      try {
+        const tokenRes = await fetch("https://www.hellofresh.fr/", { headers: { Accept: "text/html" } });
+        if (tokenRes.ok) {
+          const html = await tokenRes.text();
+          const m = html.match(/"access_token":"([^"]+)"/);
+          if (m) hfToken = m[1];
+        }
+      } catch {}
       const res = await fetch("/api/recipes/import-hellofresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: importUrl, groupId: currentGroupId }),
+        body: JSON.stringify({ url: importUrl, groupId: currentGroupId, hfToken }),
       });
       const text = await res.text();
       let data;
