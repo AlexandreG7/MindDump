@@ -6,7 +6,8 @@ import { prisma } from "./prisma";
  */
 export async function ensureDefaultGroup(userId: string, userName?: string | null) {
   const existing = await prisma.group.findFirst({
-    where: { ownerId: userId, isDefault: true },
+    where: { ownerId: userId },
+    orderBy: { isDefault: "desc" },
   });
   if (existing) return existing;
 

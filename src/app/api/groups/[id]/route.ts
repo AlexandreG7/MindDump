@@ -48,6 +48,7 @@ export async function PATCH(
   if (typeof body.shareCalendar === "boolean") data.shareCalendar = body.shareCalendar;
   if (typeof body.shareLists === "boolean") data.shareLists = body.shareLists;
   if (typeof body.shareRecipes === "boolean") data.shareRecipes = body.shareRecipes;
+  if (typeof body.isDefault === "boolean") data.isDefault = body.isDefault;
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
