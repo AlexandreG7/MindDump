@@ -6,14 +6,15 @@ export function registerRecipeTools(server: McpServer) {
   // ─── Créer une recette ──────────────────────────────────────
   server.tool(
     "create_recipe",
-    "Créer une nouvelle recette dans MindDump. Utilise ce tool après avoir extrait une recette d'une photo ou d'une description.",
+    "Créer une nouvelle recette dans MindDump. Si une URL HelloFresh est fournie, importe automatiquement avec photo, ingrédients et étapes enrichies. Sinon, crée manuellement.",
     {
-      title: z.string().describe("Nom de la recette"),
+      title: z.string().optional().describe("Nom de la recette (optionnel si URL HelloFresh fournie)"),
+      url: z.string().optional().describe("URL d'une recette HelloFresh — si fournie, importe automatiquement avec enrichissement complet"),
       description: z.string().optional().describe("Description courte de la recette"),
       servings: z.number().optional().default(4).describe("Nombre de portions"),
       prepTime: z.number().optional().describe("Temps de préparation en minutes"),
       cookTime: z.number().optional().describe("Temps de cuisson en minutes"),
-      steps: z.array(z.string()).describe("Liste des étapes de la recette"),
+      steps: z.array(z.string()).optional().describe("Liste des étapes de la recette (ignoré si URL HelloFresh)"),
       ingredients: z
         .array(
           z.object({
@@ -22,20 +23,44 @@ export function registerRecipeTools(server: McpServer) {
             unit: z.string().optional().describe("Unité (ex: 'g', 'ml', 'pièce', 'cuillère à soupe')"),
           })
         )
-        .describe("Liste des ingrédients"),
+        .optional()
+        .describe("Liste des ingrédients (ignoré si URL HelloFresh)"),
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
       planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
     },
     async (params) => {
       try {
+        if (params.url && params.url.includes("hellofresh")) {
+          const result = await client.post("/api/recipes/import-hellofresh", {
+            url: params.url,
+            servings: params.servings,
+            groupId: params.groupId,
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Recette HelloFresh importée et enrichie automatiquement !\n\n${JSON.stringify(result, null, 2)}`,
+              },
+            ],
+          };
+        }
+
+        if (!params.title) {
+          return {
+            content: [{ type: "text" as const, text: "Erreur: le titre est requis pour une recette manuelle (ou fournir une URL HelloFresh)" }],
+            isError: true,
+          };
+        }
+
         const recipe = await client.post("/api/recipes", {
           title: params.title,
           description: params.description,
           servings: params.servings,
           prepTime: params.prepTime,
           cookTime: params.cookTime,
-          steps: params.steps,
-          ingredients: params.ingredients,
+          steps: params.steps || [],
+          ingredients: params.ingredients || [],
           groupId: params.groupId,
           planned: params.planned,
         });
