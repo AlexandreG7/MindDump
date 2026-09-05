@@ -1,6 +1,9 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SKIP_AUTH: ${NEXT_PUBLIC_SKIP_AUTH}
     ports:
       - "3000:3000"
     env_file: .env
