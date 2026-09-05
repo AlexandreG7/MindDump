@@ -113,7 +113,7 @@ export default function Dashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">
-          Bonjour {session.user?.name?.split(" ")[0]}
+          Bonjour {session?.user?.name?.split(" ")[0]}
         </h1>
         <p className="text-muted-foreground mt-1">Voici un aperçu de ta journée</p>
       </div>
