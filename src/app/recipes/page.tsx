@@ -34,6 +34,9 @@ import {
   Download,
   Loader2,
   ExternalLink,
+  LayoutGrid,
+  List,
+  Grid3X3,
 } from "lucide-react";
 
 interface Ingredient {
@@ -63,6 +66,7 @@ interface ShoppingList {
 }
 
 type Tab = "catalogue" | "prevues";
+type ViewMode = "grid" | "list" | "compact";
 
 export default function RecipesPage() {
   const { isReady } = useAuth();
@@ -79,6 +83,7 @@ export default function RecipesPage() {
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [newRecipe, setNewRecipe] = useState({
     title: "",
     description: "",
@@ -542,23 +547,45 @@ export default function RecipesPage() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Titre ou ingrédient..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 bg-white"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
+      {/* Search + View toggle */}
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Titre ou ingrédient..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 bg-white"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-0.5 p-1 bg-secondary rounded-lg">
+          {([
+            { mode: "grid" as ViewMode, icon: LayoutGrid, title: "Grille" },
+            { mode: "list" as ViewMode, icon: List, title: "Liste" },
+            { mode: "compact" as ViewMode, icon: Grid3X3, title: "Grille réduite" },
+          ]).map(({ mode, icon: Icon, title }) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              title={title}
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === mode
+                  ? "bg-white text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Empty states */}
@@ -595,7 +622,7 @@ export default function RecipesPage() {
       )}
 
       {/* Recipe grid */}
-      {filteredRecipes.length > 0 && (
+      {filteredRecipes.length > 0 && viewMode === "grid" && (
         <div className="masonry-grid">
           {filteredRecipes.map((recipe) => (
             <RecipeCard
@@ -614,6 +641,73 @@ export default function RecipesPage() {
               onOpenDetail={() => router.push(`/recipes/${recipe.id}`)}
               onEnriched={fetchRecipes}
             />
+          ))}
+        </div>
+      )}
+
+      {/* List view */}
+      {filteredRecipes.length > 0 && viewMode === "list" && (
+        <div className="space-y-2">
+          {filteredRecipes.map((recipe) => (
+            <div
+              key={recipe.id}
+              onClick={() => router.push(`/recipes/${recipe.id}`)}
+              className="recipe-card flex items-center gap-4 p-0 cursor-pointer"
+            >
+              {recipe.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={recipe.image}
+                  alt={recipe.title}
+                  className="w-20 h-20 object-cover rounded-l-2xl shrink-0"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-l-2xl shrink-0 bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
+                  <UtensilsCrossed className="h-6 w-6 text-orange-300" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0 py-3 pr-4">
+                <h3 className="handwritten text-xl font-semibold truncate">{recipe.title}</h3>
+                {(recipe.prepTime || recipe.cookTime) && (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Clock className="h-3 w-3" />
+                    {[recipe.prepTime && `${recipe.prepTime} min prep`, recipe.cookTime && `${recipe.cookTime} min cuisson`].filter(Boolean).join(" · ")}
+                  </span>
+                )}
+              </div>
+              {recipe.planned && (
+                <CalendarCheck className="h-4 w-4 text-primary shrink-0 mr-4" />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Compact grid view */}
+      {filteredRecipes.length > 0 && viewMode === "compact" && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {filteredRecipes.map((recipe) => (
+            <div
+              key={recipe.id}
+              onClick={() => router.push(`/recipes/${recipe.id}`)}
+              className="recipe-card cursor-pointer group/compact"
+            >
+              {recipe.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={recipe.image}
+                  alt={recipe.title}
+                  className="w-full aspect-square object-cover"
+                />
+              ) : (
+                <div className="w-full aspect-square bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
+                  <UtensilsCrossed className="h-8 w-8 text-orange-300" />
+                </div>
+              )}
+              <div className="p-2.5">
+                <h3 className="handwritten text-base font-semibold leading-tight line-clamp-2">{recipe.title}</h3>
+              </div>
+            </div>
           ))}
         </div>
       )}
