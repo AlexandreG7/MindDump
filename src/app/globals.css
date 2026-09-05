@@ -142,29 +142,23 @@
     opacity: 0.5;
   }
 
-  /* ── Masonry grid ── */
+  /* ── Recipe / list grid ── */
   .masonry-grid {
-    columns: 1;
-    column-gap: 1.25rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
   }
 
   @media (min-width: 640px) {
     .masonry-grid {
-      columns: 2;
+      grid-template-columns: repeat(2, 1fr);
     }
   }
 
   @media (min-width: 1024px) {
     .masonry-grid {
-      columns: 3;
+      grid-template-columns: repeat(3, 1fr);
     }
-  }
-
-  .masonry-grid > * {
-    break-inside: avoid;
-    margin-bottom: 1.25rem;
-    display: inline-block;
-    width: 100%;
   }
 
   /* ── Recipe detail page ── */
