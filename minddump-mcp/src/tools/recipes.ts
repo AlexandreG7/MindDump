@@ -134,6 +134,71 @@ export function registerRecipeTools(server: McpServer) {
     }
   );
 
+  // ─── Importer une recette HelloFresh ────────────────────────
+  server.tool(
+    "import_hellofresh",
+    "Importer une recette depuis une URL HelloFresh. Récupère automatiquement le titre, les ingrédients, les étapes, les temps et les photos.",
+    {
+      url: z.string().describe("URL de la recette HelloFresh (ex: https://www.hellofresh.fr/recipes/...)"),
+      servings: z.number().optional().default(4).describe("Nombre de portions souhaité"),
+      groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
+    },
+    async (params) => {
+      try {
+        const result = await client.post("/api/recipes/import-hellofresh", {
+          url: params.url,
+          servings: params.servings,
+          groupId: params.groupId,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Recette HelloFresh importée avec succès !\n\n${JSON.stringify(result, null, 2)}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text" as const, text: `Erreur: ${(error as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── Enrichir une recette avec HelloFresh ──────────────────
+  server.tool(
+    "enrich_recipe_hellofresh",
+    "Enrichir une recette existante avec les données HelloFresh (photo, ingrédients, étapes détaillées avec images). Utile quand une recette a été créée manuellement.",
+    {
+      recipeId: z.string().describe("ID de la recette à enrichir"),
+      url: z.string().describe("URL de la recette HelloFresh correspondante"),
+    },
+    async (params) => {
+      try {
+        const result = await client.post(`/api/recipes/${params.recipeId}/enrich`, {
+          url: params.url,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Recette enrichie avec les données HelloFresh !\n\n${JSON.stringify(result, null, 2)}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text" as const, text: `Erreur: ${(error as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
   // ─── Convertir recette → liste de courses ──────────────────
   server.tool(
     "recipe_to_shopping_list",
