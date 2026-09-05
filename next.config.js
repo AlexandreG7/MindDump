@@ -7,6 +7,12 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**.cloudfront.net" },
+      { protocol: "https", hostname: "img.hellofresh.com" },
+    ],
+  },
 };
 
 module.exports = nextConfig;
