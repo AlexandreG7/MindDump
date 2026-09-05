@@ -55,7 +55,7 @@ export function Navbar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <nav className="hidden md:flex md:flex-col md:w-64 md:min-h-screen bg-card border-r p-4">
+      <nav className="hidden md:flex md:flex-col md:w-64 bg-card border-r p-4 overflow-y-auto shrink-0">
         <div className="mb-8">
           <h1 className="text-xl font-bold">MindDump</h1>
           <p className="text-sm text-muted-foreground">Vide ta charge mentale</p>

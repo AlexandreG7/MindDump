@@ -20,9 +20,9 @@ export default function RootLayout({
     <html lang="fr">
       <body className={inter.className}>
         <Providers>
-          <div className="flex min-h-screen">
+          <div className="flex h-screen overflow-hidden">
             <Navbar />
-            <main className="flex-1 md:p-8 p-4 pt-20 md:pt-8">
+            <main className="flex-1 md:p-8 p-4 pt-20 md:pt-8 overflow-y-auto">
               {children}
             </main>
           </div>
