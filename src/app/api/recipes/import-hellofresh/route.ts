@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
-import { parseHelloFreshPage, fetchHelloFreshPage } from "@/lib/hellofresh";
+import {
+  fetchEnrichedData,
+  extractRecipeId,
+  fetchHelloFreshPage,
+  parseHelloFreshPage,
+} from "@/lib/hellofresh";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +16,7 @@ export async function POST(req: NextRequest) {
     if (!user) return unauthorized();
 
     const body = await req.json().catch(() => null);
-    if (!body?.url || !String(body.url).includes("hellofresh.fr/recipes/")) {
+    if (!body?.url || !String(body.url).includes("hellofresh")) {
       return NextResponse.json(
         { error: "URL HelloFresh invalide" },
         { status: 400 }
@@ -19,35 +24,59 @@ export async function POST(req: NextRequest) {
     }
 
     const targetUrl = String(body.url).split("?")[0];
+    const servings = body.servings || 4;
 
-    let html: string;
-    try {
-      html = await fetchHelloFreshPage(targetUrl);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erreur reseau";
-      return NextResponse.json({ error: msg }, { status: 502 });
+    // Try API first (works from Hetzner), fall back to HTML scraping
+    const enriched = await fetchEnrichedData(targetUrl, servings, body.hfToken);
+
+    if (!enriched) {
+      return NextResponse.json(
+        { error: "Impossible de recuperer la recette HelloFresh. Le serveur est peut-etre bloque." },
+        { status: 502 }
+      );
     }
 
-    const scraped = parseHelloFreshPage(html);
+    // Extract title from URL slug or API data
+    let title = "Recette HelloFresh";
+    const slugMatch = targetUrl.match(/\/recipes\/([^/]+?)(?:-[0-9a-f]{20,})?$/);
+    if (slugMatch) {
+      title = slugMatch[1]
+        .replace(/-and-/g, " & ")
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+
+    // If API enrichment gave us a description but not a proper title, try HTML as fallback for title
+    if (title === "Recette HelloFresh") {
+      try {
+        const html = await fetchHelloFreshPage(targetUrl);
+        const parsed = parseHelloFreshPage(html);
+        if (parsed.title && parsed.title !== "Recette sans titre") {
+          title = parsed.title;
+        }
+      } catch {
+        // HTML scraping failed (e.g. Hetzner blocked), use slug-derived title
+      }
+    }
 
     const recipe = await prisma.recipe.create({
       data: {
-        title: scraped.title,
-        description: scraped.description,
-        servings: scraped.servings,
-        prepTime: scraped.prepTime,
-        cookTime: scraped.cookTime,
-        steps: JSON.stringify(scraped.steps),
-        image: scraped.heroImage,
+        title,
+        description: enriched.description,
+        servings,
+        prepTime: enriched.prepTime,
+        cookTime: enriched.cookTime,
+        steps: JSON.stringify(enriched.steps),
+        image: enriched.heroImage,
         planned: false,
         userId: user.id,
         groupId: body.groupId || null,
       },
     });
 
-    if (scraped.ingredients.length > 0) {
+    if (enriched.ingredients.length > 0) {
       await prisma.recipeIngredient.createMany({
-        data: scraped.ingredients.map((ing) => ({
+        data: enriched.ingredients.map((ing) => ({
           name: ing.name,
           quantity: ing.quantity,
           unit: ing.unit,
@@ -58,11 +87,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       id: recipe.id,
-      title: recipe.title,
-      ingredientCount: scraped.ingredients.length,
-      stepCount: scraped.steps.length,
-      hasImage: !!scraped.heroImage,
-      stepImages: scraped.steps.filter((s) => s.image).length,
+      title,
+      ingredientCount: enriched.ingredients.length,
+      stepCount: enriched.steps.length,
+      hasImage: !!enriched.heroImage,
+      stepImages: enriched.steps.filter((s) => s.image).length,
     });
   } catch (e) {
     return NextResponse.json(
