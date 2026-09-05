@@ -54,6 +54,55 @@ interface Recipe {
   ingredients: { id: string; name: string; quantity: string; unit: string | null }[];
 }
 
+interface GroupedItem {
+  key: string;
+  name: string;
+  items: ShoppingItem[];
+  totalQty: string;
+  recipes: { id: string; title: string }[];
+}
+
+function normalizeKey(name: string): string {
+  return name.toLowerCase().trim()
+    .replace(/s$/, "")
+    .replace(/^(de |d'|l'|le |la |les |du |des )/, "");
+}
+
+function combineQuantities(items: ShoppingItem[]): string {
+  const parts = items
+    .map((i) => i.quantity)
+    .filter((q): q is string => !!q);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  return parts.join(" + ");
+}
+
+function groupItems(items: ShoppingItem[]): GroupedItem[] {
+  const map = new Map<string, GroupedItem>();
+  for (const item of items) {
+    const key = normalizeKey(item.name);
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        name: item.name,
+        items: [],
+        totalQty: "",
+        recipes: [],
+      });
+    }
+    const group = map.get(key)!;
+    group.items.push(item);
+    if (item.recipe && !group.recipes.some((r) => r.id === item.recipe!.id)) {
+      group.recipes.push(item.recipe);
+    }
+  }
+  const result = Array.from(map.values());
+  result.forEach((group) => {
+    group.totalQty = combineQuantities(group.items);
+  });
+  return result;
+}
+
 export default function ListsPage() {
   const { isReady } = useAuth();
   const [lists, setLists] = useState<ShoppingList[]>([]);
@@ -120,12 +169,26 @@ export default function ListsPage() {
     fetchLists();
   };
 
-  const updateItemQuantity = async (listId: string, itemId: string, quantity: string) => {
-    await fetch(`/api/lists/${listId}/items/${itemId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quantity: quantity || null }),
-    });
+  const toggleGroup = async (listId: string, items: ShoppingItem[]) => {
+    const newChecked = !items[0].checked;
+    await Promise.all(
+      items.map((item) =>
+        fetch(`/api/lists/${listId}/items/${item.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ checked: newChecked }),
+        })
+      )
+    );
+    fetchLists();
+  };
+
+  const deleteGroup = async (listId: string, items: ShoppingItem[]) => {
+    await Promise.all(
+      items.map((item) =>
+        fetch(`/api/lists/${listId}/items/${item.id}`, { method: "DELETE" })
+      )
+    );
     fetchLists();
   };
 
@@ -213,9 +276,10 @@ export default function ListsPage() {
             recipes={recipes}
             onAddItem={addItem}
             onAddRecipeToList={addRecipeToList}
+            onToggleGroup={toggleGroup}
             onToggleItem={toggleItem}
+            onDeleteGroup={deleteGroup}
             onDeleteItem={deleteItem}
-            onUpdateQuantity={updateItemQuantity}
             onDeleteList={deleteList}
           />
         </TabsContent>
@@ -227,9 +291,10 @@ export default function ListsPage() {
             recipes={recipes}
             onAddItem={addItem}
             onAddRecipeToList={addRecipeToList}
+            onToggleGroup={toggleGroup}
             onToggleItem={toggleItem}
+            onDeleteGroup={deleteGroup}
             onDeleteItem={deleteItem}
-            onUpdateQuantity={updateItemQuantity}
             onDeleteList={deleteList}
           />
         </TabsContent>
@@ -246,9 +311,10 @@ function ListGroup({
   recipes,
   onAddItem,
   onAddRecipeToList,
+  onToggleGroup,
   onToggleItem,
+  onDeleteGroup,
   onDeleteItem,
-  onUpdateQuantity,
   onDeleteList,
 }: {
   lists: ShoppingList[];
@@ -256,9 +322,10 @@ function ListGroup({
   recipes: Recipe[];
   onAddItem: (listId: string, item: Partial<ShoppingItem>) => void;
   onAddRecipeToList: (listId: string, recipeId: string) => void;
+  onToggleGroup: (listId: string, items: ShoppingItem[]) => void;
   onToggleItem: (listId: string, itemId: string, checked: boolean) => void;
+  onDeleteGroup: (listId: string, items: ShoppingItem[]) => void;
   onDeleteItem: (listId: string, itemId: string) => void;
-  onUpdateQuantity: (listId: string, itemId: string, quantity: string) => void;
   onDeleteList: (id: string) => void;
 }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
@@ -300,8 +367,12 @@ function ListGroup({
         const unchecked = list.items.filter((i) => !i.checked);
         const checked = list.items.filter((i) => i.checked);
         const total = list.items.reduce((sum, i) => sum + (i.price || 0), 0);
-        const progress = list.items.length > 0
-          ? Math.round((checked.length / list.items.length) * 100)
+        const grouped = groupItems(unchecked);
+        const checkedGrouped = groupItems(checked);
+        const uniqueCount = grouped.length;
+        const checkedUniqueCount = checkedGrouped.length;
+        const progress = (uniqueCount + checkedUniqueCount) > 0
+          ? Math.round((checkedUniqueCount / (uniqueCount + checkedUniqueCount)) * 100)
           : 0;
         const hasRecipeItems = unchecked.some((i) => i.recipeId);
 
@@ -320,7 +391,7 @@ function ListGroup({
                       />
                     </div>
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {checked.length}/{list.items.length}
+                      {checkedUniqueCount}/{uniqueCount + checkedUniqueCount}
                     </span>
                   </div>
                 )}
@@ -381,18 +452,17 @@ function ListGroup({
               </div>
             </div>
 
-            {/* Items */}
+            {/* Items (grouped) */}
             <div className="divide-y divide-border/50">
-              {unchecked.map((item) => (
-                <GroceryItem
-                  key={item.id}
-                  item={item}
+              {grouped.map((group) => (
+                <GroceryRow
+                  key={group.key}
+                  group={group}
                   listId={list.id}
                   type={type}
                   showRecipe={showRecipeTags}
-                  onToggle={onToggleItem}
-                  onDelete={onDeleteItem}
-                  onUpdateQuantity={onUpdateQuantity}
+                  onToggle={onToggleGroup}
+                  onDelete={onDeleteGroup}
                 />
               ))}
             </div>
@@ -446,13 +516,13 @@ function ListGroup({
             </div>
 
             {/* Checked items */}
-            {checked.length > 0 && (
+            {checkedGrouped.length > 0 && (
               <CheckedSection
-                items={checked}
+                groups={checkedGrouped}
                 listId={list.id}
                 showRecipe={showRecipeTags}
-                onToggle={onToggleItem}
-                onDelete={onDeleteItem}
+                onToggle={onToggleGroup}
+                onDelete={onDeleteGroup}
               />
             )}
 
@@ -468,108 +538,58 @@ function ListGroup({
   );
 }
 
-/* ── Single Grocery Item ──────────────────────────────────── */
+/* ── Grouped Grocery Row ──────────────────────────────────── */
 
-function GroceryItem({
-  item,
+function GroceryRow({
+  group,
   listId,
   type,
   showRecipe,
   onToggle,
   onDelete,
-  onUpdateQuantity,
 }: {
-  item: ShoppingItem;
+  group: GroupedItem;
   listId: string;
   type: "GROCERY" | "ONLINE";
   showRecipe: boolean;
-  onToggle: (listId: string, itemId: string, checked: boolean) => void;
-  onDelete: (listId: string, itemId: string) => void;
-  onUpdateQuantity: (listId: string, itemId: string, quantity: string) => void;
+  onToggle: (listId: string, items: ShoppingItem[]) => void;
+  onDelete: (listId: string, items: ShoppingItem[]) => void;
 }) {
-  const [editingQty, setEditingQty] = useState(false);
-  const [qtyValue, setQtyValue] = useState(item.quantity || "");
-
-  const saveQuantity = () => {
-    onUpdateQuantity(listId, item.id, qtyValue);
-    setEditingQty(false);
-  };
-
   return (
     <div className="grocery-item group">
-      {/* Tap zone for checkbox */}
       <button
         className="grocery-checkbox-zone"
-        onClick={() => onToggle(listId, item.id, item.checked)}
-        aria-label={`Cocher ${item.name}`}
+        onClick={() => onToggle(listId, group.items)}
+        aria-label={`Cocher ${group.name}`}
       >
-        <div className={`grocery-checkbox ${item.checked ? "grocery-checkbox-checked" : ""}`}>
-          {item.checked && <Check className="h-3.5 w-3.5" />}
+        <div className="grocery-checkbox">
+          {/* empty unchecked */}
         </div>
       </button>
 
-      {/* Item content */}
       <div className="flex-1 min-w-0 py-3">
         <div className="flex items-baseline gap-2">
-          <span className="grocery-item-name">{item.name}</span>
-          {item.store && (
-            <span className="text-xs text-muted-foreground">· {item.store}</span>
-          )}
+          <span className="grocery-item-name">{group.name}</span>
         </div>
-        {showRecipe && item.recipe && (
-          <span className="grocery-recipe-tag">
-            <ChefHat className="h-3 w-3" />
-            {item.recipe.title}
-          </span>
+        {showRecipe && group.recipes.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {group.recipes.map((r) => (
+              <span key={r.id} className="grocery-recipe-tag">
+                <ChefHat className="h-3 w-3" />
+                {r.title}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Quantity */}
-      {editingQty ? (
-        <input
-          className="grocery-qty-input"
-          value={qtyValue}
-          onChange={(e) => setQtyValue(e.target.value)}
-          onBlur={saveQuantity}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") saveQuantity();
-            if (e.key === "Escape") setEditingQty(false);
-          }}
-          autoFocus
-          placeholder="Qte"
-        />
-      ) : item.quantity ? (
-        <button
-          className="grocery-qty-badge"
-          onClick={() => { setQtyValue(item.quantity || ""); setEditingQty(true); }}
-        >
-          {item.quantity}
-        </button>
-      ) : (
-        <button
-          className="grocery-qty-badge grocery-qty-badge-empty"
-          onClick={() => { setQtyValue(""); setEditingQty(true); }}
-        >
-          +
-        </button>
+      {group.totalQty && (
+        <span className="grocery-qty-badge">{group.totalQty}</span>
       )}
 
-      {item.price != null && item.price > 0 && (
-        <span className="text-xs text-muted-foreground px-1 whitespace-nowrap">
-          {item.price.toFixed(2)}€
-        </span>
-      )}
-
-      {item.url && (
-        <a href={item.url} target="_blank" rel="noopener noreferrer" className="grocery-icon-btn shrink-0">
-          <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-      )}
-
-      {/* Delete — visible on hover/active */}
       <button
         className="grocery-icon-btn opacity-0 group-hover:opacity-100 group-active:opacity-100 shrink-0"
-        onClick={() => onDelete(listId, item.id)}
+        onClick={() => onDelete(listId, group.items)}
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
@@ -580,17 +600,17 @@ function GroceryItem({
 /* ── Checked Items (collapsible) ──────────────────────────── */
 
 function CheckedSection({
-  items,
+  groups,
   listId,
   showRecipe,
   onToggle,
   onDelete,
 }: {
-  items: ShoppingItem[];
+  groups: GroupedItem[];
   listId: string;
   showRecipe: boolean;
-  onToggle: (listId: string, itemId: string, checked: boolean) => void;
-  onDelete: (listId: string, itemId: string) => void;
+  onToggle: (listId: string, items: ShoppingItem[]) => void;
+  onDelete: (listId: string, items: ShoppingItem[]) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -601,7 +621,7 @@ function CheckedSection({
         onClick={() => setExpanded(!expanded)}
       >
         <Check className="h-3.5 w-3.5" />
-        <span>Fait ({items.length})</span>
+        <span>Fait ({groups.length})</span>
         {expanded ? (
           <ChevronUp className="h-3.5 w-3.5 ml-auto" />
         ) : (
@@ -610,30 +630,34 @@ function CheckedSection({
       </button>
       {expanded && (
         <div className="divide-y divide-border/30">
-          {items.map((item) => (
-            <div key={item.id} className="grocery-checked-item group">
+          {groups.map((group) => (
+            <div key={group.key} className="grocery-checked-item group">
               <button
                 className="grocery-checkbox-zone"
-                onClick={() => onToggle(listId, item.id, item.checked)}
+                onClick={() => onToggle(listId, group.items)}
               >
                 <div className="grocery-checkbox grocery-checkbox-checked grocery-checkbox-muted">
                   <Check className="h-3.5 w-3.5" />
                 </div>
               </button>
               <span className="flex-1 grocery-item-name grocery-item-done">
-                {item.name}
+                {group.name}
               </span>
-              {item.quantity && (
-                <span className="text-xs text-muted-foreground/50">{item.quantity}</span>
+              {group.totalQty && (
+                <span className="text-xs text-muted-foreground/50">{group.totalQty}</span>
               )}
-              {showRecipe && item.recipe && (
-                <span className="grocery-recipe-tag grocery-recipe-tag-muted">
-                  {item.recipe.title}
-                </span>
+              {showRecipe && group.recipes.length > 0 && (
+                <div className="flex gap-1">
+                  {group.recipes.map((r) => (
+                    <span key={r.id} className="grocery-recipe-tag grocery-recipe-tag-muted">
+                      {r.title}
+                    </span>
+                  ))}
+                </div>
               )}
               <button
                 className="grocery-icon-btn opacity-0 group-hover:opacity-100 shrink-0"
-                onClick={() => onDelete(listId, item.id)}
+                onClick={() => onDelete(listId, group.items)}
               >
                 <Trash2 className="h-3 w-3" />
               </button>
