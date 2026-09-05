@@ -247,44 +247,19 @@ export default function RecipesPage() {
       if (!idMatch) throw new Error("URL HelloFresh invalide — ID de recette introuvable");
       const recipeHFId = idMatch[1];
 
-      // Get token from HelloFresh homepage (client-side, no CORS issue for homepage)
-      let token: string | undefined;
-      try {
-        const tokenRes = await fetch("https://www.hellofresh.fr/", { mode: "cors" });
-        if (tokenRes.ok) {
-          const html = await tokenRes.text();
-          const m = html.match(/"access_token":"([^"]+)"/);
-          if (m) token = m[1];
-        }
-      } catch {
-        // CORS blocked for homepage — try API directly with no token (will fail gracefully)
-      }
+      // Get token from our server (server can't reach HF, but it stores the token)
+      const tokenRes = await fetch("/api/hellofresh-token");
+      const tokenData = await tokenRes.json();
+      if (!tokenData.token) throw new Error("Token HelloFresh non configure sur le serveur");
 
-      // If we couldn't get token from homepage, try the server-side fallback
-      if (!token) {
-        const res = await fetch("/api/recipes/import-hellofresh", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: importUrl, groupId: currentGroupId }),
-        });
-        const data = await res.json().catch(() => ({ error: "Reponse invalide" }));
-        if (!res.ok) throw new Error(data.error || "Erreur inconnue");
-        setImportUrl("");
-        setImportOpen(false);
-        fetchRecipes();
-        router.push(`/recipes/${data.id}`);
-        return;
-      }
-
-      // Fetch recipe from HelloFresh API directly (client-side, CORS allowed)
+      // Call HF API directly from browser (CORS allowed on gw.hellofresh.com)
       const apiRes = await fetch(
         `https://gw.hellofresh.com/api/recipes/${recipeHFId}?country=FR&locale=fr-FR`,
-        { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
+        { headers: { Authorization: `Bearer ${tokenData.token}`, Accept: "application/json" } }
       );
       if (!apiRes.ok) throw new Error(`HelloFresh API: ${apiRes.status}`);
       const recipe = await apiRes.json();
 
-      // Parse the data client-side
       const stripHtml = (t: string) => t.replace(/<[^>]*>/g, "").replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
       const heroImage = recipe.imagePath
         ? `https://img.hellofresh.com/q_auto,f_auto,w_1200${recipe.imagePath}`
@@ -310,30 +285,27 @@ export default function RecipesPage() {
         };
       }).filter((i: { name: string }) => i.name);
 
-      let prepTime: number | null = null;
-      let cookTime: number | null = null;
+      let totalTime: number | null = null;
       const timeStr = recipe.prepTime || recipe.totalTime;
       if (timeStr) {
         const tm = timeStr.match(/PT(\d+)M/);
-        if (tm) prepTime = parseInt(tm[1]);
+        if (tm) totalTime = parseInt(tm[1]);
       }
 
-      // Send parsed data to our API
       const res = await fetch("/api/recipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: recipe.name || "Recette HelloFresh",
-          description: stripHtml(recipe.description || recipe.headline || ""),
+          description: stripHtml(recipe.headline || recipe.description || ""),
           servings,
-          prepTime,
-          cookTime,
+          prepTime: totalTime ? Math.round(totalTime * 0.4) : null,
+          cookTime: totalTime ? Math.round(totalTime * 0.6) : null,
           steps,
           image: heroImage,
           planned: false,
           groupId: currentGroupId,
           ingredients,
-          sourceUrl: targetUrl,
         }),
       });
       const data = await res.json().catch(() => ({ error: "Reponse invalide" }));
@@ -782,16 +754,83 @@ function RecipeCard({
     setEnrichError("");
     setEnrichResult(null);
     try {
-      const res = await fetch(`/api/recipes/${recipe.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: enrichUrl, forceImage: !recipe.image }),
+      const targetUrl = enrichUrl.trim().split("?")[0];
+      const idMatch = targetUrl.match(/([0-9a-f]{20,})(?:\?|$)/);
+      if (!idMatch) throw new Error("URL HelloFresh invalide");
+      const recipeHFId = idMatch[1];
+
+      const tokenRes = await fetch("/api/hellofresh-token");
+      const tokenData = await tokenRes.json();
+      if (!tokenData.token) throw new Error("Token HelloFresh non configure");
+
+      const apiRes = await fetch(
+        `https://gw.hellofresh.com/api/recipes/${recipeHFId}?country=FR&locale=fr-FR`,
+        { headers: { Authorization: `Bearer ${tokenData.token}`, Accept: "application/json" } }
+      );
+      if (!apiRes.ok) throw new Error(`HelloFresh API: ${apiRes.status}`);
+      const hfData = await apiRes.json();
+
+      const stripHtml = (t: string) => t.replace(/<[^>]*>/g, "").replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+      const heroImage = hfData.imagePath
+        ? `https://img.hellofresh.com/q_auto,f_auto,w_1200${hfData.imagePath}`
+        : hfData.imageLink || null;
+      const steps = (hfData.steps || [])
+        .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
+        .map((s: { instructionsMarkdown?: string; instructions?: string; images?: { path?: string; link?: string }[] }) => ({
+          text: stripHtml(s.instructionsMarkdown || s.instructions || ""),
+          image: s.images?.[0]?.path
+            ? `https://img.hellofresh.com/q_auto,f_auto,w_750${s.images[0].path}`
+            : s.images?.[0]?.link || null,
+        }))
+        .filter((s: { text: string; image: string | null }) => s.text || s.image);
+
+      const yieldForServings = hfData.yields?.find((y: { yields: number }) => y.yields === recipe.servings) || hfData.yields?.[0];
+      const ingredients = (hfData.ingredients || []).map((ing: { id?: string; name?: string }) => {
+        const yieldIng = yieldForServings?.ingredients?.find((yi: { id?: string }) => yi.id === ing.id);
+        return { name: ing.name || "", quantity: yieldIng?.amount != null ? String(yieldIng.amount) : "", unit: yieldIng?.unit || "" };
+      }).filter((i: { name: string }) => i.name);
+
+      let totalTime: number | null = null;
+      const timeStr = hfData.prepTime || hfData.totalTime;
+      if (timeStr) { const tm = timeStr.match(/PT(\d+)M/); if (tm) totalTime = parseInt(tm[1]); }
+
+      // Build update payload — only fill missing fields
+      const updates: Record<string, unknown> = {};
+      if ((!recipe.image) && heroImage) updates.image = heroImage;
+      if (!recipe.description && (hfData.headline || hfData.description))
+        updates.description = stripHtml(hfData.headline || hfData.description || "");
+      if (!recipe.prepTime && totalTime) updates.prepTime = Math.round(totalTime * 0.4);
+      if (!recipe.cookTime && totalTime) updates.cookTime = Math.round(totalTime * 0.6);
+
+      let currentSteps: { text: string; image?: string | null }[] = [];
+      try { currentSteps = JSON.parse(recipe.steps); } catch { currentSteps = []; }
+      const hasStepImages = currentSteps.some((s) => typeof s === "object" && s.image);
+      if (steps.length > 0 && (currentSteps.length === 0 || !hasStepImages)) {
+        updates.steps = steps;
+      }
+      if (recipe.ingredients.length === 0 && ingredients.length > 0) {
+        updates.ingredients = ingredients;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const patchRes = await fetch(`/api/recipes/${recipe.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+        if (!patchRes.ok) throw new Error("Erreur lors de la mise a jour");
+      }
+
+      setEnrichResult({
+        image: !!updates.image,
+        description: !!updates.description,
+        steps: !!updates.steps,
+        stepsCount: steps.length,
+        stepImages: steps.filter((s: { image: string | null }) => s.image).length,
+        ingredients: updates.ingredients ? ingredients.length : 0,
+        prepTime: !!updates.prepTime,
+        cookTime: !!updates.cookTime,
       });
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); } catch { throw new Error("Reponse invalide du serveur"); }
-      if (!res.ok) throw new Error(data.error || "Erreur inconnue");
-      setEnrichResult(data.enriched);
       onEnriched();
     } catch (e) {
       setEnrichError(e instanceof Error ? e.message : "Erreur inconnue");
