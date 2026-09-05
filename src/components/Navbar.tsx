@@ -15,10 +15,12 @@ import {
   Users,
   ChevronDown,
   Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGroupContext } from "./GroupContext";
 import { useFeaturesContext, type FeatureKey } from "./FeaturesContext";
 
@@ -37,7 +39,21 @@ export function Navbar() {
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [groupDropOpen, setGroupDropOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const { groups, currentGroupId, currentGroup, setCurrentGroupId } = useGroupContext();
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("sidebarCollapsed");
+      if (saved === "true") setCollapsed(true);
+    } catch {}
+  }, []);
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem("sidebarCollapsed", String(next)); } catch {}
+  };
 
   const { flags } = useFeaturesContext();
 
@@ -55,10 +71,25 @@ export function Navbar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <nav className="hidden md:flex md:flex-col md:w-64 bg-card border-r p-4 overflow-y-auto shrink-0">
-        <div className="mb-8">
-          <h1 className="text-xl font-bold">MindDump</h1>
-          <p className="text-sm text-muted-foreground">Vide ta charge mentale</p>
+      <nav className={cn(
+        "hidden md:flex md:flex-col bg-card border-r overflow-y-auto shrink-0 transition-all duration-200",
+        collapsed ? "md:w-16 p-2" : "md:w-64 p-4"
+      )}>
+        {/* Header + collapse toggle */}
+        <div className={cn("mb-8 flex items-center", collapsed ? "justify-center" : "justify-between")}>
+          {!collapsed && (
+            <div>
+              <h1 className="text-xl font-bold">MindDump</h1>
+              <p className="text-sm text-muted-foreground">Vide ta charge mentale</p>
+            </div>
+          )}
+          <button
+            onClick={toggleCollapsed}
+            className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            title={collapsed ? "Ouvrir le menu" : "Replier le menu"}
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
         </div>
 
         <div className="flex-1 space-y-1">
@@ -66,21 +97,23 @@ export function Navbar() {
             <Link
               key={item.href}
               href={item.href}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                "flex items-center rounded-md text-sm transition-colors",
+                collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2",
                 pathname === item.href
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+              <item.icon className={cn(collapsed ? "h-5 w-5" : "h-4 w-4")} />
+              {!collapsed && item.label}
             </Link>
           ))}
         </div>
 
         {/* ── Group switcher ── */}
-        {groups.length > 0 && (
+        {groups.length > 0 && !collapsed && (
           <div className="mt-4 border-t pt-4 relative">
             <p className="text-xs font-medium text-muted-foreground px-3 mb-1.5 uppercase tracking-wide">
               Groupe actif
@@ -123,12 +156,27 @@ export function Navbar() {
           </div>
         )}
 
+        {/* Collapsed group icon */}
+        {groups.length > 0 && collapsed && (
+          <div className="mt-4 border-t pt-4 flex justify-center">
+            <Link
+              href="/profile"
+              title={currentGroup?.name ?? "Groupes"}
+              className="p-2 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <Users className="h-5 w-5" />
+            </Link>
+          </div>
+        )}
+
         {/* ── User / Profile ── */}
         <div className="border-t pt-4 mt-4">
           <Link
             href="/profile"
+            title={collapsed ? (userName ?? userEmail ?? "Profil") : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 mb-1 transition-colors group",
+              "flex items-center rounded-md mb-1 transition-colors group",
+              collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2",
               pathname === "/profile"
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent"
@@ -144,20 +192,24 @@ export function Navbar() {
                 </span>
               </div>
             )}
-            <div className="flex-1 min-w-0">
-              <p className={cn("text-sm font-medium truncate", pathname === "/profile" ? "text-primary-foreground" : "text-foreground")}>
-                {userName ?? userEmail}
-              </p>
-              {userName && (
-                <p className={cn("text-xs truncate", pathname === "/profile" ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                  {userEmail}
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-sm font-medium truncate", pathname === "/profile" ? "text-primary-foreground" : "text-foreground")}>
+                  {userName ?? userEmail}
                 </p>
-              )}
-            </div>
-            <Settings className={cn("h-3.5 w-3.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity", pathname === "/profile" && "opacity-100 text-primary-foreground")} />
+                {userName && (
+                  <p className={cn("text-xs truncate", pathname === "/profile" ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                    {userEmail}
+                  </p>
+                )}
+              </div>
+            )}
+            {!collapsed && (
+              <Settings className={cn("h-3.5 w-3.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity", pathname === "/profile" && "opacity-100 text-primary-foreground")} />
+            )}
           </Link>
 
-          {!skipAuth && (
+          {!skipAuth && !collapsed && (
             <Button
               variant="ghost"
               size="sm"
@@ -167,6 +219,16 @@ export function Navbar() {
               <LogOut className="h-4 w-4" />
               Déconnexion
             </Button>
+          )}
+
+          {!skipAuth && collapsed && (
+            <button
+              onClick={() => signOut()}
+              title="Déconnexion"
+              className="w-full flex justify-center p-2 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
           )}
         </div>
       </nav>
