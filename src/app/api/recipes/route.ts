@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
   const err = await assertGroupMember(groupId, user.id);
   if (err) return err;
 
+  const stepsValue = typeof body.steps === "string" ? body.steps : JSON.stringify(body.steps || []);
   const recipe = await prisma.recipe.create({
     data: {
       title: body.title,
@@ -45,7 +46,8 @@ export async function POST(req: NextRequest) {
       servings: body.servings || 4,
       prepTime: body.prepTime || null,
       cookTime: body.cookTime || null,
-      steps: JSON.stringify(body.steps || []),
+      steps: stepsValue,
+      image: body.image || null,
       planned: body.planned === true,
       userId: user.id,
       groupId,

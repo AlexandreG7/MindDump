@@ -242,23 +242,101 @@ export default function RecipesPage() {
     setImporting(true);
     setImportError("");
     try {
-      let hfToken: string | undefined;
+      const targetUrl = importUrl.trim().split("?")[0];
+      const idMatch = targetUrl.match(/([0-9a-f]{20,})(?:\?|$)/);
+      if (!idMatch) throw new Error("URL HelloFresh invalide — ID de recette introuvable");
+      const recipeHFId = idMatch[1];
+
+      // Get token from HelloFresh homepage (client-side, no CORS issue for homepage)
+      let token: string | undefined;
       try {
-        const tokenRes = await fetch("https://www.hellofresh.fr/", { headers: { Accept: "text/html" } });
+        const tokenRes = await fetch("https://www.hellofresh.fr/", { mode: "cors" });
         if (tokenRes.ok) {
           const html = await tokenRes.text();
           const m = html.match(/"access_token":"([^"]+)"/);
-          if (m) hfToken = m[1];
+          if (m) token = m[1];
         }
-      } catch {}
-      const res = await fetch("/api/recipes/import-hellofresh", {
+      } catch {
+        // CORS blocked for homepage — try API directly with no token (will fail gracefully)
+      }
+
+      // If we couldn't get token from homepage, try the server-side fallback
+      if (!token) {
+        const res = await fetch("/api/recipes/import-hellofresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: importUrl, groupId: currentGroupId }),
+        });
+        const data = await res.json().catch(() => ({ error: "Reponse invalide" }));
+        if (!res.ok) throw new Error(data.error || "Erreur inconnue");
+        setImportUrl("");
+        setImportOpen(false);
+        fetchRecipes();
+        router.push(`/recipes/${data.id}`);
+        return;
+      }
+
+      // Fetch recipe from HelloFresh API directly (client-side, CORS allowed)
+      const apiRes = await fetch(
+        `https://gw.hellofresh.com/api/recipes/${recipeHFId}?country=FR&locale=fr-FR`,
+        { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
+      );
+      if (!apiRes.ok) throw new Error(`HelloFresh API: ${apiRes.status}`);
+      const recipe = await apiRes.json();
+
+      // Parse the data client-side
+      const stripHtml = (t: string) => t.replace(/<[^>]*>/g, "").replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+      const heroImage = recipe.imagePath
+        ? `https://img.hellofresh.com/q_auto,f_auto,w_1200${recipe.imagePath}`
+        : recipe.imageLink || null;
+      const steps = (recipe.steps || [])
+        .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
+        .map((s: { instructionsMarkdown?: string; instructions?: string; images?: { path?: string; link?: string }[] }) => ({
+          text: stripHtml(s.instructionsMarkdown || s.instructions || ""),
+          image: s.images?.[0]?.path
+            ? `https://img.hellofresh.com/q_auto,f_auto,w_750${s.images[0].path}`
+            : s.images?.[0]?.link || null,
+        }))
+        .filter((s: { text: string; image: string | null }) => s.text || s.image);
+
+      const servings = 4;
+      const yieldForServings = recipe.yields?.find((y: { yields: number }) => y.yields === servings) || recipe.yields?.[0];
+      const ingredients = (recipe.ingredients || []).map((ing: { id?: string; name?: string }) => {
+        const yieldIng = yieldForServings?.ingredients?.find((yi: { id?: string }) => yi.id === ing.id);
+        return {
+          name: ing.name || "",
+          quantity: yieldIng?.amount != null ? String(yieldIng.amount) : "",
+          unit: yieldIng?.unit || "",
+        };
+      }).filter((i: { name: string }) => i.name);
+
+      let prepTime: number | null = null;
+      let cookTime: number | null = null;
+      const timeStr = recipe.prepTime || recipe.totalTime;
+      if (timeStr) {
+        const tm = timeStr.match(/PT(\d+)M/);
+        if (tm) prepTime = parseInt(tm[1]);
+      }
+
+      // Send parsed data to our API
+      const res = await fetch("/api/recipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: importUrl, groupId: currentGroupId, hfToken }),
+        body: JSON.stringify({
+          title: recipe.name || "Recette HelloFresh",
+          description: stripHtml(recipe.description || recipe.headline || ""),
+          servings,
+          prepTime,
+          cookTime,
+          steps,
+          image: heroImage,
+          planned: false,
+          groupId: currentGroupId,
+          ingredients,
+          sourceUrl: targetUrl,
+        }),
       });
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); } catch { throw new Error("Reponse invalide du serveur"); }
+      const data = await res.json().catch(() => ({ error: "Reponse invalide" }));
       if (!res.ok) throw new Error(data.error || "Erreur inconnue");
       setImportUrl("");
       setImportOpen(false);
