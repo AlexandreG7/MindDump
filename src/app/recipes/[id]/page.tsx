@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import {
   Users,
   UtensilsCrossed,
   Check,
+  X,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 
 interface Ingredient {
@@ -52,12 +55,187 @@ function parseSteps(raw: string): Step[] {
   }
 }
 
+function CookingMode({
+  recipe,
+  steps,
+  onClose,
+}: {
+  recipe: Recipe;
+  steps: Step[];
+  onClose: () => void;
+}) {
+  const [step, setStep] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+
+  // Wake Lock to keep screen on
+  useEffect(() => {
+    let wakeLock: WakeLockSentinel | null = null;
+    const acquire = async () => {
+      try {
+        if ("wakeLock" in navigator) {
+          wakeLock = await navigator.wakeLock.request("screen");
+        }
+      } catch {}
+    };
+    acquire();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") acquire();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      wakeLock?.release();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  // Track fullscreen state
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight" || e.key === " ") {
+        e.preventDefault();
+        setStep((s) => Math.min(s + 1, steps.length - 1));
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setStep((s) => Math.max(s - 1, 0));
+      } else if (e.key === "Escape") {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [steps.length, onClose]);
+
+  const toggleFullscreen = async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await containerRef.current?.requestFullscreen();
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0 && step < steps.length - 1) setStep(step + 1);
+      if (dx > 0 && step > 0) setStep(step - 1);
+    }
+  };
+
+  const current = steps[step];
+  const isLast = step === steps.length - 1;
+
+  return (
+    <div
+      ref={containerRef}
+      className="cooking-mode"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Top bar */}
+      <div className="cooking-topbar">
+        <button onClick={onClose} className="cooking-btn">
+          <X className="h-5 w-5" />
+        </button>
+        <span className="cooking-title">{recipe.title}</span>
+        <button onClick={toggleFullscreen} className="cooking-btn">
+          {isFullscreen ? (
+            <Minimize className="h-5 w-5" />
+          ) : (
+            <Maximize className="h-5 w-5" />
+          )}
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      <div className="cooking-progress">
+        {steps.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setStep(i)}
+            className={`cooking-progress-dot ${i <= step ? "active" : ""}`}
+          />
+        ))}
+      </div>
+
+      {/* Step content */}
+      <div className="cooking-content">
+        {current.image && (
+          <div className="cooking-image-wrap">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={current.image}
+              alt={`Étape ${step + 1}`}
+              className="cooking-image"
+            />
+          </div>
+        )}
+
+        <div className="cooking-step-info">
+          <span className="cooking-step-badge">{step + 1}</span>
+          <span className="cooking-step-label">
+            Étape {step + 1} / {steps.length}
+          </span>
+        </div>
+
+        <div className="cooking-text">{current.text}</div>
+      </div>
+
+      {/* Navigation */}
+      <div className="cooking-nav">
+        <button
+          onClick={() => setStep(Math.max(0, step - 1))}
+          disabled={step === 0}
+          className="cooking-nav-btn prev"
+        >
+          <ChevronLeft className="h-6 w-6" />
+          <span>Précédent</span>
+        </button>
+
+        {isLast ? (
+          <button onClick={onClose} className="cooking-nav-btn done">
+            <Check className="h-6 w-6" />
+            <span>Terminé</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setStep(step + 1)}
+            className="cooking-nav-btn next"
+          >
+            <span>Suivant</span>
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { isReady } = useAuth();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [currentStep, setCurrentStep] = useState(-1);
+  const [cookingMode, setCookingMode] = useState(false);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
   const [servingMultiplier, setServingMultiplier] = useState(1);
 
@@ -76,8 +254,6 @@ export default function RecipeDetailPage() {
   const steps = parseSteps(recipe.steps);
 
   const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
-  const isOverview = currentStep === -1;
-  const isLastStep = currentStep === steps.length - 1;
 
   const toggleIngredient = (id: string) => {
     setCheckedIngredients((prev) => {
@@ -88,14 +264,6 @@ export default function RecipeDetailPage() {
     });
   };
 
-  const goNext = () => {
-    if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
-  };
-
-  const goPrev = () => {
-    if (currentStep >= 0) setCurrentStep(currentStep - 1);
-  };
-
   const multiplyQuantity = (qty: string): string => {
     if (servingMultiplier === 1) return qty;
     const num = parseFloat(qty.replace(",", "."));
@@ -104,99 +272,15 @@ export default function RecipeDetailPage() {
     return result % 1 === 0 ? String(result) : result.toFixed(1).replace(".", ",");
   };
 
-  // ── Step-by-step mode ──
-  if (!isOverview) {
-    return (
-      <div className="recipe-step-page">
-        <div className="recipe-step-header">
-          <button
-            onClick={() => setCurrentStep(-1)}
-            className="p-2 rounded-full hover:bg-secondary transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex-1 text-center">
-            <span className="text-sm font-medium text-muted-foreground">
-              {recipe.title}
-            </span>
-          </div>
-          <div className="w-9" />
-        </div>
+  const closeCookingMode = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+    setCookingMode(false);
+  };
 
-        <div className="px-6 pt-4 pb-2 max-w-3xl mx-auto w-full">
-          <div className="flex gap-1.5">
-            {steps.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentStep(i)}
-                className={`flex-1 h-1.5 rounded-full transition-colors ${
-                  i <= currentStep ? "bg-primary" : "bg-border"
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col justify-center px-6 pb-8 overflow-y-auto">
-          {steps[currentStep].image && (
-            <div className="max-w-lg mx-auto w-full mb-6">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={steps[currentStep].image!}
-                alt={`Étape ${currentStep + 1}`}
-                className="w-full rounded-2xl object-cover"
-              />
-            </div>
-          )}
-
-          <div className="text-center mb-4">
-            <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary text-white text-xl font-bold mb-2">
-              {currentStep + 1}
-            </span>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Étape {currentStep + 1} sur {steps.length}
-            </p>
-          </div>
-
-          <p className="text-lg leading-relaxed text-center max-w-2xl mx-auto">
-            {steps[currentStep].text}
-          </p>
-        </div>
-
-        <div className="recipe-step-nav">
-          <Button
-            variant="outline"
-            size="lg"
-            className="flex-1 h-14 rounded-2xl text-base"
-            onClick={goPrev}
-            disabled={currentStep <= 0}
-          >
-            <ChevronLeft className="h-5 w-5 mr-1" />
-            Précédent
-          </Button>
-
-          {isLastStep ? (
-            <Button
-              size="lg"
-              className="flex-1 h-14 rounded-2xl text-base bg-green-600 hover:bg-green-700"
-              onClick={() => setCurrentStep(-1)}
-            >
-              <Check className="h-5 w-5 mr-1" />
-              Terminé
-            </Button>
-          ) : (
-            <Button
-              size="lg"
-              className="flex-1 h-14 rounded-2xl text-base"
-              onClick={goNext}
-            >
-              Suivant
-              <ChevronRight className="h-5 w-5 ml-1" />
-            </Button>
-          )}
-        </div>
-      </div>
-    );
+  if (cookingMode && steps.length > 0) {
+    return <CookingMode recipe={recipe} steps={steps} onClose={closeCookingMode} />;
   }
 
   // ── Overview mode ──
@@ -358,20 +442,19 @@ export default function RecipeDetailPage() {
               <Button
                 size="sm"
                 className="rounded-xl"
-                onClick={() => setCurrentStep(0)}
+                onClick={() => setCookingMode(true)}
               >
                 <UtensilsCrossed className="h-4 w-4 mr-1.5" />
-                Commencer
+                Cuisiner
               </Button>
             )}
           </div>
 
           <div className="space-y-4">
             {steps.map((step, i) => (
-              <button
+              <div
                 key={i}
-                onClick={() => setCurrentStep(i)}
-                className="w-full flex gap-4 p-4 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors text-left group"
+                className="w-full flex gap-4 p-4 rounded-xl bg-secondary/50 text-left"
               >
                 {step.image ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
@@ -381,7 +464,7 @@ export default function RecipeDetailPage() {
                     className="flex-shrink-0 w-20 h-14 rounded-lg object-cover"
                   />
                 ) : (
-                  <span className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                  <span className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center">
                     {i + 1}
                   </span>
                 )}
@@ -391,7 +474,7 @@ export default function RecipeDetailPage() {
                     {step.text}
                   </p>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
 
@@ -400,10 +483,10 @@ export default function RecipeDetailPage() {
             <div className="mt-8 md:hidden">
               <Button
                 className="w-full h-14 text-base font-semibold rounded-2xl shadow-lg"
-                onClick={() => setCurrentStep(0)}
+                onClick={() => setCookingMode(true)}
               >
                 <UtensilsCrossed className="h-5 w-5 mr-2" />
-                Commencer la recette
+                Cuisiner
               </Button>
             </div>
           )}
