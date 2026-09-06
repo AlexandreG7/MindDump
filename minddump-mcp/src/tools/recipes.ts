@@ -6,10 +6,10 @@ export function registerRecipeTools(server: McpServer) {
   // ─── Créer une recette ──────────────────────────────────────
   server.tool(
     "create_recipe",
-    "Créer une nouvelle recette dans MindDump. Si une URL HelloFresh ou Jow est fournie, importe automatiquement avec photo, ingrédients et étapes enrichies. Sinon, crée manuellement.",
+    "Créer une nouvelle recette dans MindDump. Si une URL HelloFresh, Jow ou Quitoque est fournie, importe automatiquement avec photo, ingrédients et étapes enrichies. Sinon, crée manuellement.",
     {
       title: z.string().optional().describe("Nom de la recette (optionnel si URL fournie)"),
-      url: z.string().optional().describe("URL d'une recette HelloFresh ou Jow — si fournie, importe automatiquement avec enrichissement complet"),
+      url: z.string().optional().describe("URL d'une recette HelloFresh, Jow ou Quitoque — si fournie, importe automatiquement avec enrichissement complet"),
       description: z.string().optional().describe("Description courte de la recette"),
       servings: z.number().optional().default(4).describe("Nombre de portions"),
       prepTime: z.number().optional().describe("Temps de préparation en minutes"),
@@ -46,6 +46,22 @@ export function registerRecipeTools(server: McpServer) {
           };
         }
 
+        if (params.url && params.url.includes("quitoque")) {
+          const result = await client.post("/api/recipes/import-quitoque", {
+            url: params.url,
+            servings: params.servings,
+            groupId: params.groupId,
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Recette Quitoque importée avec succès !\n\n${JSON.stringify(result, null, 2)}`,
+              },
+            ],
+          };
+        }
+
         if (params.url && /jow\.fr\/(en\/)?recipes\//.test(params.url)) {
           const result = await client.post("/api/recipes/import-jow", {
             url: params.url,
@@ -64,7 +80,7 @@ export function registerRecipeTools(server: McpServer) {
 
         if (!params.title) {
           return {
-            content: [{ type: "text" as const, text: "Erreur: le titre est requis pour une recette manuelle (ou fournir une URL HelloFresh/Jow)" }],
+            content: [{ type: "text" as const, text: "Erreur: le titre est requis pour une recette manuelle (ou fournir une URL HelloFresh/Jow/Quitoque)" }],
             isError: true,
           };
         }
@@ -187,7 +203,7 @@ export function registerRecipeTools(server: McpServer) {
       try {
         const results = await client.get<{ total: number; results: Array<{ id: string; name: string; headline: string; prepTime: string; imagePath: string | null; url: string }> }>("/api/recipes/search-hellofresh", {
           q: params.query,
-          limit: params.limit,
+          limit: String(params.limit),
         });
 
         if (!results.results?.length) {
@@ -271,6 +287,80 @@ export function registerRecipeTools(server: McpServer) {
             {
               type: "text" as const,
               text: `Recette Jow importée avec succès !\n\n${JSON.stringify(result, null, 2)}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text" as const, text: `Erreur: ${(error as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── Chercher une recette Quitoque ─────────────────────────
+  server.tool(
+    "search_quitoque",
+    "Chercher une recette sur Quitoque par nom. Utilise cette commande pour trouver l'URL d'une recette avant de l'importer.",
+    {
+      query: z.string().describe("Nom de la recette à chercher (ex: 'poulet tikka')"),
+      limit: z.number().optional().default(5).describe("Nombre de résultats max (1-20)"),
+    },
+    async (params) => {
+      try {
+        const results = await client.get<{ total: number; results: Array<{ slug: string; title: string; url: string; image: string | null; duration: string | null }> }>("/api/recipes/search-quitoque", {
+          q: params.query,
+          limit: String(params.limit),
+        });
+
+        if (!results.results?.length) {
+          return {
+            content: [{ type: "text" as const, text: `Aucune recette Quitoque trouvée pour "${params.query}"` }],
+          };
+        }
+
+        const list = results.results.map((r, i) =>
+          `${i + 1}. **${r.title}**${r.duration ? ` — ${r.duration}` : ""}\n   URL: ${r.url}`
+        ).join("\n\n");
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: `${results.total} résultat(s) Quitoque pour "${params.query}" :\n\n${list}`,
+          }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text" as const, text: `Erreur: ${(error as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── Importer une recette Quitoque ──────────────────────────
+  server.tool(
+    "import_quitoque",
+    "Importer une recette depuis une URL Quitoque. Récupère automatiquement le titre, les ingrédients, les étapes, les temps et la photo.",
+    {
+      url: z.string().describe("URL de la recette Quitoque (ex: https://www.quitoque.fr/recettes/poulet-tikka-masala)"),
+      servings: z.number().optional().default(2).describe("Nombre de portions souhaité"),
+      groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
+    },
+    async (params) => {
+      try {
+        const result = await client.post("/api/recipes/import-quitoque", {
+          url: params.url,
+          servings: params.servings,
+          groupId: params.groupId,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Recette Quitoque importée avec succès !\n\n${JSON.stringify(result, null, 2)}`,
             },
           ],
         };
