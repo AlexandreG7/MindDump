@@ -94,6 +94,7 @@ interface WeatherData {
     temperature_2m_max: number[];
     temperature_2m_min: number[];
   };
+  city: string | null;
 }
 
 export default function Dashboard() {
@@ -300,6 +301,9 @@ export default function Dashboard() {
             <CardTitle className="flex items-center gap-2">
               <CloudSun className="h-5 w-5" />
               Météo
+              {weather.city && (
+                <span className="text-sm font-normal text-muted-foreground">— {weather.city}</span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
