@@ -159,6 +159,46 @@ export function registerRecipeTools(server: McpServer) {
     }
   );
 
+  // ─── Chercher une recette HelloFresh ─────────────────────────
+  server.tool(
+    "search_hellofresh",
+    "Chercher une recette sur HelloFresh par nom. Utilise cette commande pour trouver l'URL d'une recette avant de l'importer, par exemple quand l'utilisateur donne un nom de recette ou une photo de fiche HelloFresh.",
+    {
+      query: z.string().describe("Nom de la recette à chercher (ex: 'croque burger poulet')"),
+      limit: z.number().optional().default(5).describe("Nombre de résultats max (1-20)"),
+    },
+    async (params) => {
+      try {
+        const results = await client.get<{ total: number; results: Array<{ id: string; name: string; headline: string; prepTime: string; imagePath: string | null; url: string }> }>("/api/recipes/search-hellofresh", {
+          q: params.query,
+          limit: params.limit,
+        });
+
+        if (!results.results?.length) {
+          return {
+            content: [{ type: "text" as const, text: `Aucune recette trouvée pour "${params.query}"` }],
+          };
+        }
+
+        const list = results.results.map((r, i) =>
+          `${i + 1}. **${r.name}** — ${r.headline || ""}\n   URL: ${r.url}`
+        ).join("\n\n");
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: `${results.total} résultat(s) pour "${params.query}" :\n\n${list}`,
+          }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text" as const, text: `Erreur: ${(error as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
   // ─── Importer une recette HelloFresh ────────────────────────
   server.tool(
     "import_hellofresh",

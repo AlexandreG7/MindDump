@@ -1,0 +1,6 @@
+name = "hellofresh-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-09-25"
+
+[vars]
+PROXY_SECRET = "hf-proxy-minddump-2026"
