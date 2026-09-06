@@ -60,16 +60,17 @@ model User {
   calendarToken String?   @unique
   createdAt     DateTime  @default(now())
 
-  accounts         Account[]
-  sessions         Session[]
-  todos            Todo[]
-  calendarEvents   CalendarEvent[]
-  shoppingLists    ShoppingList[]
-  recipes          Recipe[]
-  ownedGroups      Group[]         @relation("GroupOwner")
-  groupMemberships GroupMember[]
-  featureFlags     UserFeatureFlag[]
-  apiKeys          ApiKey[]
+  accounts              Account[]
+  sessions              Session[]
+  todos                 Todo[]
+  calendarEvents        CalendarEvent[]
+  calendarSubscriptions CalendarSubscription[]
+  shoppingLists         ShoppingList[]
+  recipes               Recipe[]
+  ownedGroups           Group[]         @relation("GroupOwner")
+  groupMemberships      GroupMember[]
+  featureFlags          UserFeatureFlag[]
+  apiKeys               ApiKey[]
 }
 
 // ─── API Keys (pour MCP et intégrations externes) ────────────
@@ -204,6 +205,21 @@ model CalendarEvent {
 
   @@index([userId, date])
   @@index([groupId])
+}
+
+model CalendarSubscription {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  color     String   @default("#3b82f6")
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum ShoppingListType {
