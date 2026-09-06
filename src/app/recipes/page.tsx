@@ -37,6 +37,7 @@ import {
   LayoutGrid,
   List,
   Grid3X3,
+  ArrowUpDown,
 } from "lucide-react";
 
 interface Ingredient {
@@ -56,6 +57,7 @@ interface Recipe {
   steps: string;
   image: string | null;
   planned: boolean;
+  createdAt: string;
   ingredients: Ingredient[];
 }
 
@@ -67,6 +69,7 @@ interface ShoppingList {
 
 type Tab = "catalogue" | "prevues";
 type ViewMode = "grid" | "list" | "compact";
+type SortOption = "recent" | "oldest" | "alpha-asc" | "alpha-desc" | "fastest" | "slowest";
 
 export default function RecipesPage() {
   const { isReady } = useAuth();
@@ -87,6 +90,9 @@ export default function RecipesPage() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [sortBy, setSortBy] = useState<SortOption>("recent");
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
   const [newRecipe, setNewRecipe] = useState({
     title: "",
     description: "",
@@ -149,6 +155,47 @@ export default function RecipesPage() {
       recipe.ingredients.some((ing) => ing.name.toLowerCase().includes(q))
     );
   });
+
+  const sortedRecipes = [...filteredRecipes].sort((a, b) => {
+    switch (sortBy) {
+      case "recent":
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      case "oldest":
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      case "alpha-asc":
+        return a.title.localeCompare(b.title, "fr");
+      case "alpha-desc":
+        return b.title.localeCompare(a.title, "fr");
+      case "fastest": {
+        const ta = (a.prepTime || 0) + (a.cookTime || 0);
+        const tb = (b.prepTime || 0) + (b.cookTime || 0);
+        if (ta === 0 && tb === 0) return 0;
+        if (ta === 0) return 1;
+        if (tb === 0) return -1;
+        return ta - tb;
+      }
+      case "slowest": {
+        const ta = (a.prepTime || 0) + (a.cookTime || 0);
+        const tb = (b.prepTime || 0) + (b.cookTime || 0);
+        if (ta === 0 && tb === 0) return 0;
+        if (ta === 0) return 1;
+        if (tb === 0) return -1;
+        return tb - ta;
+      }
+      default:
+        return 0;
+    }
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const addRecipe = async () => {
     if (!newRecipe.title.trim()) return;
@@ -656,6 +703,43 @@ export default function RecipesPage() {
             </div>
           )}
         </div>
+        <div className="relative" ref={sortRef}>
+          <button
+            onClick={() => setSortOpen(!sortOpen)}
+            title="Trier"
+            className={`p-1.5 rounded-lg transition-all ${
+              sortBy !== "recent"
+                ? "bg-primary/10 text-primary"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <ArrowUpDown className="h-4 w-4" />
+          </button>
+          {sortOpen && (
+            <div className="absolute right-0 top-full mt-1 bg-white border border-border rounded-xl shadow-lg z-20 py-1 w-44 overflow-hidden">
+              {([
+                { value: "recent" as SortOption, label: "Plus récent" },
+                { value: "oldest" as SortOption, label: "Plus ancien" },
+                { value: "alpha-asc" as SortOption, label: "A → Z" },
+                { value: "alpha-desc" as SortOption, label: "Z → A" },
+                { value: "fastest" as SortOption, label: "Plus rapide" },
+                { value: "slowest" as SortOption, label: "Plus long" },
+              ]).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => { setSortBy(value); setSortOpen(false); }}
+                  className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                    sortBy === value
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "hover:bg-secondary"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-0.5 p-1 bg-secondary rounded-lg">
           {([
             { mode: "grid" as ViewMode, icon: LayoutGrid, title: "Grille" },
@@ -679,7 +763,7 @@ export default function RecipesPage() {
       </div>
 
       {/* Empty states */}
-      {activeTab === "prevues" && filteredRecipes.length === 0 && !searchQuery && (
+      {activeTab === "prevues" && sortedRecipes.length === 0 && !searchQuery && (
         <div className="text-center py-16 space-y-3">
           <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
             <CalendarCheck className="h-7 w-7 text-muted-foreground" />
@@ -693,7 +777,7 @@ export default function RecipesPage() {
         </div>
       )}
 
-      {activeTab === "catalogue" && filteredRecipes.length === 0 && !searchQuery && (
+      {activeTab === "catalogue" && sortedRecipes.length === 0 && !searchQuery && (
         <div className="text-center py-16 space-y-3">
           <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
             <BookOpen className="h-7 w-7 text-muted-foreground" />
@@ -705,16 +789,16 @@ export default function RecipesPage() {
         </div>
       )}
 
-      {searchQuery && filteredRecipes.length === 0 && (
+      {searchQuery && sortedRecipes.length === 0 && (
         <p className="text-sm text-muted-foreground py-4">
           Aucun résultat pour &quot;{searchQuery}&quot;
         </p>
       )}
 
       {/* Recipe grid */}
-      {filteredRecipes.length > 0 && viewMode === "grid" && (
+      {sortedRecipes.length > 0 && viewMode === "grid" && (
         <div className="masonry-grid">
-          {filteredRecipes.map((recipe) => (
+          {sortedRecipes.map((recipe) => (
             <RecipeCard
               key={recipe.id}
               recipe={recipe}
@@ -736,9 +820,9 @@ export default function RecipesPage() {
       )}
 
       {/* List view */}
-      {filteredRecipes.length > 0 && viewMode === "list" && (
+      {sortedRecipes.length > 0 && viewMode === "list" && (
         <div className="space-y-2">
-          {filteredRecipes.map((recipe) => (
+          {sortedRecipes.map((recipe) => (
             <div
               key={recipe.id}
               onClick={() => router.push(`/recipes/${recipe.id}`)}
@@ -774,9 +858,9 @@ export default function RecipesPage() {
       )}
 
       {/* Compact grid view */}
-      {filteredRecipes.length > 0 && viewMode === "compact" && (
+      {sortedRecipes.length > 0 && viewMode === "compact" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {filteredRecipes.map((recipe) => (
+          {sortedRecipes.map((recipe) => (
             <div
               key={recipe.id}
               onClick={() => router.push(`/recipes/${recipe.id}`)}
