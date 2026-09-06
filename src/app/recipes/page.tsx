@@ -76,6 +76,9 @@ export default function RecipesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<Tab>("catalogue");
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -114,7 +117,31 @@ export default function RecipesPage() {
     activeTab === "prevues" ? r.planned : true
   );
 
+  const allIngredientNames = Array.from(
+    new Set(recipes.flatMap((r) => r.ingredients.map((i) => i.name.toLowerCase())))
+  ).sort();
+
+  const suggestions = searchQuery.trim().length >= 2
+    ? allIngredientNames
+        .filter((name) => name.includes(searchQuery.toLowerCase()) && !filters.includes(name))
+        .slice(0, 6)
+    : [];
+
+  const addFilter = (name: string) => {
+    setFilters((f) => [...f, name.toLowerCase()]);
+    setSearchQuery("");
+    setShowSuggestions(false);
+  };
+
+  const removeFilter = (name: string) => {
+    setFilters((f) => f.filter((n) => n !== name));
+  };
+
   const filteredRecipes = tabRecipes.filter((recipe) => {
+    const matchesFilters = filters.every((f) =>
+      recipe.ingredients.some((ing) => ing.name.toLowerCase().includes(f))
+    );
+    if (!matchesFilters) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -550,21 +577,64 @@ export default function RecipesPage() {
 
       {/* Search + View toggle */}
       <div className="flex items-center gap-3">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Titre ou ingrédient..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-white"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+        <div className="relative max-w-md flex-1" ref={searchRef}>
+          <div className="flex items-center gap-1.5 flex-wrap bg-white border border-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
+            {filters.map((f) => (
+              <span
+                key={f}
+                className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium pl-2.5 pr-1.5 py-1 rounded-full"
+              >
+                {f}
+                <button
+                  onClick={() => removeFilter(f)}
+                  className="p-0.5 rounded-full hover:bg-primary/20"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <div className="relative flex-1 min-w-[120px]">
+              <Search className={`absolute left-0 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none ${filters.length > 0 ? "hidden" : ""}`} />
+              <input
+                placeholder={filters.length > 0 ? "Ajouter un filtre..." : "Titre ou ingrédient..."}
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onKeyDown={(e) => {
+                  if (e.key === "Backspace" && !searchQuery && filters.length > 0) {
+                    removeFilter(filters[filters.length - 1]);
+                  }
+                  if (e.key === "Enter" && suggestions.length > 0) {
+                    e.preventDefault();
+                    addFilter(suggestions[0]);
+                  }
+                }}
+                className={`w-full bg-transparent text-sm outline-none py-1 ${filters.length > 0 ? "pl-1" : "pl-5"}`}
+              />
+            </div>
+            {(searchQuery || filters.length > 0) && (
+              <button
+                onClick={() => { setSearchQuery(""); setFilters([]); }}
+                className="p-0.5 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-xl shadow-lg z-20 py-1 overflow-hidden">
+              {suggestions.map((name) => (
+                <button
+                  key={name}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => addFilter(name)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-0.5 p-1 bg-secondary rounded-lg">
