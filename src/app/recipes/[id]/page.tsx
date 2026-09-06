@@ -15,6 +15,8 @@ import {
   X,
   Maximize,
   Minimize,
+  CalendarPlus,
+  ShoppingCart,
 } from "lucide-react";
 
 interface Ingredient {
@@ -38,6 +40,7 @@ interface Recipe {
   cookTime: number | null;
   steps: string;
   image: string | null;
+  planned: boolean;
   ingredients: Ingredient[];
 }
 
@@ -272,6 +275,24 @@ export default function RecipeDetailPage() {
     return result % 1 === 0 ? String(result) : result.toFixed(1).replace(".", ",");
   };
 
+  const togglePlanned = async () => {
+    await fetch(`/api/recipes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planned: !recipe.planned }),
+    });
+    fetchRecipe();
+  };
+
+  const addToShoppingList = async () => {
+    await fetch(`/api/recipes/${id}/to-list`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listId: null }),
+    });
+    fetchRecipe();
+  };
+
   const closeCookingMode = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
@@ -310,6 +331,27 @@ export default function RecipeDetailPage() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
+
+        <div className="absolute top-4 right-4 z-10 flex gap-2">
+          <button
+            onClick={togglePlanned}
+            className={`p-2.5 rounded-full backdrop-blur-sm transition-colors ${
+              recipe.planned
+                ? "bg-orange-500 text-white hover:bg-orange-600"
+                : "bg-black/30 text-white hover:bg-black/50"
+            }`}
+            title={recipe.planned ? "Retirer du planning" : "Planifier"}
+          >
+            <CalendarPlus className="h-5 w-5" />
+          </button>
+          <button
+            onClick={addToShoppingList}
+            className="p-2.5 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-colors"
+            title="Ajouter aux courses"
+          >
+            <ShoppingCart className="h-5 w-5" />
+          </button>
+        </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-10">
           <h1
