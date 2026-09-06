@@ -11,8 +11,54 @@ import {
   ChefHat,
   AlertCircle,
   Clock,
+  CloudSun,
+  Droplets,
+  Wind,
+  Sun,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
+  CloudFog,
+  Snowflake,
+  CloudDrizzle,
 } from "lucide-react";
 import { useFeaturesContext } from "@/components/FeaturesContext";
+
+const WMO_LABELS: Record<number, { label: string; icon: typeof Sun }> = {
+  0: { label: "Dégagé", icon: Sun },
+  1: { label: "Peu nuageux", icon: CloudSun },
+  2: { label: "Partiellement nuageux", icon: CloudSun },
+  3: { label: "Couvert", icon: Cloud },
+  45: { label: "Brouillard", icon: CloudFog },
+  48: { label: "Brouillard givrant", icon: CloudFog },
+  51: { label: "Bruine légère", icon: CloudDrizzle },
+  53: { label: "Bruine", icon: CloudDrizzle },
+  55: { label: "Bruine forte", icon: CloudDrizzle },
+  56: { label: "Bruine verglaçante", icon: CloudDrizzle },
+  57: { label: "Bruine verglaçante forte", icon: CloudDrizzle },
+  61: { label: "Pluie légère", icon: CloudRain },
+  63: { label: "Pluie", icon: CloudRain },
+  65: { label: "Pluie forte", icon: CloudRain },
+  66: { label: "Pluie verglaçante", icon: CloudRain },
+  67: { label: "Pluie verglaçante forte", icon: CloudRain },
+  71: { label: "Neige légère", icon: CloudSnow },
+  73: { label: "Neige", icon: CloudSnow },
+  75: { label: "Neige forte", icon: CloudSnow },
+  77: { label: "Grains de neige", icon: Snowflake },
+  80: { label: "Averses légères", icon: CloudRain },
+  81: { label: "Averses", icon: CloudRain },
+  82: { label: "Averses violentes", icon: CloudRain },
+  85: { label: "Averses de neige", icon: CloudSnow },
+  86: { label: "Averses de neige fortes", icon: CloudSnow },
+  95: { label: "Orage", icon: CloudLightning },
+  96: { label: "Orage, grêle légère", icon: CloudLightning },
+  99: { label: "Orage, grêle forte", icon: CloudLightning },
+};
+
+function getWeatherInfo(code: number) {
+  return WMO_LABELS[code] ?? { label: "Inconnu", icon: Cloud };
+}
 
 interface Todo {
   id: string;
@@ -35,18 +81,53 @@ interface ShoppingList {
   items: { id: string; checked: boolean }[];
 }
 
+interface WeatherData {
+  current: {
+    temperature_2m: number;
+    apparent_temperature: number;
+    weather_code: number;
+    wind_speed_10m: number;
+  };
+  daily: {
+    time: string[];
+    weather_code: number[];
+    temperature_2m_max: number[];
+    temperature_2m_min: number[];
+  };
+}
+
 export default function Dashboard() {
   const { session, status, isReady } = useAuth();
   const { flags, loading: flagsLoading } = useFeaturesContext();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [lists, setLists] = useState<ShoppingList[]>([]);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
 
   useEffect(() => {
     if (!isReady || flagsLoading) return;
     if (flags.todos)    fetch("/api/todos").then((r) => r.json()).then(setTodos);
     if (flags.calendar) fetch("/api/calendar").then((r) => r.json()).then(setEvents);
     if (flags.lists)    fetch("/api/lists").then((r) => r.json()).then(setLists);
+
+    const fetchWeather = (lat?: number, lon?: number) => {
+      const params = new URLSearchParams();
+      if (lat != null && lon != null) {
+        params.set("lat", lat.toString());
+        params.set("lon", lon.toString());
+      }
+      fetch(`/api/weather?${params}`).then((r) => r.ok ? r.json() : null).then((d) => d && setWeather(d));
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+        () => fetchWeather(),
+        { timeout: 3000 }
+      );
+    } else {
+      fetchWeather();
+    }
   }, [isReady, flagsLoading, flags.todos, flags.calendar, flags.lists]);
 
   if (status === "loading" || flagsLoading) {
@@ -210,6 +291,65 @@ export default function Dashboard() {
             </Card>
           )}
         </div>
+      )}
+
+      {/* Weather */}
+      {weather && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CloudSun className="h-5 w-5" />
+              Météo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+              {/* Current */}
+              <div className="flex items-center gap-4">
+                {(() => {
+                  const info = getWeatherInfo(weather.current.weather_code);
+                  const Icon = info.icon;
+                  return <Icon className="h-10 w-10 text-primary shrink-0" />;
+                })()}
+                <div>
+                  <div className="text-3xl font-bold">{Math.round(weather.current.temperature_2m)}°C</div>
+                  <p className="text-sm text-muted-foreground">
+                    {getWeatherInfo(weather.current.weather_code).label}
+                  </p>
+                  <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Droplets className="h-3 w-3" />
+                      Ressenti {Math.round(weather.current.apparent_temperature)}°
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Wind className="h-3 w-3" />
+                      {Math.round(weather.current.wind_speed_10m)} km/h
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3-day forecast */}
+              <div className="flex gap-4 sm:ml-auto">
+                {weather.daily.time.slice(1, 4).map((day, i) => {
+                  const idx = i + 1;
+                  const info = getWeatherInfo(weather.daily.weather_code[idx]);
+                  const DayIcon = info.icon;
+                  const label = new Date(day).toLocaleDateString("fr-FR", { weekday: "short" });
+                  return (
+                    <div key={day} className="flex flex-col items-center gap-1 min-w-[3.5rem]">
+                      <span className="text-xs text-muted-foreground capitalize">{label}</span>
+                      <DayIcon className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-xs font-medium">
+                        {Math.round(weather.daily.temperature_2m_max[idx])}° / {Math.round(weather.daily.temperature_2m_min[idx])}°
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {summaryCards.length === 0 && (

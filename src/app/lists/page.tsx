@@ -587,6 +587,18 @@ function GroceryRow({
         <span className="grocery-qty-badge">{group.totalQty}</span>
       )}
 
+      {group.items.some((i) => i.url) && (
+        <a
+          href={group.items.find((i) => i.url)!.url!}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="grocery-icon-btn opacity-0 group-hover:opacity-100 group-active:opacity-100 shrink-0"
+          title="Ouvrir le lien"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      )}
+
       <button
         className="grocery-icon-btn opacity-0 group-hover:opacity-100 group-active:opacity-100 shrink-0"
         onClick={() => onDelete(listId, group.items)}

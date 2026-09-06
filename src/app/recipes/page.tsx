@@ -27,6 +27,7 @@ import {
   Search,
   Camera,
   CalendarCheck,
+  CalendarX2,
   BookOpen,
   BookMarked,
   Users,
@@ -811,7 +812,6 @@ export default function RecipesPage() {
               onAddToList={addToShoppingList}
               onUploadImage={uploadImage}
               onRemoveImage={removeImage}
-              onSaveToCatalogue={() => setActiveTab("catalogue")}
               onOpenDetail={() => router.push(`/recipes/${recipe.id}`)}
               onEnriched={fetchRecipes}
             />
@@ -902,7 +902,6 @@ function RecipeCard({
   onAddToList,
   onUploadImage,
   onRemoveImage,
-  onSaveToCatalogue,
   onOpenDetail,
   onEnriched,
 }: {
@@ -916,7 +915,6 @@ function RecipeCard({
   onAddToList: (recipeId: string, listId?: string) => void;
   onUploadImage: (recipeId: string, file: File) => void;
   onRemoveImage: (recipeId: string) => void;
-  onSaveToCatalogue: () => void;
   onOpenDetail: () => void;
   onEnriched: () => void;
 }) {
@@ -1422,13 +1420,12 @@ function RecipeCard({
       {/* Actions bar */}
       <div className="px-5 py-3 flex items-center gap-2">
         {activeTab === "prevues" ? (
-          /* Dans l'onglet Prévues : bouton pour retirer du planning et sauvegarder au catalogue */
           <button
-            onClick={onSaveToCatalogue}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            onClick={togglePlanned}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
           >
-            <BookMarked className="h-3.5 w-3.5" />
-            Sauvegarder au catalogue
+            <CalendarX2 className="h-3.5 w-3.5" />
+            Retirer
           </button>
         ) : (
           /* Dans le catalogue : bouton pour planifier */
