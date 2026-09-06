@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Rss, Check, Copy, RefreshCw, Link2Off } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -62,6 +62,53 @@ export default function CalendarPage() {
     recurrence: "",
     notifyBefore: "",
   });
+
+  const [feedToken, setFeedToken] = useState<string | null>(null);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedCopied, setFeedCopied] = useState(false);
+  const [feedMenuOpen, setFeedMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (isReady) {
+      fetch("/api/calendar/feed").then((r) => r.json()).then((data) => {
+        if (data?.token) setFeedToken(data.token);
+      });
+    }
+  }, [isReady]);
+
+  const generateFeedToken = async () => {
+    setFeedLoading(true);
+    const res = await fetch("/api/calendar/feed", { method: "POST" });
+    const data = await res.json();
+    setFeedToken(data.token);
+    setFeedLoading(false);
+  };
+
+  const revokeFeedToken = async () => {
+    await fetch("/api/calendar/feed", { method: "DELETE" });
+    setFeedToken(null);
+    setFeedMenuOpen(false);
+  };
+
+  const getFeedUrl = () => {
+    if (!feedToken) return "";
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    return `${base}/api/calendar/feed/${feedToken}`;
+  };
+
+  const getWebcalUrl = () => {
+    return getFeedUrl().replace(/^https?:\/\//, "webcal://");
+  };
+
+  const copyFeedUrl = () => {
+    navigator.clipboard.writeText(getFeedUrl());
+    setFeedCopied(true);
+    setTimeout(() => setFeedCopied(false), 2000);
+  };
+
+  const openInAppleCalendar = () => {
+    window.open(getWebcalUrl(), "_self");
+  };
 
   const fetchEvents = useCallback(() => {
     const month = currentMonth.getMonth() + 1;
@@ -137,13 +184,84 @@ export default function CalendarPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Calendrier</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvel evenement
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          {/* Subscribe / Feed button */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                if (!feedToken) {
+                  generateFeedToken();
+                } else {
+                  setFeedMenuOpen((v) => !v);
+                }
+              }}
+              disabled={feedLoading}
+              className={`p-2 rounded-lg transition-colors ${
+                feedToken
+                  ? "text-primary hover:bg-primary/10"
+                  : "text-muted-foreground hover:bg-secondary"
+              }`}
+              title={feedToken ? "Abonnement calendrier actif" : "S'abonner depuis Apple Calendar"}
+            >
+              <Rss className="h-4 w-4" />
+            </button>
+            {feedMenuOpen && feedToken && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setFeedMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 w-72 bg-popover border border-border rounded-xl shadow-lg p-4 space-y-3">
+                  <p className="text-sm font-medium">Abonnement calendrier</p>
+                  <p className="text-xs text-muted-foreground">
+                    Abonne-toi pour voir tes events MindDump dans Apple Calendar, Google Calendar ou Outlook.
+                  </p>
+                  <button
+                    onClick={() => { openInAppleCalendar(); setFeedMenuOpen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    <Rss className="h-3.5 w-3.5" />
+                    Ouvrir dans Apple Calendar
+                  </button>
+                  <div className="flex gap-2">
+                    <input
+                      readOnly
+                      value={getFeedUrl()}
+                      className="flex-1 text-xs bg-secondary/50 border border-border rounded-lg px-2 py-1.5 font-mono truncate"
+                    />
+                    <button
+                      onClick={copyFeedUrl}
+                      className={`shrink-0 p-1.5 rounded-lg transition-colors ${
+                        feedCopied ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      {feedCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                  <div className="flex gap-2 pt-1 border-t border-border">
+                    <button
+                      onClick={() => { generateFeedToken(); }}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Régénérer
+                    </button>
+                    <button
+                      onClick={revokeFeedToken}
+                      className="flex items-center gap-1.5 text-xs text-destructive hover:text-destructive/80 transition-colors"
+                    >
+                      <Link2Off className="h-3 w-3" />
+                      Révoquer
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Nouvel evenement
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Ajouter un evenement</DialogTitle>
@@ -225,6 +343,7 @@ export default function CalendarPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Month navigation */}
