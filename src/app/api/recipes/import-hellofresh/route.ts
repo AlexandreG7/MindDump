@@ -7,6 +7,7 @@ import {
   fetchHelloFreshPage,
   parseHelloFreshPage,
 } from "@/lib/hellofresh";
+import { resolveGroupId, assertGroupMember } from "@/lib/groupAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const groupId = await resolveGroupId(user.id, body.groupId);
+    const groupErr = await assertGroupMember(groupId, user.id);
+    if (groupErr) return groupErr;
+
     const recipe = await prisma.recipe.create({
       data: {
         title,
@@ -70,7 +75,7 @@ export async function POST(req: NextRequest) {
         image: enriched.heroImage,
         planned: false,
         userId: user.id,
-        groupId: body.groupId || null,
+        groupId,
       },
     });
 
