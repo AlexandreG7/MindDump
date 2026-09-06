@@ -11,6 +11,7 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "**.cloudfront.net" },
       { protocol: "https", hostname: "img.hellofresh.com" },
+      { protocol: "https", hostname: "static.jow.fr" },
     ],
   },
 };

@@ -9,6 +9,7 @@ import {
   extractRecipeId,
   type EnrichedData,
 } from "@/lib/hellofresh";
+import { isJowUrl, fetchJowRecipe } from "@/lib/jow";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,12 @@ export async function POST(
     if (!user) return unauthorized();
 
     const body = await req.json().catch(() => null);
-    if (!body?.url || !String(body.url).includes("hellofresh")) {
+    const url = String(body?.url || "");
+    const isJow = isJowUrl(url);
+    const isHF = url.includes("hellofresh");
+    if (!body?.url || (!isJow && !isHF)) {
       return NextResponse.json(
-        { error: "URL HelloFresh invalide" },
+        { error: "URL invalide — Jow ou HelloFresh attendu" },
         { status: 400 }
       );
     }
@@ -37,30 +41,29 @@ export async function POST(
       return NextResponse.json({ error: "Recette non trouvee" }, { status: 404 });
     }
 
-    const targetUrl = String(body.url).split("?")[0];
-    const recipeHFId = extractRecipeId(targetUrl);
-
+    const targetUrl = url.split("?")[0];
     let scraped: EnrichedData | null = null;
 
-    if (recipeHFId) {
-      const apiData = await fetchFromHelloFreshAPI(recipeHFId);
-      if (apiData?.name) {
-        scraped = parseAPIResponse(apiData, recipe.servings);
+    if (isJow) {
+      const jowData = await fetchJowRecipe(targetUrl, recipe.servings);
+      if (jowData) scraped = jowData;
+    } else {
+      const recipeHFId = extractRecipeId(targetUrl);
+      if (recipeHFId) {
+        const apiData = await fetchFromHelloFreshAPI(recipeHFId);
+        if (apiData?.name) scraped = parseAPIResponse(apiData, recipe.servings);
       }
-    }
-
-    if (!scraped) {
-      try {
-        const html = await fetchHelloFreshPage(targetUrl);
-        scraped = parseHelloFreshPage(html);
-      } catch {
-        // Both strategies failed
+      if (!scraped) {
+        try {
+          const html = await fetchHelloFreshPage(targetUrl);
+          scraped = parseHelloFreshPage(html);
+        } catch { /* Both strategies failed */ }
       }
     }
 
     if (!scraped) {
       return NextResponse.json(
-        { error: "Impossible de recuperer les donnees HelloFresh. Le serveur est peut-etre bloque." },
+        { error: "Impossible de récupérer les données de la recette." },
         { status: 502 }
       );
     }

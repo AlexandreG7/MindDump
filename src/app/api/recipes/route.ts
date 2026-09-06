@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
 import { fetchEnrichedData } from "@/lib/hellofresh";
+import { isJowUrl, fetchJowRecipe } from "@/lib/jow";
 
 export const dynamic = "force-dynamic";
 
@@ -64,10 +65,46 @@ export async function POST(req: NextRequest) {
     include: { ingredients: true },
   });
 
-  // Auto-enrich from HelloFresh if sourceUrl is provided
+  // Auto-enrich from external source if sourceUrl is provided
   let enriched = null;
   const sourceUrl = body.sourceUrl;
-  if (sourceUrl && String(sourceUrl).includes("hellofresh")) {
+  if (sourceUrl && isJowUrl(String(sourceUrl))) {
+    try {
+      const data = await fetchJowRecipe(String(sourceUrl), recipe.servings);
+      if (data) {
+        const updates: Record<string, unknown> = {};
+        if (!recipe.image && data.heroImage) updates.image = data.heroImage;
+        if (!recipe.description && data.description) updates.description = data.description;
+        if (!recipe.prepTime && data.prepTime) updates.prepTime = data.prepTime;
+        if (!recipe.cookTime && data.cookTime) updates.cookTime = data.cookTime;
+
+        let currentSteps: { text: string; image?: string | null }[] = [];
+        try { currentSteps = JSON.parse(recipe.steps); } catch { currentSteps = []; }
+        if (data.steps.length > 0 && currentSteps.length === 0) {
+          updates.steps = JSON.stringify(data.steps);
+        }
+
+        if (recipe.ingredients.length === 0 && data.ingredients.length > 0) {
+          await prisma.recipeIngredient.createMany({
+            data: data.ingredients.map((ing) => ({
+              name: ing.name, quantity: ing.quantity, unit: ing.unit || null, recipeId: recipe.id,
+            })),
+          });
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await prisma.recipe.update({ where: { id: recipe.id }, data: updates });
+        }
+
+        enriched = {
+          image: !!updates.image, description: !!updates.description,
+          steps: !!updates.steps, stepsCount: data.steps.length, stepImages: 0,
+          ingredients: recipe.ingredients.length === 0 ? data.ingredients.length : 0,
+          prepTime: !!updates.prepTime, cookTime: !!updates.cookTime,
+        };
+      }
+    } catch { /* Enrichment failed silently */ }
+  } else if (sourceUrl && String(sourceUrl).includes("hellofresh")) {
     try {
       const data = await fetchEnrichedData(
         String(sourceUrl),

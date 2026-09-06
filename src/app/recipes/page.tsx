@@ -270,22 +270,41 @@ export default function RecipesPage() {
     });
   };
 
-  const importFromHelloFresh = async () => {
+  const importFromUrl = async () => {
     if (!importUrl.trim()) return;
     setImporting(true);
     setImportError("");
     try {
-      const targetUrl = importUrl.trim().split("?")[0];
-      const idMatch = targetUrl.match(/([0-9a-f]{20,})(?:\?|$)/);
+      const targetUrl = importUrl.trim();
+      const isJow = /jow\.fr\/(en\/)?recipes\//.test(targetUrl);
+      const isHelloFresh = targetUrl.includes("hellofresh");
+
+      if (isJow) {
+        const res = await fetch("/api/recipes/import-jow", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: targetUrl, servings: 4, groupId: currentGroupId }),
+        });
+        const data = await res.json().catch(() => ({ error: "Réponse invalide" }));
+        if (!res.ok) throw new Error(data.error || "Erreur inconnue");
+        setImportUrl("");
+        setImportOpen(false);
+        fetchRecipes();
+        router.push(`/recipes/${data.id}`);
+        return;
+      }
+
+      if (!isHelloFresh) throw new Error("URL non reconnue — colle un lien Jow ou HelloFresh");
+
+      const hfUrl = targetUrl.split("?")[0];
+      const idMatch = hfUrl.match(/([0-9a-f]{20,})(?:\?|$)/);
       if (!idMatch) throw new Error("URL HelloFresh invalide — ID de recette introuvable");
       const recipeHFId = idMatch[1];
 
-      // Get token from our server (server can't reach HF, but it stores the token)
       const tokenRes = await fetch("/api/hellofresh-token");
       const tokenData = await tokenRes.json();
       if (!tokenData.token) throw new Error("Token HelloFresh non configure sur le serveur");
 
-      // Call HF API directly from browser (CORS allowed on gw.hellofresh.com)
       const apiRes = await fetch(
         `https://gw.hellofresh.com/api/recipes/${recipeHFId}?country=FR&locale=fr-FR`,
         { headers: { Authorization: `Bearer ${tokenData.token}`, Accept: "application/json" } }
@@ -372,28 +391,28 @@ export default function RecipesPage() {
           <DialogTrigger asChild>
             <Button variant="outline" className="shrink-0">
               <Download className="h-4 w-4 mr-2" />
-              HelloFresh
+              Importer
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Importer depuis HelloFresh</DialogTitle>
+              <DialogTitle>Importer une recette</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Colle le lien d&apos;une recette HelloFresh pour importer automatiquement les ingredients, etapes et photos.
+                Colle le lien d&apos;une recette Jow ou HelloFresh pour importer automatiquement les ingrédients, étapes et photos.
               </p>
               <Input
-                placeholder="https://www.hellofresh.fr/recipes/..."
+                placeholder="https://jow.fr/recipes/... ou https://hellofresh.fr/recipes/..."
                 value={importUrl}
                 onChange={(e) => setImportUrl(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !importing) importFromHelloFresh(); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !importing) importFromUrl(); }}
                 disabled={importing}
               />
               {importError && (
                 <p className="text-sm text-destructive">{importError}</p>
               )}
-              <Button className="w-full" onClick={importFromHelloFresh} disabled={importing || !importUrl.trim()}>
+              <Button className="w-full" onClick={importFromUrl} disabled={importing || !importUrl.trim()}>
                 {importing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />

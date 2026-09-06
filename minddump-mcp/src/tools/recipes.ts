@@ -6,10 +6,10 @@ export function registerRecipeTools(server: McpServer) {
   // ─── Créer une recette ──────────────────────────────────────
   server.tool(
     "create_recipe",
-    "Créer une nouvelle recette dans MindDump. Si une URL HelloFresh est fournie, importe automatiquement avec photo, ingrédients et étapes enrichies. Sinon, crée manuellement.",
+    "Créer une nouvelle recette dans MindDump. Si une URL HelloFresh ou Jow est fournie, importe automatiquement avec photo, ingrédients et étapes enrichies. Sinon, crée manuellement.",
     {
-      title: z.string().optional().describe("Nom de la recette (optionnel si URL HelloFresh fournie)"),
-      url: z.string().optional().describe("URL d'une recette HelloFresh — si fournie, importe automatiquement avec enrichissement complet"),
+      title: z.string().optional().describe("Nom de la recette (optionnel si URL fournie)"),
+      url: z.string().optional().describe("URL d'une recette HelloFresh ou Jow — si fournie, importe automatiquement avec enrichissement complet"),
       description: z.string().optional().describe("Description courte de la recette"),
       servings: z.number().optional().default(4).describe("Nombre de portions"),
       prepTime: z.number().optional().describe("Temps de préparation en minutes"),
@@ -46,9 +46,25 @@ export function registerRecipeTools(server: McpServer) {
           };
         }
 
+        if (params.url && /jow\.fr\/(en\/)?recipes\//.test(params.url)) {
+          const result = await client.post("/api/recipes/import-jow", {
+            url: params.url,
+            servings: params.servings,
+            groupId: params.groupId,
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Recette Jow importée avec succès !\n\n${JSON.stringify(result, null, 2)}`,
+              },
+            ],
+          };
+        }
+
         if (!params.title) {
           return {
-            content: [{ type: "text" as const, text: "Erreur: le titre est requis pour une recette manuelle (ou fournir une URL HelloFresh)" }],
+            content: [{ type: "text" as const, text: "Erreur: le titre est requis pour une recette manuelle (ou fournir une URL HelloFresh/Jow)" }],
             isError: true,
           };
         }
@@ -233,13 +249,47 @@ export function registerRecipeTools(server: McpServer) {
     }
   );
 
+  // ─── Importer une recette Jow ───────────────────────────────
+  server.tool(
+    "import_jow",
+    "Importer une recette depuis une URL Jow. Récupère automatiquement le titre, les ingrédients, les étapes, les temps et la photo.",
+    {
+      url: z.string().describe("URL de la recette Jow (ex: https://jow.fr/recipes/crepes-maison-83jq25q5innb780q0wzk)"),
+      servings: z.number().optional().default(4).describe("Nombre de portions souhaité"),
+      groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
+    },
+    async (params) => {
+      try {
+        const result = await client.post("/api/recipes/import-jow", {
+          url: params.url,
+          servings: params.servings,
+          groupId: params.groupId,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Recette Jow importée avec succès !\n\n${JSON.stringify(result, null, 2)}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text" as const, text: `Erreur: ${(error as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
   // ─── Enrichir une recette avec HelloFresh ──────────────────
   server.tool(
     "enrich_recipe_hellofresh",
-    "Enrichir une recette existante avec les données HelloFresh (photo, ingrédients, étapes détaillées avec images). Utile quand une recette a été créée manuellement.",
+    "Enrichir une recette existante avec les données HelloFresh ou Jow (photo, ingrédients, étapes détaillées). Utile quand une recette a été créée manuellement.",
     {
       recipeId: z.string().describe("ID de la recette à enrichir"),
-      url: z.string().describe("URL de la recette HelloFresh correspondante"),
+      url: z.string().describe("URL de la recette HelloFresh ou Jow correspondante"),
     },
     async (params) => {
       try {
