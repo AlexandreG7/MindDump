@@ -114,10 +114,36 @@ export async function getHelloFreshToken(
   }
 }
 
+async function fetchViaProxy(recipeId: string): Promise<HFRecipeAPI | null> {
+  const proxyUrl = process.env.HELLOFRESH_PROXY_URL;
+  const proxySecret = process.env.HELLOFRESH_PROXY_SECRET;
+  if (!proxyUrl || !proxySecret) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(`${proxyUrl}/api/recipes/${recipeId}`, {
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${proxySecret}`, Accept: "application/json" },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    clearTimeout(timeout);
+    return null;
+  }
+}
+
 export async function fetchFromHelloFreshAPI(
   recipeId: string,
   clientToken?: string
 ): Promise<HFRecipeAPI | null> {
+  // Try Cloudflare proxy first (bypasses IP blocks)
+  const proxied = await fetchViaProxy(recipeId);
+  if (proxied?.name) return proxied;
+
+  // Fallback: direct call
   const token = await getHelloFreshToken(clientToken);
   if (!token) return null;
   const controller = new AbortController();
