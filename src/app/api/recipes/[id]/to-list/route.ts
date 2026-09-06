@@ -41,5 +41,10 @@ export async function POST(
     })),
   });
 
+  await prisma.recipe.update({
+    where: { id: recipe.id },
+    data: { planned: true },
+  });
+
   return NextResponse.json({ listId, added: recipe.ingredients.length });
 }

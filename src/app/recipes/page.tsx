@@ -203,6 +203,7 @@ export default function RecipesPage() {
       body: JSON.stringify({ listId: listId || null }),
     });
     fetchLists();
+    fetchRecipes();
   };
 
   const addIngredientField = () => {
