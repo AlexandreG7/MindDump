@@ -71,6 +71,7 @@ model User {
   groupMemberships      GroupMember[]
   featureFlags          UserFeatureFlag[]
   apiKeys               ApiKey[]
+  kidDayEntries         KidDayEntry[]
 }
 
 // ─── API Keys (pour MCP et intégrations externes) ────────────
@@ -298,4 +299,22 @@ model RecipeIngredient {
   recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@index([recipeId])
+}
+
+model KidDayEntry {
+  id         String   @id @default(cuid())
+  date       String
+  weather    String?
+  mood       String?
+  nap        Boolean?
+  accident   Boolean?
+  activities String   @default("[]") @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
 }

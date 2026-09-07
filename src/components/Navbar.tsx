@@ -17,6 +17,7 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
+  Baby,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ const ALL_NAV_ITEMS = [
   { href: "/calendar", label: "Calendrier", icon: Calendar, feature: "calendar" as FeatureKey },
   { href: "/lists", label: "Courses", icon: ShoppingCart, feature: "lists" as FeatureKey },
   { href: "/recipes", label: "Recettes", icon: ChefHat, feature: "recipes" as FeatureKey },
+  { href: "/kids", label: "Semainier", icon: Baby, feature: "kids" as FeatureKey },
 ];
 
 const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";

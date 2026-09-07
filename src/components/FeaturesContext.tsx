@@ -9,13 +9,14 @@ import React, {
 } from "react";
 import { useSession } from "next-auth/react";
 
-export type FeatureKey = "todos" | "calendar" | "lists" | "recipes";
+export type FeatureKey = "todos" | "calendar" | "lists" | "recipes" | "kids";
 
 const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   todos: true,
   calendar: true,
   lists: true,
   recipes: true,
+  kids: true,
 };
 
 const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
