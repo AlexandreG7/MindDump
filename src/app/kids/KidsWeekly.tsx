@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { addDays, addWeeks, startOfWeek, format, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, X, Maximize2, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Maximize2, Lock, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   NapYes,
@@ -14,6 +14,7 @@ import {
   MOOD_OPTIONS,
   ACTIVITY_OPTIONS,
 } from "@/components/kids/icons";
+import { KidsStats } from "./KidsStats";
 
 interface DayEntry {
   date: string;
@@ -41,6 +42,7 @@ export function KidsWeekly() {
   const [entries, setEntries] = useState<Record<string, DayEntry>>({});
   const [editingDay, setEditingDay] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [exitProgress, setExitProgress] = useState(false);
   const exitTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -140,13 +142,22 @@ export function KidsWeekly() {
         </div>
         <div className="flex items-center gap-1">
           {!fullscreen && (
-            <button
-              onClick={() => setFullscreen(true)}
-              className="kids-fs-enter"
-              title="Mode enfant"
-            >
-              <Maximize2 size={18} />
-            </button>
+            <>
+              <button
+                onClick={() => setShowStats(true)}
+                className="kids-fs-enter"
+                title="Récap semaine"
+              >
+                <BarChart3 size={18} />
+              </button>
+              <button
+                onClick={() => setFullscreen(true)}
+                className="kids-fs-enter"
+                title="Mode enfant"
+              >
+                <Maximize2 size={18} />
+              </button>
+            </>
           )}
           <button
             onClick={() => setWeekStart((w) => addWeeks(w, 1))}
@@ -386,6 +397,10 @@ export function KidsWeekly() {
             </div>
           </div>
         </div>
+      )}
+
+      {showStats && (
+        <KidsStats entries={entries} days={days} onClose={() => setShowStats(false)} />
       )}
     </div>
   );

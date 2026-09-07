@@ -18,14 +18,16 @@ function I({ size = 80, className, children }: IconProps & { children: React.Rea
 export function WeatherSunny(p: IconProps) {
   return (
     <I {...p}>
-      <line x1="40" y1="6" x2="40" y2="18" stroke="#FFA726" strokeWidth="3.5" strokeLinecap="round" />
-      <line x1="40" y1="62" x2="40" y2="74" stroke="#FFA726" strokeWidth="3.5" strokeLinecap="round" />
-      <line x1="6" y1="40" x2="18" y2="40" stroke="#FFA726" strokeWidth="3.5" strokeLinecap="round" />
-      <line x1="62" y1="40" x2="74" y2="40" stroke="#FFA726" strokeWidth="3.5" strokeLinecap="round" />
-      <line x1="16" y1="16" x2="24" y2="24" stroke="#FFA726" strokeWidth="3" strokeLinecap="round" />
-      <line x1="56" y1="24" x2="64" y2="16" stroke="#FFA726" strokeWidth="3" strokeLinecap="round" />
-      <line x1="16" y1="64" x2="24" y2="56" stroke="#FFA726" strokeWidth="3" strokeLinecap="round" />
-      <line x1="56" y1="56" x2="64" y2="64" stroke="#FFA726" strokeWidth="3" strokeLinecap="round" />
+      <g className="kids-sun-rays">
+        <line x1="40" y1="6" x2="40" y2="18" stroke="#FFA726" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="40" y1="62" x2="40" y2="74" stroke="#FFA726" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="6" y1="40" x2="18" y2="40" stroke="#FFA726" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="62" y1="40" x2="74" y2="40" stroke="#FFA726" strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="16" y1="16" x2="24" y2="24" stroke="#FFA726" strokeWidth="3" strokeLinecap="round" />
+        <line x1="56" y1="24" x2="64" y2="16" stroke="#FFA726" strokeWidth="3" strokeLinecap="round" />
+        <line x1="16" y1="64" x2="24" y2="56" stroke="#FFA726" strokeWidth="3" strokeLinecap="round" />
+        <line x1="56" y1="56" x2="64" y2="64" stroke="#FFA726" strokeWidth="3" strokeLinecap="round" />
+      </g>
       <circle cx="40" cy="40" r="18" fill="#FFD54F" stroke="#FFA726" strokeWidth="2.5" />
       <circle cx="34" cy="37" r="2.5" fill="#E65100" />
       <circle cx="46" cy="37" r="2.5" fill="#E65100" />
@@ -73,9 +75,11 @@ export function WeatherRainy(p: IconProps) {
       <circle cx="36" cy="26" r="14" fill="#90A4AE" />
       <circle cx="52" cy="32" r="11" fill="#90A4AE" />
       <rect x="12" y="34" width="50" height="12" rx="6" fill="#90A4AE" />
-      <ellipse cx="24" cy="58" rx="3" ry="5" fill="#42A5F5" />
-      <ellipse cx="38" cy="62" rx="3" ry="5" fill="#42A5F5" />
-      <ellipse cx="52" cy="56" rx="3" ry="5" fill="#42A5F5" />
+      <g className="kids-rain-drops">
+        <ellipse cx="24" cy="58" rx="3" ry="5" fill="#42A5F5" />
+        <ellipse cx="38" cy="62" rx="3" ry="5" fill="#42A5F5" />
+        <ellipse cx="52" cy="56" rx="3" ry="5" fill="#42A5F5" />
+      </g>
     </I>
   );
 }
@@ -87,7 +91,7 @@ export function WeatherStormy(p: IconProps) {
       <circle cx="36" cy="22" r="14" fill="#78909C" />
       <circle cx="52" cy="28" r="11" fill="#78909C" />
       <rect x="12" y="30" width="50" height="12" rx="6" fill="#78909C" />
-      <path d="M42 42 L36 52 L44 52 L36 66" stroke="#FFD54F" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path className="kids-lightning-bolt" d="M42 42 L36 52 L44 52 L36 66" stroke="#FFD54F" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
     </I>
   );
 }
@@ -99,15 +103,21 @@ export function WeatherSnowy(p: IconProps) {
       <circle cx="36" cy="24" r="14" fill="#B3E5FC" />
       <circle cx="52" cy="30" r="11" fill="#B3E5FC" />
       <rect x="12" y="32" width="50" height="12" rx="6" fill="#B3E5FC" />
-      <circle cx="22" cy="56" r="4" fill="white" stroke="#90CAF9" strokeWidth="1.5" />
-      <line x1="22" y1="52" x2="22" y2="60" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="18" y1="56" x2="26" y2="56" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="40" cy="62" r="3.5" fill="white" stroke="#90CAF9" strokeWidth="1.5" />
-      <line x1="40" y1="58.5" x2="40" y2="65.5" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="36.5" y1="62" x2="43.5" y2="62" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="56" cy="54" r="3" fill="white" stroke="#90CAF9" strokeWidth="1.5" />
-      <line x1="56" y1="51" x2="56" y2="57" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="53" y1="54" x2="59" y2="54" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
+      <g className="kids-snowflake" style={{ animationDelay: "0s" }}>
+        <circle cx="22" cy="56" r="4" fill="white" stroke="#90CAF9" strokeWidth="1.5" />
+        <line x1="22" y1="52" x2="22" y2="60" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="18" y1="56" x2="26" y2="56" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
+      </g>
+      <g className="kids-snowflake" style={{ animationDelay: "0.6s" }}>
+        <circle cx="40" cy="62" r="3.5" fill="white" stroke="#90CAF9" strokeWidth="1.5" />
+        <line x1="40" y1="58.5" x2="40" y2="65.5" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="36.5" y1="62" x2="43.5" y2="62" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
+      </g>
+      <g className="kids-snowflake" style={{ animationDelay: "1.2s" }}>
+        <circle cx="56" cy="54" r="3" fill="white" stroke="#90CAF9" strokeWidth="1.5" />
+        <line x1="56" y1="51" x2="56" y2="57" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="53" y1="54" x2="59" y2="54" stroke="#90CAF9" strokeWidth="1.5" strokeLinecap="round" />
+      </g>
     </I>
   );
 }
@@ -330,9 +340,11 @@ export function ActivitySwimming(p: IconProps) {
   return (
     <I {...p}>
       <circle cx="40" cy="40" r="34" fill="#4FC3F7" />
-      <path d="M14 34 Q22 28 30 34 Q38 40 46 34 Q54 28 62 34" stroke="white" strokeWidth="3" strokeLinecap="round" />
-      <path d="M14 46 Q22 40 30 46 Q38 52 46 46 Q54 40 62 46" stroke="white" strokeWidth="3" strokeLinecap="round" />
-      <path d="M14 58 Q22 52 30 58 Q38 64 46 58 Q54 52 62 58" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+      <g className="kids-waves">
+        <path d="M14 34 Q22 28 30 34 Q38 40 46 34 Q54 28 62 34" stroke="white" strokeWidth="3" strokeLinecap="round" />
+        <path d="M14 46 Q22 40 30 46 Q38 52 46 46 Q54 40 62 46" stroke="white" strokeWidth="3" strokeLinecap="round" />
+        <path d="M14 58 Q22 52 30 58 Q38 64 46 58 Q54 52 62 58" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+      </g>
     </I>
   );
 }
