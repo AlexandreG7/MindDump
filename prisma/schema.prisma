@@ -275,6 +275,7 @@ model Recipe {
   steps       String  @db.Text // JSON array of steps
   image       String?
   planned     Boolean @default(false)
+  inCatalog   Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -76,6 +76,7 @@ export async function PATCH(
       ...(body.steps !== undefined && { steps: JSON.stringify(body.steps) }),
       ...(body.image !== undefined && { image: body.image }),
       ...(body.planned !== undefined && { planned: body.planned }),
+      ...(body.inCatalog !== undefined && { inCatalog: body.inCatalog }),
       ...(body.groupId !== undefined && { groupId: body.groupId || null }),
     },
   });

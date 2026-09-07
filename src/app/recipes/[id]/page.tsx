@@ -17,6 +17,7 @@ import {
   Minimize,
   CalendarPlus,
   ShoppingCart,
+  BookMarked,
 } from "lucide-react";
 
 interface Ingredient {
@@ -41,6 +42,7 @@ interface Recipe {
   steps: string;
   image: string | null;
   planned: boolean;
+  inCatalog: boolean;
   ingredients: Ingredient[];
 }
 
@@ -284,6 +286,15 @@ export default function RecipeDetailPage() {
     fetchRecipe();
   };
 
+  const toggleCatalog = async () => {
+    await fetch(`/api/recipes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inCatalog: !recipe.inCatalog }),
+    });
+    fetchRecipe();
+  };
+
   const addToShoppingList = async () => {
     await fetch(`/api/recipes/${id}/to-list`, {
       method: "POST",
@@ -333,6 +344,17 @@ export default function RecipeDetailPage() {
         </button>
 
         <div className="absolute top-4 right-4 z-10 flex gap-2">
+          <button
+            onClick={toggleCatalog}
+            className={`p-2.5 rounded-full backdrop-blur-sm transition-colors ${
+              recipe.inCatalog
+                ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                : "bg-black/30 text-white hover:bg-black/50"
+            }`}
+            title={recipe.inCatalog ? "Retirer du catalogue" : "Ajouter au catalogue"}
+          >
+            <BookMarked className="h-5 w-5" />
+          </button>
           <button
             onClick={togglePlanned}
             className={`p-2.5 rounded-full backdrop-blur-sm transition-colors ${

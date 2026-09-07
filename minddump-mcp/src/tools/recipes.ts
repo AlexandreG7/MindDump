@@ -27,6 +27,7 @@ export function registerRecipeTools(server: McpServer) {
         .describe("Liste des ingrédients (ignoré si URL HelloFresh)"),
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
       planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
+      inCatalog: z.boolean().optional().default(true).describe("Ajouter au catalogue de recettes"),
     },
     async (params) => {
       try {
@@ -35,6 +36,8 @@ export function registerRecipeTools(server: McpServer) {
             url: params.url,
             servings: params.servings,
             groupId: params.groupId,
+            planned: params.planned,
+            inCatalog: params.inCatalog,
           });
           return {
             content: [
@@ -51,6 +54,8 @@ export function registerRecipeTools(server: McpServer) {
             url: params.url,
             servings: params.servings,
             groupId: params.groupId,
+            planned: params.planned,
+            inCatalog: params.inCatalog,
           });
           return {
             content: [
@@ -67,6 +72,8 @@ export function registerRecipeTools(server: McpServer) {
             url: params.url,
             servings: params.servings,
             groupId: params.groupId,
+            planned: params.planned,
+            inCatalog: params.inCatalog,
           });
           return {
             content: [
@@ -95,6 +102,7 @@ export function registerRecipeTools(server: McpServer) {
           ingredients: params.ingredients || [],
           groupId: params.groupId,
           planned: params.planned,
+          inCatalog: params.inCatalog,
         });
 
         return {
@@ -142,7 +150,8 @@ export function registerRecipeTools(server: McpServer) {
             ]
               .filter(Boolean)
               .join(", ");
-            return `- **${r.title}** (id: ${r.id}) — ${r.servings} portions, ${ingredients} ingrédients${time ? `, ${time}` : ""}`;
+            const tags = [r.planned && "📅 prévue", r.inCatalog && "📖 catalogue"].filter(Boolean).join(" ");
+            return `- **${r.title}** (id: ${r.id}) — ${r.servings} portions, ${ingredients} ingrédients${time ? `, ${time}` : ""}${tags ? ` [${tags}]` : ""}`;
           })
           .join("\n");
 
@@ -239,6 +248,8 @@ export function registerRecipeTools(server: McpServer) {
       url: z.string().describe("URL de la recette HelloFresh (ex: https://www.hellofresh.fr/recipes/...)"),
       servings: z.number().optional().default(4).describe("Nombre de portions souhaité"),
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
+      planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
+      inCatalog: z.boolean().optional().default(true).describe("Ajouter au catalogue"),
     },
     async (params) => {
       try {
@@ -246,6 +257,8 @@ export function registerRecipeTools(server: McpServer) {
           url: params.url,
           servings: params.servings,
           groupId: params.groupId,
+          planned: params.planned,
+          inCatalog: params.inCatalog,
         });
 
         return {
@@ -273,6 +286,8 @@ export function registerRecipeTools(server: McpServer) {
       url: z.string().describe("URL de la recette Jow (ex: https://jow.fr/recipes/crepes-maison-83jq25q5innb780q0wzk)"),
       servings: z.number().optional().default(4).describe("Nombre de portions souhaité"),
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
+      planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
+      inCatalog: z.boolean().optional().default(true).describe("Ajouter au catalogue"),
     },
     async (params) => {
       try {
@@ -280,6 +295,8 @@ export function registerRecipeTools(server: McpServer) {
           url: params.url,
           servings: params.servings,
           groupId: params.groupId,
+          planned: params.planned,
+          inCatalog: params.inCatalog,
         });
 
         return {
@@ -347,6 +364,8 @@ export function registerRecipeTools(server: McpServer) {
       url: z.string().describe("URL de la recette Quitoque (ex: https://www.quitoque.fr/recettes/poulet-tikka-masala)"),
       servings: z.number().optional().default(2).describe("Nombre de portions souhaité"),
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
+      planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
+      inCatalog: z.boolean().optional().default(true).describe("Ajouter au catalogue"),
     },
     async (params) => {
       try {
@@ -354,6 +373,8 @@ export function registerRecipeTools(server: McpServer) {
           url: params.url,
           servings: params.servings,
           groupId: params.groupId,
+          planned: params.planned,
+          inCatalog: params.inCatalog,
         });
 
         return {

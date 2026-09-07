@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       steps: stepsValue,
       image: body.image || null,
       planned: body.planned === true,
+      inCatalog: body.inCatalog === true,
       userId: user.id,
       groupId,
       ingredients: {

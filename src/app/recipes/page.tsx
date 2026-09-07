@@ -58,6 +58,7 @@ interface Recipe {
   steps: string;
   image: string | null;
   planned: boolean;
+  inCatalog: boolean;
   createdAt: string;
   ingredients: Ingredient[];
 }
@@ -121,7 +122,7 @@ export default function RecipesPage() {
   }, [isReady, fetchRecipes, fetchLists]);
 
   const tabRecipes = recipes.filter((r) =>
-    activeTab === "prevues" ? r.planned : true
+    activeTab === "prevues" ? r.planned : r.inCatalog
   );
 
   const allIngredientNames = Array.from(
@@ -212,6 +213,7 @@ export default function RecipesPage() {
         steps: newRecipe.steps.filter((s) => s.trim()),
         ingredients: newRecipe.ingredients.filter((i) => i.name.trim()),
         planned: activeTab === "prevues",
+        inCatalog: activeTab === "catalogue",
         groupId: currentGroupId,
       }),
     });
@@ -252,7 +254,30 @@ export default function RecipesPage() {
   };
 
   const deleteRecipe = async (id: string) => {
-    await fetch(`/api/recipes/${id}`, { method: "DELETE" });
+    const recipe = recipes.find((r) => r.id === id);
+    if (!recipe) return;
+
+    if (activeTab === "prevues") {
+      if (recipe.inCatalog) {
+        await fetch(`/api/recipes/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planned: false }),
+        });
+      } else {
+        await fetch(`/api/recipes/${id}`, { method: "DELETE" });
+      }
+    } else {
+      if (recipe.planned) {
+        await fetch(`/api/recipes/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inCatalog: false }),
+        });
+      } else {
+        await fetch(`/api/recipes/${id}`, { method: "DELETE" });
+      }
+    }
     fetchRecipes();
   };
 
@@ -331,7 +356,7 @@ export default function RecipesPage() {
         const res = await fetch("/api/recipes/import-jow", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: targetUrl, servings: 4, groupId: currentGroupId }),
+          body: JSON.stringify({ url: targetUrl, servings: 4, groupId: currentGroupId, planned: activeTab === "prevues", inCatalog: activeTab === "catalogue" }),
         });
         const data = await res.json().catch(() => ({ error: "Réponse invalide" }));
         if (!res.ok) throw new Error(data.error || "Erreur inconnue");
@@ -403,7 +428,8 @@ export default function RecipesPage() {
           cookTime: totalTime ? Math.round(totalTime * 0.6) : null,
           steps,
           image: heroImage,
-          planned: false,
+          planned: activeTab === "prevues",
+          inCatalog: activeTab === "catalogue",
           groupId: currentGroupId,
           ingredients,
         }),
@@ -422,6 +448,7 @@ export default function RecipesPage() {
   };
 
   const plannedCount = recipes.filter((r) => r.planned).length;
+  const catalogCount = recipes.filter((r) => r.inCatalog).length;
 
   if (!isReady) return null;
 
@@ -432,7 +459,7 @@ export default function RecipesPage() {
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">Recettes</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {recipes.length} recette{recipes.length !== 1 ? "s" : ""} au catalogue
+            {catalogCount} recette{catalogCount !== 1 ? "s" : ""} au catalogue
           </p>
         </div>
         <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) { setImportUrl(""); setImportError(""); } }}>
@@ -637,7 +664,7 @@ export default function RecipesPage() {
           <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
             activeTab === "catalogue" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
           }`}>
-            {recipes.length}
+            {catalogCount}
           </span>
         </button>
       </div>
@@ -849,8 +876,11 @@ export default function RecipesPage() {
                   </span>
                 )}
               </div>
-              {recipe.planned && (
+              {activeTab === "catalogue" && recipe.planned && (
                 <CalendarCheck className="h-4 w-4 text-primary shrink-0 mr-4" />
+              )}
+              {activeTab === "prevues" && recipe.inCatalog && (
+                <BookMarked className="h-4 w-4 text-emerald-500 shrink-0 mr-4" />
               )}
             </div>
           ))}
@@ -1250,11 +1280,10 @@ function RecipeCard({
             <UtensilsCrossed className="h-10 w-10 text-orange-300 relative z-10" />
           </div>
         )}
-        {/* Planned badge on image */}
-        {recipe.planned && activeTab === "prevues" && (
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-primary text-white text-xs font-medium px-2.5 py-1 rounded-full z-10">
-            <CalendarCheck className="h-3 w-3" />
-            Prévue
+        {activeTab === "prevues" && recipe.inCatalog && (
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-foreground text-xs font-medium px-2.5 py-1 rounded-full z-10">
+            <BookMarked className="h-3 w-3" />
+            Catalogue
           </div>
         )}
         <button
@@ -1420,15 +1449,25 @@ function RecipeCard({
       {/* Actions bar */}
       <div className="px-5 py-3 flex items-center gap-2">
         {activeTab === "prevues" ? (
-          <button
-            onClick={togglePlanned}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-          >
-            <CalendarX2 className="h-3.5 w-3.5" />
-            Retirer
-          </button>
+          <>
+            <button
+              onClick={() => onDelete(recipe.id)}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            >
+              <CalendarX2 className="h-3.5 w-3.5" />
+              Retirer
+            </button>
+            {!recipe.inCatalog && (
+              <button
+                onClick={() => onUpdate(recipe.id, { inCatalog: true })}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <BookMarked className="h-3.5 w-3.5" />
+                Garder au catalogue
+              </button>
+            )}
+          </>
         ) : (
-          /* Dans le catalogue : bouton pour planifier */
           <button
             onClick={togglePlanned}
             className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
