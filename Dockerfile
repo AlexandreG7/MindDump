@@ -16,6 +16,7 @@ ENV NEXT_PUBLIC_SKIP_AUTH=${NEXT_PUBLIC_SKIP_AUTH}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
+ENV NODE_OPTIONS="--max-old-space-size=512"
 RUN npm run build
 
 # Production image
