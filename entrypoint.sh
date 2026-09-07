@@ -7,6 +7,9 @@ node ./node_modules/prisma/build/index.js db push --skip-generate --accept-data-
 echo "Backfilling public IDs..."
 node prisma/backfill-public-ids.js
 
+echo "Backfilling inCatalog for existing recipes..."
+node prisma/backfill-in-catalog.js
+
 echo "Cleaning up phantom todos..."
 node prisma/cleanup-phantom-todos.js
 
