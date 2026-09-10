@@ -1154,3 +1154,318 @@
     color: white;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   Landing page
+   Animations are transform/opacity only. Scroll-driven sections
+   receive their progress as CSS variables written from rAF.
+   ════════════════════════════════════════════════════════════ */
+
+.lp-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: hsl(var(--background));
+  scroll-behavior: smooth;
+}
+
+.lp-shell {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.lp-alt {
+  background: hsl(220 14% 98%);
+  border-top: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.lp-title {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  font-size: clamp(1.9rem, 4.4vw, 3rem);
+}
+
+/* Headings inside a sticky viewport-height section, where vertical budget is tight. */
+@media (max-width: 640px) {
+  .lp-title-compact {
+    font-size: 1.6rem;
+  }
+}
+
+.lp-eyebrow {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--primary));
+}
+
+/* ── Reveal on scroll ── */
+.lp-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lp-reveal[data-revealed="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+.lp-reveal-left  { transform: translateX(-32px); }
+.lp-reveal-right { transform: translateX(32px); }
+.lp-reveal-scale { transform: translateY(24px) scale(0.97); }
+
+/* ── Hero ── */
+.lp-hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+@keyframes lp-enter {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes lp-enter-mock {
+  from { opacity: 0; transform: translateY(44px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+.lp-in {
+  animation: lp-enter 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.lp-in-mock {
+  animation: lp-enter-mock 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.lp-h1 {
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  font-size: clamp(2.6rem, 7.6vw, 5.1rem);
+}
+
+/* Handwritten mental-load notes drifting behind the hero */
+.lp-note {
+  font-family: "Caveat", cursive;
+  position: absolute;
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.6rem;
+  background: #fff;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  font-size: 1.15rem;
+  color: hsl(220 15% 38%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@keyframes lp-drift {
+  0%   { transform: translate3d(0, 0, 0) rotate(var(--rot, 0deg)); }
+  50%  { transform: translate3d(0, -16px, 0) rotate(calc(var(--rot, 0deg) + 1.6deg)); }
+  100% { transform: translate3d(0, 0, 0) rotate(var(--rot, 0deg)); }
+}
+
+.lp-note-drift {
+  animation: lp-drift var(--dur, 9s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes lp-scroll-hint {
+  0%   { transform: scaleY(0); transform-origin: top; opacity: 0; }
+  40%  { transform: scaleY(1); transform-origin: top; opacity: 1; }
+  60%  { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+  100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+}
+
+.lp-scroll-hint {
+  width: 1px;
+  height: 44px;
+  background: hsl(var(--primary));
+  animation: lp-scroll-hint 2.1s ease-in-out infinite;
+}
+
+/* ── Chaos: scattered notes converging into a stack ── */
+.lp-chaos-stage {
+  position: relative;
+  height: 360px;
+}
+
+.lp-chaos-note {
+  --cx: calc((var(--x0) + var(--dx) * var(--cp, 0)) * var(--ampx, 1));
+  --cy: calc((var(--y0) + var(--dy) * var(--cp, 0)) * var(--ampy, 1));
+  --cr: calc(var(--r0) + var(--dr) * var(--cp, 0));
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: -6.25rem;
+  margin-top: -0.95rem;
+  width: 12.5rem;
+  padding: 0.3rem 0.75rem;
+  text-align: center;
+  transform: translate3d(calc(var(--cx) * 1px), calc(var(--cy) * 1px), 0)
+    rotate(calc(var(--cr) * 1deg));
+  will-change: transform;
+}
+
+/* Narrow screens keep the convergence, with a tighter spread. */
+@media (max-width: 640px) {
+  .lp-chaos-stage {
+    --ampx: 0.34;
+    --ampy: 0.74;
+  }
+
+  .lp-chaos-note {
+    width: 9.5rem;
+    margin-left: -4.75rem;
+    font-size: 0.95rem;
+    padding: 0.2rem 0.5rem;
+  }
+}
+
+/* ── The loop: scroll-driven demo ── */
+/* Shared by every viewport-height sticky stage. The top padding keeps content
+   clear of the sticky header that floats above it. */
+.lp-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding-top: 4rem;
+}
+
+.lp-step-dot {
+  height: 3px;
+  flex: 1;
+  border-radius: 999px;
+  background: hsl(var(--border));
+  overflow: hidden;
+}
+
+.lp-step-dot::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  transform: scaleX(var(--fill, 0));
+  transform-origin: left;
+}
+
+.lp-source-card {
+  opacity: calc(1 - var(--p2, 0));
+  transform: translate3d(0, calc(var(--p2, 0) * -18px), 0);
+}
+
+.lp-recipe-card {
+  opacity: var(--p2, 0);
+  transform: translate3d(0, calc((1 - var(--p2, 0)) * 22px), 0)
+    scale(calc(0.96 + var(--p2, 0) * 0.04));
+}
+
+.lp-ing {
+  --ip: clamp(0, calc(var(--p3, 0) * 7 - var(--i)), 1);
+  opacity: var(--ip);
+  transform: translate3d(calc((1 - var(--ip)) * -14px), 0, 0);
+}
+
+.lp-cart-item {
+  --cip: clamp(0, calc(var(--p4, 0) * 7 - var(--i)), 1);
+  opacity: var(--cip);
+  transform: translate3d(calc((1 - var(--cip)) * 20px), 0, 0);
+}
+
+.lp-cart-check {
+  transform: scale(var(--cip, 0));
+}
+
+.lp-cart-bar {
+  transform: scaleX(var(--p4, 0));
+  transform-origin: left;
+}
+
+/* ── Modules ── */
+.lp-card {
+  background: #fff;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.lp-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.07);
+}
+
+/* ── Week strip ── */
+@keyframes lp-rise {
+  from { opacity: 0; transform: translateY(28px) scaleY(0.9); }
+  to   { opacity: 1; transform: none; }
+}
+
+.lp-day[data-revealed="true"] {
+  animation: lp-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--delay, 0s);
+}
+
+.lp-day { opacity: 0; transform-origin: bottom; }
+
+/* ── Assistant terminal ── */
+@keyframes lp-caret {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.lp-caret {
+  display: inline-block;
+  width: 8px;
+  height: 1.05em;
+  vertical-align: text-bottom;
+  background: hsl(var(--primary));
+  animation: lp-caret 1s steps(1) infinite;
+}
+
+/* ── Motion-safe fallbacks ── */
+@media (prefers-reduced-motion: reduce) {
+  .lp-root { scroll-behavior: auto; }
+
+  .lp-reveal,
+  .lp-reveal-left,
+  .lp-reveal-right,
+  .lp-reveal-scale {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .lp-in,
+  .lp-in-mock,
+  .lp-note-drift,
+  .lp-scroll-hint,
+  .lp-day,
+  .lp-caret {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

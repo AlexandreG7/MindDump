@@ -18,7 +18,8 @@ export default middleware;
 
 export const config = {
   matcher: [
-    "/",
+    // "/" stays public: it serves the landing page to visitors and the
+    // dashboard to authenticated users.
     "/todos/:path*",
     "/calendar/:path*",
     "/lists/:path*",
