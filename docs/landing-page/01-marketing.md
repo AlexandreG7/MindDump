@@ -46,10 +46,12 @@ Le foyer utilise **quatre applications qui ne se parlent pas**. La recette est c
 
 **Angle différenciant, dans l'ordre de force :**
 
-1. **Agrégateur, pas silo.** Seule app qui importe depuis HelloFresh *et* Jow *et* Quitoque. On ne demande pas à l'utilisateur de changer de crémerie — on va chercher la recette là où il l'a déjà trouvée.
-2. **La boucle complète.** Recette importée → ingrédients extraits → liste de courses générée → mode cuisine. Un seul geste là où il en fallait six.
-3. **Conçu pour un foyer, pas pour un individu.** Les groupes ne sont pas une feature entreprise recyclée : c'est le modèle de données de base.
-4. **Pilotable par IA.** Le serveur MCP permet de dire « ajoute la blanquette de jeudi à la liste de courses » — l'app devient une interface conversationnelle.
+1. **L'IA voit et écrit à ta place.** Le serveur MCP donne à un assistant (Claude, ou tout client MCP) un accès en écriture à l'app. Comme l'assistant a la vision, la saisie disparaît : on photographie une page de recette et la fiche se crée ; on photographie l'intérieur du frigo et l'assistant invente une recette avec ce qu'il reste, puis l'ajoute aux repas planifiés. **C'est le différenciant le plus fort et le plus défendable** — aucun concurrent grand public ne l'offre.
+2. **Agrégateur, pas silo.** Seule app qui importe depuis HelloFresh *et* Jow *et* Quitoque. On ne demande pas à l'utilisateur de changer de crémerie — on va chercher la recette là où il l'a déjà trouvée.
+3. **La boucle complète.** Recette importée → ingrédients extraits → liste de courses générée → mode cuisine. Un seul geste là où il en fallait six.
+4. **Conçu pour un foyer, pas pour un individu.** Les groupes ne sont pas une feature entreprise recyclée : c'est le modèle de données de base.
+
+> ⚠️ **Honnêteté de la promesse.** L'app n'a pas de bouton appareil-photo natif. Le geste passe par l'assistant IA connecté en MCP. La page doit le dire — « connecte ton assistant » — sans jamais laisser croire à une caméra intégrée.
 
 ---
 
@@ -102,12 +104,12 @@ Utilise le semainier : humeur, sieste, activités, météo.
 
 **Bénéfice fonctionnel (les sections) :** dans cet ordre de démonstration —
 
-1. **Import de recettes multi-sources** → le « waouh » immédiat, et le plus différenciant
-2. **Recette → liste de courses automatique** → l'économie de temps la plus tangible
-3. **Partage familial** → ce qui transforme un outil perso en outil de foyer
-4. **Tâches + calendrier** → la complétude, la raison de fermer les autres apps
-5. **Semainier enfant** → la surprise, ce que personne d'autre ne propose
-6. **Assistant IA** → la preuve d'avance technique
+1. **Recette → liste de courses automatique** → l'économie de temps la plus tangible, et la meilleure entrée en matière
+2. **La photo → l'app (assistant IA)** → le « waouh », et le différenciant le plus défendable. Deux gestes à montrer : photo d'une recette imprimée, photo du frigo
+3. **Import multi-sources** → HelloFresh, Jow, Quitoque : la preuve qu'on s'adapte aux habitudes existantes
+4. **Partage familial** → ce qui transforme un outil perso en outil de foyer
+5. **Tâches + calendrier** → la complétude, la raison de fermer les autres apps
+6. **Semainier enfant** → anecdotique pour la majorité de l'audience. Reste dans la grille des modules, ne mérite pas de section dédiée
 
 ⚠️ **Règle de rédaction :** parler bénéfice, jamais feature. Pas « import HelloFresh » mais « la recette repérée ce matin est déjà dans ta liste de courses ».
 
@@ -117,7 +119,8 @@ Utilise le semainier : humeur, sieste, activités, météo.
 
 | Objection | Réponse dans la page |
 |---|---|
-| *« Encore une app à remplir »* | Montrer l'import : le contenu arrive **tout seul** depuis les sites déjà utilisés. Zéro saisie. |
+| *« Encore une app à remplir »* | Montrer l'import **et la photo** : le contenu arrive tout seul, depuis les sites déjà utilisés ou depuis une simple photo. Zéro saisie. |
+| *« L'IA, c'est du gadget »* | Deux cas concrets et quotidiens, pas une démo abstraite : la page de livre photographiée, et le frigo à vider avant les courses. |
 | *« Ma famille ne l'utilisera jamais »* | Invitation par simple lien, pas de compte à configurer. Montrer la friction quasi nulle. |
 | *« Je n'ai pas besoin de tout ça »* | Feature flags : afficher explicitement qu'on active seulement ce qu'on veut. Désamorce le « too much ». |
 | *« Mes données familiales »* | Auto-hébergeable, données du foyer isolées par groupe. À afficher discrètement mais visiblement. |
@@ -147,13 +150,12 @@ Utilise le semainier : humeur, sieste, activités, météo.
 
 ## 8. Structure de page recommandée
 
-1. **Hero** — « Vide ta charge mentale » + double CTA
+1. **Hero** — « Vide ta charge mentale », badge IA, double CTA
 2. **Le problème** — la charge mentale rendue visible, puis rangée
-3. **La boucle** *(scroll-driven, pièce maîtresse)* — recette → ingrédients → liste
-4. **Les modules** — révélation en cascade des 5 domaines
-5. **Le foyer** — partage, invitation par lien
-6. **Le semainier** — la différenciation inattendue
-7. **L'assistant IA** — la preuve technique
-8. **CTA final** — créer un compte / se connecter
+3. **La boucle** *(scroll-driven)* — recette → ingrédients → liste
+4. **L'assistant IA** *(pièce maîtresse)* — photo d'une recette, photo du frigo, puis la commande en langage naturel
+5. **Les modules** — révélation en cascade des 5 domaines, semainier compris
+6. **Le foyer** — partage, invitation par lien
+7. **CTA final** — créer un compte / se connecter
 
 Détail de mise en œuvre : voir [`02-ux-ui.md`](./02-ux-ui.md).

@@ -1198,6 +1198,19 @@
   }
 }
 
+.lp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(24 85% 40%);
+  background: hsl(24 90% 96%);
+  border: 1px solid hsl(24 80% 88%);
+}
+
 .lp-eyebrow {
   font-size: 0.8125rem;
   font-weight: 600;
@@ -1223,6 +1236,15 @@
 .lp-reveal-left  { transform: translateX(-32px); }
 .lp-reveal-right { transform: translateX(32px); }
 .lp-reveal-scale { transform: translateY(24px) scale(0.97); }
+
+/* Narrow screens have no room for a lateral offset — it would push the page
+   wider than the viewport before the element reveals. */
+@media (max-width: 640px) {
+  .lp-reveal-left,
+  .lp-reveal-right {
+    transform: translateY(24px);
+  }
+}
 
 /* ── Hero ── */
 .lp-hero {
@@ -1417,19 +1439,6 @@
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.07);
 }
 
-/* ── Week strip ── */
-@keyframes lp-rise {
-  from { opacity: 0; transform: translateY(28px) scaleY(0.9); }
-  to   { opacity: 1; transform: none; }
-}
-
-.lp-day[data-revealed="true"] {
-  animation: lp-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: var(--delay, 0s);
-}
-
-.lp-day { opacity: 0; transform-origin: bottom; }
-
 /* ── Assistant terminal ── */
 @keyframes lp-caret {
   0%, 49%   { opacity: 1; }
@@ -1445,8 +1454,145 @@
   animation: lp-caret 1s steps(1) infinite;
 }
 
+/* ── AI section: stylised camera shots ── */
+.lp-frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  background: hsl(220 16% 18%);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.12);
+}
+
+.lp-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid hsl(var(--primary));
+  z-index: 2;
+}
+
+.lp-corner-tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; border-radius: 5px 0 0 0; }
+.lp-corner-tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; border-radius: 0 5px 0 0; }
+.lp-corner-bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; border-radius: 0 0 0 5px; }
+.lp-corner-br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; border-radius: 0 0 5px 0; }
+
+.lp-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 38%;
+  z-index: 1;
+  opacity: 0;
+  transform: translateY(-110%);
+  border-bottom: 2px solid hsl(var(--primary));
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(24 85% 53% / 0.18) 60%,
+    hsl(24 85% 53% / 0.42)
+  );
+}
+
+@keyframes lp-scan {
+  0%   { transform: translateY(-110%); opacity: 0; }
+  12%  { opacity: 1; }
+  82%  { opacity: 1; }
+  100% { transform: translateY(260%); opacity: 0; }
+}
+
+.lp-frame[data-revealed="true"] .lp-scan {
+  animation: lp-scan 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s both;
+}
+
+/* Fridge interior */
+.lp-fridge {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(165deg, hsl(200 26% 93%), hsl(200 18% 84%));
+}
+
+.lp-shelf {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  height: 3px;
+  border-radius: 999px;
+  background: hsl(200 14% 70%);
+}
+
+.lp-food {
+  position: absolute;
+  display: block;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+/* Printed recipe page */
+.lp-page {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  padding: 11% 10%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lp-page-photo {
+  display: block;
+  height: 32%;
+  border-radius: 0.5rem;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, hsl(24 80% 62%), hsl(42 85% 66%));
+}
+
+.lp-line {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: hsl(220 13% 85%);
+}
+
+.lp-line-gap { margin-top: 7px; }
+
+/* Recognised items and the resulting recipe */
+@keyframes lp-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+.lp-chip {
+  display: inline-block;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(220 15% 32%);
+  background: #fff;
+  border: 1px solid hsl(var(--border));
+  opacity: 0;
+}
+
+.lp-chip[data-revealed="true"],
+.lp-outcome[data-revealed="true"] {
+  animation: lp-pop 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--delay, 0s);
+}
+
+.lp-outcome { opacity: 0; }
+
 /* ── Motion-safe fallbacks ── */
 @media (prefers-reduced-motion: reduce) {
+  .lp-scan { display: none !important; }
+
+  .lp-chip,
+  .lp-outcome {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
   .lp-root { scroll-behavior: auto; }
 
   .lp-reveal,
@@ -1462,7 +1608,6 @@
   .lp-in-mock,
   .lp-note-drift,
   .lp-scroll-hint,
-  .lp-day,
   .lp-caret {
     animation: none !important;
     opacity: 1 !important;

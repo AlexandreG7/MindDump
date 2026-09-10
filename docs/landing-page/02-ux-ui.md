@@ -13,14 +13,13 @@ La page raconte un arc en trois temps : **le chaos → la mise en ordre → la v
 | # | Section | Ce que le visiteur doit ressentir | Ce qu'il doit comprendre |
 |---|---|---|---|
 | 0 | **Header sticky** | « je peux entrer quand je veux » | Où se connecter |
-| 1 | **Hero** | Reconnaissance immédiate | MindDump vide la charge mentale du foyer |
+| 1 | **Hero** | Reconnaissance immédiate | MindDump vide la charge mentale — et une IA la remplit à ta place |
 | 2 | **Le chaos** | « c'est exactement ma tête » | Le problème est nommé, précisément |
-| 3 | **La boucle** ★ | « attends, c'est *tout* ce qu'il y a à faire ? » | Recette → courses en un geste |
-| 4 | **Les modules** | Étendue, complétude | 5 domaines, activables à la carte |
-| 5 | **Le foyer** | « ma famille pourrait suivre » | Partage par lien, données communes |
-| 6 | **Le semainier** | Surprise | Ce que personne d'autre ne fait |
-| 7 | **L'assistant IA** | Respect technique | L'app se pilote en langage naturel |
-| 8 | **CTA final** | Décision | Créer un compte, ou se connecter |
+| 3 | **La boucle** | « attends, c'est *tout* ce qu'il y a à faire ? » | Recette → courses en un geste |
+| 4 | **L'assistant IA** ★ | « donc je n'ai littéralement rien à saisir » | Une photo suffit — page de recette, ou intérieur du frigo |
+| 5 | **Les modules** | Étendue, complétude | 5 domaines, activables à la carte, semainier compris |
+| 6 | **Le foyer** | « ma famille pourrait suivre » | Partage par lien, données communes |
+| 7 | **CTA final** | Décision | Créer un compte, ou se connecter |
 
 ★ = pièce maîtresse.
 
@@ -40,7 +39,7 @@ Trois familles d'animation, jamais mélangées dans une même section :
 
 Au chargement, pas au scroll. Cascade de 5 temps, décalés de 90 ms :
 
-1. Eyebrow (« L'app du foyer ») — fade + montée 12 px
+1. Badge IA (« Photographie ton frigo, l'IA s'occupe du dîner ») — fade + montée 12 px
 2. H1 « Vide ta charge mentale » — fade + montée 20 px
 3. Sous-titre — fade + montée 16 px
 4. Double CTA — fade + montée 12 px
@@ -59,7 +58,7 @@ L'animation *est* l'argument. Deux états pilotés par le scroll (scrub) :
 
 Techniquement : chaque note interpole sa transform entre deux jeux de coordonnées via une seule valeur de progression. Aucun reflow — uniquement `transform` et `opacity`.
 
-### Section 3 — La boucle ★ (scroll-driven, pièce maîtresse)
+### Section 3 — La boucle (scroll-driven)
 
 **Section haute (300 vh) en `position: sticky`.** Le visuel reste fixe pendant que le scroll pilote une démonstration en 4 phases.
 
@@ -74,25 +73,34 @@ Un **indicateur d'étapes** (4 pastilles) s'illumine au fil des phases : le visi
 
 **Pourquoi ça sert le message :** l'utilisateur *fait* le geste avec son doigt. Il ne lit pas « on génère la liste automatiquement » — il la voit se remplir sous son scroll. C'est la traduction littérale du bénéfice n°2 de l'analyse marketing.
 
-### Section 4 — Les modules : révélation en cascade
+### Section 4 — L'assistant IA ★ (pièce maîtresse)
 
-Grille de 5 cartes. Chacune se révèle au franchissement du seuil, avec un délai indexé sur sa position (`index * 80 ms`) : fade + montée 24 px + `scale(0.97 → 1)`.
+Trois preuves, de la plus spectaculaire à la plus sobre.
+
+**Deux scénarios photo**, alternés gauche/droite, chacun déclenché au reveal :
+
+1. Un **cadre de visée** (coins orange) contenant une illustration CSS — une page de recette imprimée, puis l'intérieur d'un frigo.
+2. Une **ligne de scan** orange balaie le cadre de haut en bas (1,6 s) : c'est le geste de reconnaissance, rendu visible.
+3. Les **éléments reconnus** apparaissent en pastilles, en cascade indexée (110 ms d'écart) — « Courgette », « Œufs », « Feta »…
+4. La **fiche résultante** monte : titre, méta, et la confirmation verte « Ajoutée à ton catalogue » / « Ajoutée à tes repas planifiés ».
+
+**Puis le terminal MCP**, en clôture : une phrase se tape caractère par caractère, la réponse suit. Registre volontairement sobre après deux démonstrations visuelles.
+
+**Pourquoi ça sert le message :** l'objection principale d'une app d'organisation est « encore une app à remplir ». Ces deux scénarios y répondent frontalement — le contenu entre sans saisie. Le frigo va plus loin que l'import : il crée de la valeur là où l'utilisateur n'avait rien à importer du tout.
+
+**Honnêteté visuelle :** les illustrations sont des dessins CSS assumés, jamais de fausses photos ni de captures truquées. La page dit explicitement que le geste passe par un assistant compatible MCP, pas par une caméra intégrée à l'app.
+
+### Section 5 — Les modules : révélation en cascade
+
+Grille de 5 cartes (le semainier y figure comme un module parmi d'autres, sans section dédiée). Chacune se révèle au franchissement du seuil, avec un délai indexé sur sa position (`index * 80 ms`) : fade + montée 24 px + `scale(0.97 → 1)`.
 
 Au survol : élévation de l'ombre, translation −4 px, icône qui pivote légèrement. Discret — conforme à la préférence du projet pour des interactions sobres.
 
-### Section 5 — Le foyer
+### Section 6 — Le foyer
 
-Reveal latéral : le bloc de texte entre par la gauche (−32 px), le visuel par la droite (+32 px). Le visuel montre trois avatars rejoignant un cercle commun, avec un lien d'invitation qui se « copie » en boucle.
+Reveal latéral sur écran large : le texte entre par la gauche (−32 px), le visuel par la droite (+32 px). Sous 640 px l'offset devient vertical, sinon il élargirait la page au-delà du viewport. Le visuel montre trois avatars rejoignant un cercle commun, avec un lien d'invitation qui se « copie » en boucle.
 
-### Section 6 — Le semainier
-
-Sept colonnes (lun → dim) qui montent depuis le bas, façon barres d'histogramme, décalées de 60 ms. Chacune porte une émoticône d'humeur et une pastille météo. L'effet évoque la semaine qui se construit.
-
-### Section 7 — L'assistant IA
-
-Terminal stylisé. Une phrase se tape caractère par caractère (« Ajoute la blanquette de jeudi à la liste de courses »), puis la réponse apparaît. Déclenché au reveal, joué une seule fois.
-
-### Section 8 — CTA final
+### Section 7 — CTA final
 
 Fond en dégradé orange. Le bloc monte de 24 px au reveal. Double bouton : **Créer un compte** (plein) et **Se connecter** (fantôme).
 
@@ -132,8 +140,8 @@ Mobile-first. Testé mentalement de 375 px à 2560 px.
 | Le chaos | Grille de notes 3×3 → 2 colonnes, amplitude de dispersion réduite | L'effet de convergence reste lisible |
 | **La boucle** | Le sticky passe de 300 vh à 260 vh ; recette et liste s'empilent verticalement au lieu de côte à côte ; le mouvement latéral devient vertical | **L'animation est conservée, pas supprimée** — c'est l'argument principal de la page |
 | Modules | 3 colonnes → 1 | — |
-| Le foyer | Côte à côte → empilé, visuel en second | — |
-| Semainier | 7 colonnes conservées, largeur réduite | La semaine doit rester lisible d'un bloc |
+| Le foyer | Côte à côte → empilé, visuel en second. Les décalages de révélation passent de latéraux à verticaux | Un offset latéral élargirait la page au-delà du viewport |
+| **Assistant IA** | Cadre de visée et texte s'empilent ; le cadre garde son ratio 4/3 et les pastilles passent sur plusieurs lignes | Le scan et la cascade sont conservés à l'identique |
 
 **Règle :** aucune animation n'est retirée sur mobile. Les amplitudes sont réduites, les axes réorientés — le mobile n'est pas une version amputée.
 

@@ -8,10 +8,9 @@ import {
   ChefHat,
   Link2,
   ShoppingCart,
-  Sparkles,
   ToggleLeft,
 } from "lucide-react";
-import { Reveal, useReveal, useScrub, useTypewriter } from "./motion";
+import { Reveal, useScrub } from "./motion";
 
 /* ── 2. The chaos: scattered notes converging into a tidy stack ── */
 
@@ -207,113 +206,7 @@ export function HouseholdSection() {
   );
 }
 
-/* ── 6. The week strip ── */
-
-const WEEK = [
-  { day: "Lun", mood: "🙂", weather: "☀️" },
-  { day: "Mar", mood: "😄", weather: "⛅" },
-  { day: "Mer", mood: "😴", weather: "🌧️" },
-  { day: "Jeu", mood: "🙂", weather: "☀️" },
-  { day: "Ven", mood: "😄", weather: "☀️" },
-  { day: "Sam", mood: "🤩", weather: "⛅" },
-  { day: "Dim", mood: "🙂", weather: "🌧️" },
-];
-
-export function WeekSection() {
-  const { ref, revealed } = useReveal(0.3);
-
-  return (
-    <section className="py-24 md:py-32">
-      <div className="lp-shell">
-        <Reveal className="text-center max-w-2xl mx-auto">
-          <p className="lp-eyebrow">Semainier</p>
-          <h2 className="lp-title mt-2">La semaine de ton enfant, d&apos;un coup d&apos;œil.</h2>
-          <p className="text-muted-foreground mt-4">
-            Humeur, sieste, activités, météo. Un journal continu que les deux parents
-            remplissent — et des tendances qui apparaissent sur le mois.
-          </p>
-        </Reveal>
-
-        <div ref={ref} className="grid grid-cols-7 gap-1.5 sm:gap-3 mt-12 max-w-3xl mx-auto">
-          {WEEK.map((entry, i) => (
-            <div
-              key={entry.day}
-              data-revealed={revealed}
-              className="lp-day lp-card p-2 sm:p-4 text-center"
-              style={{ ["--delay" as string]: `${i * 60}ms` }}
-            >
-              <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-                {entry.day}
-              </p>
-              <p className="text-xl sm:text-3xl mt-1.5 sm:mt-3">{entry.mood}</p>
-              <p className="text-sm sm:text-lg mt-1">{entry.weather}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ── 7. The assistant ── */
-
-export function AssistantSection() {
-  const { ref, revealed } = useReveal(0.4);
-  const typed = useTypewriter(
-    "Ajoute la blanquette de jeudi à la liste de courses",
-    revealed
-  );
-  const done = typed.length > 46;
-
-  return (
-    <section className="py-24 md:py-32 lp-alt">
-      <div className="lp-shell max-w-3xl">
-        <Reveal className="text-center">
-          <p className="lp-eyebrow">Assistant</p>
-          <h2 className="lp-title mt-2">Ou demande-le, simplement.</h2>
-          <p className="text-muted-foreground mt-4">
-            MindDump expose un serveur MCP : ton assistant IA peut lire et écrire dans l&apos;app
-            à ta place.
-          </p>
-        </Reveal>
-
-        <div ref={ref} className="lp-card mt-10 overflow-hidden font-mono text-sm">
-          <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border bg-[hsl(220_14%_98%)]">
-            {["hsl(0 72% 62%)", "hsl(40 90% 58%)", "hsl(142 50% 50%)"].map((tint) => (
-              <span
-                key={tint}
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ background: tint }}
-              />
-            ))}
-            <span className="text-xs text-muted-foreground ml-2 font-sans">minddump-mcp</span>
-          </div>
-
-          <div className="p-4 sm:p-5 space-y-3 min-h-[8.5rem]">
-            <p className="break-words">
-              <span className="text-primary select-none">&gt;&nbsp;</span>
-              {typed}
-              {!done && <span className="lp-caret ml-0.5" />}
-            </p>
-
-            {done && (
-              <div className="lp-reveal" data-revealed="true">
-                <p className="text-muted-foreground flex items-start gap-2">
-                  <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                  <span>
-                    6 ingrédients ajoutés à <strong>Courses de la semaine</strong>.
-                  </span>
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ── 8. Final call to action ── */
+/* ── 7. Final call to action ── */
 
 export function CtaSection() {
   return (

@@ -2,17 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Calendar, ChefHat, ShoppingCart } from "lucide-react";
+import { AlertCircle, Calendar, ChefHat, ShoppingCart, Sparkles } from "lucide-react";
 import { ScrollRootContext } from "./motion";
 import { LoopSection } from "./LoopSection";
-import {
-  AssistantSection,
-  ChaosSection,
-  CtaSection,
-  HouseholdSection,
-  ModulesSection,
-  WeekSection,
-} from "./Sections";
+import { AiSection } from "./AiSection";
+import { ChaosSection, CtaSection, HouseholdSection, ModulesSection } from "./Sections";
 
 const HERO_NOTES: {
   text: string;
@@ -92,9 +86,12 @@ function Hero() {
       </div>
 
       <div className="lp-shell relative text-center py-20">
-        <p className="lp-eyebrow lp-in" style={{ animationDelay: "0ms" }}>
-          L&apos;app du foyer
-        </p>
+        <div className="lp-in" style={{ animationDelay: "0ms" }}>
+          <span className="lp-badge">
+            <Sparkles className="h-3.5 w-3.5" />
+            Photographie ton frigo, l&apos;IA s&apos;occupe du dîner
+          </span>
+        </div>
 
         <h1 className="lp-h1 mt-4 lp-in" style={{ animationDelay: "90ms" }}>
           Vide ta charge mentale.
@@ -105,7 +102,8 @@ function Hero() {
           style={{ animationDelay: "180ms" }}
         >
           Les repas, les courses, les tâches et le calendrier de toute la famille au même
-          endroit. Pour que plus personne n&apos;ait à tout retenir.
+          endroit — et un assistant IA qui les remplit à ta place. Pour que plus personne
+          n&apos;ait à tout retenir.
         </p>
 
         <div
@@ -179,10 +177,9 @@ export function Landing() {
           <Hero />
           <ChaosSection />
           <LoopSection />
+          <AiSection />
           <ModulesSection />
           <HouseholdSection />
-          <WeekSection />
-          <AssistantSection />
           <CtaSection />
         </div>
       </div>
