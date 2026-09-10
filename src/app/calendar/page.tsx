@@ -35,7 +35,9 @@ import {
   CalendarDays,
   Grid3X3,
   X,
+  HelpCircle,
 } from "lucide-react";
+import Link from "next/link";
 import {
   format,
   startOfMonth,
@@ -325,6 +327,15 @@ export default function CalendarPage() {
           >
             <Link2 className="h-4 w-4" />
           </button>
+
+          {/* Help */}
+          <Link
+            href="/docs#calendrier"
+            className="p-2 rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
+            title="Documentation"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </Link>
 
           {/* Feed export */}
           <div className="relative">

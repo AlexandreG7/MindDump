@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSessionUser } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
-  const lat = req.nextUrl.searchParams.get("lat") || "48.8566";
-  const lon = req.nextUrl.searchParams.get("lon") || "2.3522";
+  let lat = req.nextUrl.searchParams.get("lat");
+  let lon = req.nextUrl.searchParams.get("lon");
+
+  if (!lat || !lon) {
+    const user = await getSessionUser();
+    if (user) {
+      const saved = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { weatherLat: true, weatherLon: true },
+      });
+      if (saved?.weatherLat != null && saved?.weatherLon != null) {
+        lat = String(saved.weatherLat);
+        lon = String(saved.weatherLon);
+      }
+    }
+  }
+
+  lat = lat || "48.8566";
+  lon = lon || "2.3522";
 
   const weatherUrl = new URL("https://api.open-meteo.com/v1/forecast");
   weatherUrl.searchParams.set("latitude", lat);

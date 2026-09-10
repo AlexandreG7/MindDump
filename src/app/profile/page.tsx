@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,9 @@ import {
   Hash,
   UserPlus,
   Share2,
+  MapPin,
+  LocateFixed,
+  BookOpen,
 } from "lucide-react";
 import { useFeaturesContext, type FeatureKey } from "@/components/FeaturesContext";
 
@@ -74,13 +78,71 @@ export default function ProfilePage() {
   const [publicId, setPublicId] = useState<string | null>(null);
   const [publicIdCopied, setPublicIdCopied] = useState(false);
 
+  // ── Weather location state ──────────────────────────────────────
+  const [weatherCity, setWeatherCity] = useState<string | null>(null);
+  const [weatherQuery, setWeatherQuery] = useState("");
+  const [weatherResults, setWeatherResults] = useState<
+    { name: string; latitude: number; longitude: number; admin1?: string; country?: string }[]
+  >([]);
+  const [weatherSearchLoading, setWeatherSearchLoading] = useState(false);
+  const [weatherSaving, setWeatherSaving] = useState(false);
+  const [weatherLocating, setWeatherLocating] = useState(false);
+
   useEffect(() => {
     if (isReady) {
       fetch("/api/users/me").then((r) => r.json()).then((data) => {
         if (data?.publicId) setPublicId(data.publicId);
+        if (data?.weatherCity) setWeatherCity(data.weatherCity);
       });
     }
   }, [isReady]);
+
+  const saveWeatherLocation = async (lat: number | null, lon: number | null, city: string | null) => {
+    setWeatherSaving(true);
+    const res = await fetch("/api/users/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weatherLat: lat, weatherLon: lon, weatherCity: city }),
+    });
+    const data = await res.json();
+    setWeatherSaving(false);
+    if (res.ok) {
+      setWeatherCity(data.weatherCity);
+      setWeatherResults([]);
+      setWeatherQuery("");
+    }
+  };
+
+  const searchWeatherCity = async (query: string) => {
+    setWeatherQuery(query);
+    if (query.trim().length < 2) {
+      setWeatherResults([]);
+      return;
+    }
+    setWeatherSearchLoading(true);
+    const res = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=fr`
+    );
+    const data = await res.json();
+    setWeatherSearchLoading(false);
+    setWeatherResults(data?.results ?? []);
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) return;
+    setWeatherLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const res = await fetch(`/api/weather?lat=${latitude}&lon=${longitude}`);
+        const data = res.ok ? await res.json() : null;
+        setWeatherLocating(false);
+        saveWeatherLocation(latitude, longitude, data?.city ?? null);
+      },
+      () => setWeatherLocating(false),
+      { timeout: 5000 }
+    );
+  };
 
   const copyPublicId = () => {
     if (publicId) {
@@ -345,9 +407,18 @@ export default function ProfilePage() {
   return (
     <div className="space-y-8 max-w-2xl mx-auto">
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Profil</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Gère ton compte et tes groupes</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Profil</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Gère ton compte et tes groupes</p>
+        </div>
+        <Link
+          href="/docs"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-1"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          Documentation
+        </Link>
       </div>
 
       {/* ── Infos compte ────────────────────────────────────────── */}
@@ -517,6 +588,83 @@ export default function ProfilePage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* ── Météo ────────────────────────────────────────────────── */}
+      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Météo</h2>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-1">
+          Localisation utilisée pour la météo du dashboard. Sans réglage, la position du navigateur est demandée à chaque visite.
+        </p>
+
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40">
+          <MapPin className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground">Ville actuelle</p>
+            <p className="text-sm font-semibold truncate">
+              {weatherCity ?? "Automatique (position du navigateur)"}
+            </p>
+          </div>
+          {weatherCity && (
+            <button
+              onClick={() => saveWeatherLocation(null, null, null)}
+              disabled={weatherSaving}
+              className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+              title="Revenir à la détection automatique"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-1.5 relative">
+          <Label>Changer de ville</Label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Ex: Lyon, Bruxelles…"
+              value={weatherQuery}
+              onChange={(e) => searchWeatherCity(e.target.value)}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={useCurrentLocation}
+              disabled={weatherLocating}
+              className="shrink-0"
+              title="Utiliser ma position actuelle"
+            >
+              <LocateFixed className="h-4 w-4" />
+            </Button>
+          </div>
+          {(weatherResults.length > 0 || weatherSearchLoading) && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-10 bg-popover border border-border rounded-xl shadow-lg overflow-hidden">
+              {weatherSearchLoading ? (
+                <p className="text-sm text-muted-foreground px-3 py-2">Recherche…</p>
+              ) : (
+                weatherResults.map((r, i) => (
+                  <button
+                    key={i}
+                    onClick={() =>
+                      saveWeatherLocation(
+                        r.latitude,
+                        r.longitude,
+                        [r.name, r.admin1].filter(Boolean).join(", ")
+                      )
+                    }
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+                  >
+                    <span className="font-medium">{r.name}</span>
+                    {r.admin1 && <span className="text-muted-foreground"> — {r.admin1}</span>}
+                    {r.country && <span className="text-muted-foreground">, {r.country}</span>}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* ── Feature flags ───────────────────────────────────────── */}

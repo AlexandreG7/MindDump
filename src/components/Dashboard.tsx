@@ -120,15 +120,19 @@ export function Dashboard() {
       fetch(`/api/weather?${params}`).then((r) => r.ok ? r.json() : null).then((d) => d && setWeather(d));
     };
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
-        () => fetchWeather(),
-        { timeout: 3000 }
-      );
-    } else {
-      fetchWeather();
-    }
+    fetch("/api/users/me").then((r) => r.ok ? r.json() : null).then((me) => {
+      if (me?.weatherLat != null && me?.weatherLon != null) {
+        fetchWeather(me.weatherLat, me.weatherLon);
+      } else if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+          () => fetchWeather(),
+          { timeout: 3000 }
+        );
+      } else {
+        fetchWeather();
+      }
+    });
   }, [isReady, flagsLoading, flags.todos, flags.calendar, flags.lists]);
 
   if (status === "loading" || flagsLoading) {
