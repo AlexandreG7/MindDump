@@ -10,6 +10,9 @@ node prisma/backfill-public-ids.js
 echo "Backfilling inCatalog for existing recipes..."
 node prisma/backfill-in-catalog.js
 
+echo "Attaching synced calendars to their group..."
+node prisma/backfill-subscription-groups.js
+
 echo "Cleaning up phantom todos..."
 node prisma/cleanup-phantom-todos.js
 

@@ -125,6 +125,7 @@ model Group {
   invites        GroupInvite[]
   todos          Todo[]
   calendarEvents CalendarEvent[]
+  calendarSubscriptions CalendarSubscription[]
   shoppingLists  ShoppingList[]
   recipes        Recipe[]
 
@@ -224,8 +225,11 @@ model CalendarSubscription {
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId String?
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([groupId])
 }
 
 enum ShoppingListType {

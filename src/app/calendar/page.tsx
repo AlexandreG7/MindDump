@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "@/lib/useAuth";
+import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +39,7 @@ import {
   HelpCircle,
   Palette,
   Repeat,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -79,15 +81,19 @@ interface CalendarEvent {
 interface Subscription {
   id: string;
   name: string;
-  url: string;
+  url: string | null;
   color: string;
   enabled: boolean;
+  groupId: string | null;
+  groupName: string | null;
+  isOwner: boolean;
 }
 
 type ViewMode = "month" | "year";
 
 export default function CalendarPage() {
   const { isReady } = useAuth();
+  const { currentGroupId, currentGroup } = useGroupContext();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -168,6 +174,11 @@ export default function CalendarPage() {
       .then((r) => r.json())
       .then((subs: Subscription[]) => {
         setSubscriptions(subs);
+        // Purge les événements d'abonnements auxquels on n'a plus accès.
+        const ids = new Set(subs.map((s) => s.id));
+        setExternalEvents((prev) =>
+          prev.filter((e) => e.subscriptionId && ids.has(e.subscriptionId))
+        );
         subs.forEach((sub) => {
           if (sub.enabled) {
             fetch(`/api/calendar/subscriptions/${sub.id}`)
@@ -196,7 +207,11 @@ export default function CalendarPage() {
     await fetch("/api/calendar/subscriptions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newSub.name, url: newSub.url }),
+      body: JSON.stringify({
+        name: newSub.name,
+        url: newSub.url,
+        groupId: currentGroupId,
+      }),
     });
     setNewSub({ name: "", url: "" });
     setSubDialogOpen(false);
@@ -239,6 +254,7 @@ export default function CalendarPage() {
         allDay: !newEvent.time,
         recurrence: newEvent.recurrence || null,
         color: newEvent.color || null,
+        groupId: currentGroupId,
         notifyBefore: newEvent.notifyBefore
           ? Number(newEvent.notifyBefore)
           : null,
@@ -586,6 +602,20 @@ export default function CalendarPage() {
               Dans Apple Calendar : clic droit sur un calendrier → Partager le
               calendrier → Calendrier public → copie l&apos;URL webcal://
             </p>
+            <p className="text-sm text-muted-foreground">
+              {currentGroup ? (
+                <>
+                  Les evenements seront synchronises pour{" "}
+                  <span className="text-foreground font-medium">
+                    {currentGroup.name}
+                  </span>{" "}
+                  : tous les membres du groupe les verront dans leur
+                  calendrier.
+                </>
+              ) : (
+                "Les evenements seront synchronises pour ton groupe : tous ses membres les verront dans leur calendrier."
+              )}
+            </p>
             <div>
               <Label>Nom</Label>
               <Input
@@ -623,19 +653,35 @@ export default function CalendarPage() {
           {subscriptions.map((sub) => (
             <div
               key={sub.id}
-              className="flex items-center gap-1.5 text-xs bg-secondary/50 rounded-full px-2.5 py-1"
+              className="group flex items-center gap-1.5 text-xs bg-secondary/50 rounded-full px-2.5 py-1"
+              title={
+                sub.groupName
+                  ? `Synchronise pour ${sub.groupName}${
+                      sub.isOwner ? "" : " (ajoute par un autre membre)"
+                    }`
+                  : undefined
+              }
             >
               <div
                 className="w-2 h-2 rounded-full"
                 style={{ backgroundColor: sub.color }}
               />
               <span>{sub.name}</span>
-              <button
-                onClick={() => deleteSubscription(sub.id)}
-                className="p-0.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-destructive transition-colors"
-              >
-                <X className="h-3 w-3" />
-              </button>
+              {sub.groupName && (
+                <span className="text-muted-foreground flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  {sub.groupName}
+                </span>
+              )}
+              {sub.isOwner && (
+                <button
+                  onClick={() => deleteSubscription(sub.id)}
+                  title="Retirer ce calendrier"
+                  className="p-0.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
           ))}
         </div>
