@@ -16,5 +16,8 @@ node prisma/backfill-subscription-groups.js
 echo "Cleaning up phantom todos..."
 node prisma/cleanup-phantom-todos.js
 
+echo "Reassigning dev-user data to the real account (idempotent)..."
+node prisma/reassign-dev-user.js
+
 echo "Starting Next.js server..."
 exec node server.js
