@@ -16,8 +16,5 @@ node prisma/backfill-subscription-groups.js
 echo "Cleaning up phantom todos..."
 node prisma/cleanup-phantom-todos.js
 
-echo "Ensuring a single default group (idempotent)..."
-node prisma/fix-default-group.js
-
 echo "Starting Next.js server..."
 exec node server.js
