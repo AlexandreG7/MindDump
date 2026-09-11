@@ -273,10 +273,11 @@ export default function GroupsPage() {
                 {group.isOwner && !group.isDefault && editingId !== group.id && (
                   <button
                     onClick={() => setDefaultGroup(group.id)}
-                    className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-amber-600 hover:bg-amber-50 text-xs font-medium transition-colors"
                     title="Définir comme groupe par défaut"
                   >
                     <Star className="h-4 w-4" />
+                    <span className="hidden sm:inline">Définir par défaut</span>
                   </button>
                 )}
                 {group.isOwner && editingId !== group.id && (
