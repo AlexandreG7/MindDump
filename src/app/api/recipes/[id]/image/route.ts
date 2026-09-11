@@ -2,8 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { writeFile, mkdir, unlink } from "fs/promises";
+import { randomBytes } from "crypto";
 import path from "path";
 import { existsSync } from "fs";
+
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 Mo
+
+// Détecte le type réel à partir des magic bytes (ne pas se fier à l'extension
+// ou au nom de fichier fournis par le client).
+function detectImageExt(buf: Buffer): string | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpg";
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "png";
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return "gif";
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) return "webp";
+  return null;
+}
 
 export async function POST(
   req: NextRequest,
@@ -11,6 +28,15 @@ export async function POST(
 ) {
   const user = await getSessionUser();
   if (!user) return unauthorized();
+
+  // 1. Vérifier la propriété de la recette AVANT toute écriture disque.
+  const recipe = await prisma.recipe.findFirst({
+    where: { id: params.id, userId: user.id },
+    select: { id: true, image: true },
+  });
+  if (!recipe) {
+    return NextResponse.json({ error: "Non trouvé" }, { status: 404 });
+  }
 
   const formData = await req.formData();
   const file = formData.get("image") as File;
@@ -21,32 +47,34 @@ export async function POST(
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-  const allowed = ["jpg", "jpeg", "png", "webp", "gif"];
-  if (!allowed.includes(ext)) {
+  if (buffer.length > MAX_IMAGE_BYTES) {
+    return NextResponse.json({ error: "Fichier trop volumineux (max 8 Mo)" }, { status: 400 });
+  }
+
+  // 2. Valider le type réel via les magic bytes (pas l'extension fournie).
+  const ext = detectImageExt(buffer);
+  if (!ext) {
     return NextResponse.json({ error: "Format non supporté" }, { status: 400 });
   }
 
-  const filename = `${params.id}-${Date.now()}.${ext}`;
+  // 3. Nom de fichier aléatoire (jamais dérivé d'une entrée client → pas de
+  //    traversée de chemin).
+  const filename = `${recipe.id}-${randomBytes(8).toString("hex")}.${ext}`;
   const uploadDir = path.join(process.cwd(), "public", "uploads", "recipes");
   await mkdir(uploadDir, { recursive: true });
   await writeFile(path.join(uploadDir, filename), buffer);
 
   // Delete old image if exists
-  const existing = await prisma.recipe.findFirst({
-    where: { id: params.id, userId: user.id },
-    select: { image: true },
-  });
-  if (existing?.image) {
-    const oldPath = path.join(process.cwd(), "public", existing.image);
+  if (recipe.image) {
+    const oldPath = path.join(process.cwd(), "public", recipe.image);
     if (existsSync(oldPath)) {
       await unlink(oldPath).catch(() => {});
     }
   }
 
   const imageUrl = `/uploads/recipes/${filename}`;
-  await prisma.recipe.updateMany({
-    where: { id: params.id, userId: user.id },
+  await prisma.recipe.update({
+    where: { id: recipe.id },
     data: { image: imageUrl },
   });
 

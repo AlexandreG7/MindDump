@@ -1,3 +1,4 @@
+import { randomInt } from "crypto";
 import { prisma } from "./prisma";
 
 const CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -5,7 +6,7 @@ const CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
 function randomId(length = 6): string {
   let result = "";
   for (let i = 0; i < length; i++) {
-    result += CHARS[Math.floor(Math.random() * CHARS.length)];
+    result += CHARS[randomInt(CHARS.length)];
   }
   return result;
 }

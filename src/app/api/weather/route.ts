@@ -20,18 +20,28 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  lat = lat || "48.8566";
-  lon = lon || "2.3522";
+  // Valider/normaliser les coordonnées (empêche l'injection de paramètres dans
+  // les URL en aval et les valeurs hors bornes).
+  const nlat = Number(lat);
+  const nlon = Number(lon);
+  const latNum = Number.isFinite(nlat) && nlat >= -90 && nlat <= 90 ? nlat : 48.8566;
+  const lonNum = Number.isFinite(nlon) && nlon >= -180 && nlon <= 180 ? nlon : 2.3522;
 
   const weatherUrl = new URL("https://api.open-meteo.com/v1/forecast");
-  weatherUrl.searchParams.set("latitude", lat);
-  weatherUrl.searchParams.set("longitude", lon);
+  weatherUrl.searchParams.set("latitude", String(latNum));
+  weatherUrl.searchParams.set("longitude", String(lonNum));
   weatherUrl.searchParams.set("current", "temperature_2m,apparent_temperature,weather_code,wind_speed_10m");
   weatherUrl.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min");
   weatherUrl.searchParams.set("timezone", "auto");
   weatherUrl.searchParams.set("forecast_days", "4");
 
-  const geoUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10&accept-language=fr`;
+  const geoUrlObj = new URL("https://nominatim.openstreetmap.org/reverse");
+  geoUrlObj.searchParams.set("lat", String(latNum));
+  geoUrlObj.searchParams.set("lon", String(lonNum));
+  geoUrlObj.searchParams.set("format", "json");
+  geoUrlObj.searchParams.set("zoom", "10");
+  geoUrlObj.searchParams.set("accept-language", "fr");
+  const geoUrl = geoUrlObj.toString();
 
   const [weatherRes, geoRes] = await Promise.all([
     fetch(weatherUrl.toString(), { next: { revalidate: 1800 } }),

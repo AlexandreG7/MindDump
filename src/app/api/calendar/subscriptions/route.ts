@@ -26,6 +26,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "URL et nom requis" }, { status: 400 });
   }
 
+  // N'accepter que des URL http(s) (bloque javascript:, file:, data:, etc.
+  // qui seraient ensuite refetchées côté client).
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return NextResponse.json({ error: "URL invalide" }, { status: 400 });
+  }
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    return NextResponse.json({ error: "URL invalide (http/https uniquement)" }, { status: 400 });
+  }
+
   const sub = await prisma.calendarSubscription.create({
     data: {
       name,
