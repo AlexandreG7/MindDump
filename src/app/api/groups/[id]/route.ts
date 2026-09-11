@@ -54,12 +54,22 @@ export async function PATCH(
     return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
   }
 
-  const updated = await prisma.group.update({
-    where: { id: params.id },
-    data,
-    include: {
-      members: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
-    },
+  // Un seul groupe par défaut par propriétaire : si on définit celui-ci comme
+  // défaut, on retire le flag des autres groupes du même propriétaire.
+  const updated = await prisma.$transaction(async (tx) => {
+    if (data.isDefault === true) {
+      await tx.group.updateMany({
+        where: { ownerId: user.id, id: { not: params.id }, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+    return tx.group.update({
+      where: { id: params.id },
+      data,
+      include: {
+        members: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
+      },
+    });
   });
 
   return NextResponse.json(updated);

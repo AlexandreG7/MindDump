@@ -25,6 +25,7 @@ import {
   X,
   Shield,
   User,
+  Star,
 } from "lucide-react";
 
 interface Member {
@@ -39,6 +40,7 @@ interface Group {
   name: string;
   ownerId: string;
   createdAt: string;
+  isDefault?: boolean;
   members: Member[];
   _count?: { members: number };
   owner?: { id: string; name: string | null; email: string | null };
@@ -105,6 +107,15 @@ export default function GroupsPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: newRole }),
+    });
+    fetchGroups();
+  };
+
+  const setDefaultGroup = async (id: string) => {
+    await fetch(`/api/groups/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isDefault: true }),
     });
     fetchGroups();
   };
@@ -244,6 +255,12 @@ export default function GroupsPage() {
                         Propriétaire
                       </span>
                     )}
+                    {group.isDefault && (
+                      <span className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
+                        <Star className="h-3 w-3 fill-current" />
+                        Par défaut
+                      </span>
+                    )}
                   </div>
                 )}
                 <p className="text-sm text-muted-foreground mt-0.5">
@@ -253,6 +270,15 @@ export default function GroupsPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
+                {group.isOwner && !group.isDefault && editingId !== group.id && (
+                  <button
+                    onClick={() => setDefaultGroup(group.id)}
+                    className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
+                    title="Définir comme groupe par défaut"
+                  >
+                    <Star className="h-4 w-4" />
+                  </button>
+                )}
                 {group.isOwner && editingId !== group.id && (
                   <button
                     onClick={() => { setEditingId(group.id); setEditName(group.name); }}
