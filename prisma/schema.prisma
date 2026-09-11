@@ -173,6 +173,7 @@ model Todo {
   priority    TodoPriority @default(URGENT)
   dueDate     DateTime?
   completed   Boolean      @default(false)
+  recurrence  String?      // "daily" | "weekly" | "biweekly" | "monthly" | null
   notifyBefore Int?        // minutes before dueDate
   notified    Boolean      @default(false)
   position    Int          @default(0)
@@ -196,7 +197,8 @@ model CalendarEvent {
   date        DateTime
   endDate     DateTime?
   allDay      Boolean   @default(false)
-  recurrence  String?   // "daily", "weekly", "monthly", or null
+  recurrence  String?   // "daily", "weekly", "biweekly", "monthly", or null
+  color       String?   // hex color, e.g. "#3b82f6"
   notifyBefore Int?     // minutes before event
   notified    Boolean   @default(false)
   createdAt   DateTime  @default(now())

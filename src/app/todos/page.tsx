@@ -17,7 +17,15 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, AlertCircle, Calendar } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, Trash2, AlertCircle, Calendar, Repeat } from "lucide-react";
+import { RECURRENCE_LABELS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
 
 interface Todo {
   id: string;
@@ -26,6 +34,7 @@ interface Todo {
   priority: "URGENT" | "PLANNED";
   dueDate: string | null;
   completed: boolean;
+  recurrence: string | null;
   notifyBefore: number | null;
 }
 
@@ -39,6 +48,7 @@ export default function TodosPage() {
     description: "",
     priority: "URGENT" as "URGENT" | "PLANNED",
     dueDate: "",
+    recurrence: "",
     notifyBefore: "",
   });
 
@@ -61,11 +71,19 @@ export default function TodosPage() {
         description: newTodo.description || null,
         priority: newTodo.priority,
         dueDate: newTodo.dueDate || null,
+        recurrence: newTodo.dueDate ? newTodo.recurrence || null : null,
         notifyBefore: newTodo.notifyBefore ? Number(newTodo.notifyBefore) : null,
         groupId: currentGroupId,
       }),
     });
-    setNewTodo({ title: "", description: "", priority: "URGENT", dueDate: "", notifyBefore: "" });
+    setNewTodo({
+      title: "",
+      description: "",
+      priority: "URGENT",
+      dueDate: "",
+      recurrence: "",
+      notifyBefore: "",
+    });
     setDialogOpen(false);
     fetchTodos();
   };
@@ -123,11 +141,21 @@ export default function TodosPage() {
                     {todo.description}
                   </p>
                 )}
-                {todo.dueDate && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                    <Calendar className="h-3 w-3" />
-                    {new Date(todo.dueDate).toLocaleDateString("fr-FR")}
-                  </p>
+                {(todo.dueDate || todo.recurrence) && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-3 mt-1">
+                    {todo.dueDate && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(todo.dueDate).toLocaleDateString("fr-FR")}
+                      </span>
+                    )}
+                    {todo.recurrence && RECURRENCE_LABELS[todo.recurrence] && (
+                      <span className="flex items-center gap-1">
+                        <Repeat className="h-3 w-3" />
+                        {RECURRENCE_LABELS[todo.recurrence]}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
               <Button
@@ -255,6 +283,36 @@ export default function TodosPage() {
                         setNewTodo({ ...newTodo, dueDate: e.target.value })
                       }
                     />
+                  </div>
+                  <div>
+                    <Label>Recurrence</Label>
+                    <Select
+                      value={newTodo.recurrence}
+                      onValueChange={(v) =>
+                        setNewTodo({
+                          ...newTodo,
+                          recurrence: v === "none" ? "" : v,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Aucune" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucune</SelectItem>
+                        {RECURRENCE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {newTodo.recurrence && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Une nouvelle occurrence sera creee automatiquement quand
+                        tu coches la tache.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label>Rappel (minutes avant)</Label>

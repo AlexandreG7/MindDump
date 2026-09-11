@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { RRULE_BY_RECURRENCE } from "@/lib/recurrence";
 
 function escapeICS(text: string): string {
   return text
@@ -99,15 +100,12 @@ export async function GET(
       lines.push(foldLine(`DESCRIPTION:${escapeICS(event.description)}`));
     }
 
-    if (event.recurrence) {
-      const rruleMap: Record<string, string> = {
-        daily: "FREQ=DAILY",
-        weekly: "FREQ=WEEKLY",
-        monthly: "FREQ=MONTHLY",
-      };
-      if (rruleMap[event.recurrence]) {
-        lines.push(`RRULE:${rruleMap[event.recurrence]}`);
-      }
+    if (event.recurrence && RRULE_BY_RECURRENCE[event.recurrence]) {
+      lines.push(`RRULE:${RRULE_BY_RECURRENCE[event.recurrence]}`);
+    }
+
+    if (event.color) {
+      lines.push(`X-APPLE-CALENDAR-COLOR:${event.color}`);
     }
 
     if (event.notifyBefore) {

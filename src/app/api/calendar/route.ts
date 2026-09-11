@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
+import { isEventColor, nextOccurrence } from "@/lib/recurrence";
 
 function expandRecurrences(
   events: Array<{
@@ -12,6 +13,7 @@ function expandRecurrences(
     endDate: Date | null;
     allDay: boolean;
     recurrence: string | null;
+    color: string | null;
     notifyBefore: number | null;
     notified: boolean;
     createdAt: Date;
@@ -52,21 +54,11 @@ function expandRecurrences(
         });
       }
 
-      switch (event.recurrence) {
-        case "daily":
-          current = new Date(current);
-          current.setDate(current.getDate() + 1);
-          break;
-        case "weekly":
-          current = new Date(current);
-          current.setDate(current.getDate() + 7);
-          break;
-        case "monthly":
-          current = new Date(current);
-          current.setMonth(current.getMonth() + 1);
-          break;
-        default:
-          safetyLimit = 0;
+      const next = nextOccurrence(current, event.recurrence);
+      if (!next) {
+        safetyLimit = 0;
+      } else {
+        current = next;
       }
     }
   }
@@ -135,7 +127,8 @@ export async function POST(req: NextRequest) {
       date: new Date(body.date),
       endDate: body.endDate ? new Date(body.endDate) : null,
       allDay: body.allDay || false,
-      recurrence: body.recurrence || null,
+      recurrence: body.recurrence && body.recurrence !== "none" ? body.recurrence : null,
+      color: isEventColor(body.color) ? body.color : null,
       notifyBefore: body.notifyBefore || null,
       userId: user.id,
       groupId,

@@ -36,6 +36,8 @@ import {
   Grid3X3,
   X,
   HelpCircle,
+  Palette,
+  Repeat,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -54,6 +56,11 @@ import {
   eachMonthOfInterval,
 } from "date-fns";
 import { fr } from "date-fns/locale";
+import {
+  EVENT_COLORS,
+  RECURRENCE_LABELS,
+  RECURRENCE_OPTIONS,
+} from "@/lib/recurrence";
 
 interface CalendarEvent {
   id: string;
@@ -63,10 +70,10 @@ interface CalendarEvent {
   endDate?: string | null;
   allDay: boolean;
   recurrence: string | null;
+  color?: string | null;
   notifyBefore: number | null;
   subscriptionId?: string;
   subscriptionName?: string;
-  color?: string;
 }
 
 interface Subscription {
@@ -94,8 +101,10 @@ export default function CalendarPage() {
     time: "",
     allDay: false,
     recurrence: "",
+    color: "",
     notifyBefore: "",
   });
+  const [colorMenuFor, setColorMenuFor] = useState<string | null>(null);
 
   // Feed export state
   const [feedToken, setFeedToken] = useState<string | null>(null);
@@ -229,6 +238,7 @@ export default function CalendarPage() {
         date: dateStr,
         allDay: !newEvent.time,
         recurrence: newEvent.recurrence || null,
+        color: newEvent.color || null,
         notifyBefore: newEvent.notifyBefore
           ? Number(newEvent.notifyBefore)
           : null,
@@ -241,14 +251,29 @@ export default function CalendarPage() {
       time: "",
       allDay: false,
       recurrence: "",
+      color: "",
       notifyBefore: "",
     });
     setDialogOpen(false);
     fetchEvents();
   };
 
+  // Les occurrences generees d'un evenement recurrent ont un id suffixe
+  // (`<id>_<date iso>`) : on agit toujours sur l'evenement source.
+  const baseEventId = (id: string) => id.split("_")[0];
+
   const deleteEvent = async (id: string) => {
-    await fetch(`/api/calendar/${id}`, { method: "DELETE" });
+    await fetch(`/api/calendar/${baseEventId(id)}`, { method: "DELETE" });
+    fetchEvents();
+  };
+
+  const setEventColor = async (id: string, color: string | null) => {
+    setColorMenuFor(null);
+    await fetch(`/api/calendar/${baseEventId(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ color }),
+    });
     fetchEvents();
   };
 
@@ -491,11 +516,44 @@ export default function CalendarPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Aucune</SelectItem>
-                      <SelectItem value="daily">Quotidien</SelectItem>
-                      <SelectItem value="weekly">Hebdomadaire</SelectItem>
-                      <SelectItem value="monthly">Mensuel</SelectItem>
+                      {RECURRENCE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label>Couleur</Label>
+                  <div className="flex items-center gap-2 flex-wrap mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewEvent({ ...newEvent, color: "" })}
+                      title="Par defaut"
+                      className={`w-6 h-6 rounded-full border border-border bg-primary/10 transition-transform ${
+                        !newEvent.color
+                          ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110"
+                          : "hover:scale-110"
+                      }`}
+                    />
+                    {EVENT_COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() =>
+                          setNewEvent({ ...newEvent, color: c.value })
+                        }
+                        title={c.label}
+                        style={{ backgroundColor: c.value }}
+                        className={`w-6 h-6 rounded-full transition-transform ${
+                          newEvent.color === c.value
+                            ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110"
+                            : "hover:scale-110"
+                        }`}
+                      />
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <Label>Rappel email (minutes avant)</Label>
@@ -696,17 +754,28 @@ export default function CalendarPage() {
                     {selectedEvents.map((event) => (
                       <li
                         key={event.id}
-                        className="flex items-start justify-between"
+                        className="group flex items-start justify-between gap-2"
                       >
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
                           {event.color && (
                             <div
-                              className="w-1 h-full min-h-[20px] rounded-full mt-0.5"
+                              className="w-1 self-stretch min-h-[20px] rounded-full mt-0.5 shrink-0"
                               style={{ backgroundColor: event.color }}
                             />
                           )}
-                          <div>
-                            <p className="text-sm font-medium">{event.title}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium flex items-center gap-1.5">
+                              {event.title}
+                              {event.recurrence &&
+                                RECURRENCE_LABELS[event.recurrence] && (
+                                  <span
+                                    className="text-muted-foreground"
+                                    title={RECURRENCE_LABELS[event.recurrence]}
+                                  >
+                                    <Repeat className="h-3 w-3" />
+                                  </span>
+                                )}
+                            </p>
                             {event.subscriptionName && (
                               <p className="text-xs text-muted-foreground">
                                 {event.subscriptionName}
@@ -725,13 +794,64 @@ export default function CalendarPage() {
                           </div>
                         </div>
                         {!event.subscriptionId && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteEvent(event.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <div className="relative">
+                              <button
+                                onClick={() =>
+                                  setColorMenuFor(
+                                    colorMenuFor === event.id ? null : event.id
+                                  )
+                                }
+                                title="Couleur"
+                                className={`p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
+                                  colorMenuFor === event.id
+                                    ? "opacity-100"
+                                    : "opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                }`}
+                              >
+                                <Palette className="h-3.5 w-3.5" />
+                              </button>
+                              {colorMenuFor === event.id && (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-40"
+                                    onClick={() => setColorMenuFor(null)}
+                                  />
+                                  <div className="absolute right-0 bottom-full mb-1 z-50 w-max bg-popover border border-border rounded-xl shadow-lg p-2 grid grid-cols-5 gap-1.5">
+                                    <button
+                                      onClick={() =>
+                                        setEventColor(event.id, null)
+                                      }
+                                      title="Par defaut"
+                                      className="w-5 h-5 rounded-full border border-border bg-primary/10 hover:scale-110 transition-transform"
+                                    />
+                                    {EVENT_COLORS.map((c) => (
+                                      <button
+                                        key={c.value}
+                                        onClick={() =>
+                                          setEventColor(event.id, c.value)
+                                        }
+                                        title={c.label}
+                                        style={{ backgroundColor: c.value }}
+                                        className={`w-5 h-5 rounded-full hover:scale-110 transition-transform ${
+                                          event.color === c.value
+                                            ? "ring-2 ring-offset-1 ring-offset-popover ring-foreground"
+                                            : ""
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => deleteEvent(event.id)}
+                              title="Supprimer"
+                              className="p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         )}
                       </li>
                     ))}

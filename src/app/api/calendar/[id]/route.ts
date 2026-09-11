@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { isEventColor } from "@/lib/recurrence";
 
 export async function PATCH(
   req: NextRequest,
@@ -20,7 +21,13 @@ export async function PATCH(
         endDate: body.endDate ? new Date(body.endDate) : null,
       }),
       ...(body.allDay !== undefined && { allDay: body.allDay }),
-      ...(body.recurrence !== undefined && { recurrence: body.recurrence }),
+      ...(body.recurrence !== undefined && {
+        recurrence:
+          body.recurrence && body.recurrence !== "none" ? body.recurrence : null,
+      }),
+      ...(body.color !== undefined && {
+        color: isEventColor(body.color) ? body.color : null,
+      }),
       ...(body.notifyBefore !== undefined && { notifyBefore: body.notifyBefore }),
     },
   });
