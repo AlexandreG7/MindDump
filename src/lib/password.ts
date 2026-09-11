@@ -11,5 +11,8 @@ export function verifyPassword(password: string, stored: string): boolean {
   if (!salt || !hash) return false;
   const hashBuffer = Buffer.from(hash, "hex");
   const derivedBuffer = scryptSync(password, salt, 64);
+  // timingSafeEqual lève une exception si les longueurs diffèrent (hash stocké
+  // malformé) : on renvoie false proprement au lieu de crasher (500).
+  if (hashBuffer.length !== derivedBuffer.length) return false;
   return timingSafeEqual(hashBuffer, derivedBuffer);
 }

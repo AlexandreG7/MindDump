@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
+const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true" && process.env.NODE_ENV !== "production";
 
 const DEV_SESSION = {
   user: {

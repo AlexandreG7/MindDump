@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { prisma } from "./prisma";
 import { ensureDefaultGroup } from "./defaultGroup";
+import { isAuthBypassEnabled } from "./devAuth";
 
 const DEV_USER = {
   id: "dev-user",
@@ -62,8 +63,9 @@ async function getApiKeyUser() {
 }
 
 export async function getSessionUser() {
-  // Dev mode: skip auth, use a fixed dev user
-  if (process.env.SKIP_AUTH === "true") {
+  // Dev mode: skip auth, use a fixed dev user.
+  // Jamais actif en production (voir devAuth.ts).
+  if (isAuthBypassEnabled) {
     return ensureDevUser();
   }
 

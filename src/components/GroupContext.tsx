@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useSession } from "next-auth/react";
 
-const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
+const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true" && process.env.NODE_ENV !== "production";
 
 export interface GroupInfo {
   id: string;

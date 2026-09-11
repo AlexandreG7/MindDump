@@ -19,7 +19,7 @@ const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   kids: true,
 };
 
-const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
+const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true" && process.env.NODE_ENV !== "production";
 
 interface FeaturesContextValue {
   flags: Record<FeatureKey, boolean>;

@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { Dashboard } from "@/components/Dashboard";
 import { Landing } from "@/components/landing/Landing";
 
-const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
+const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true" && process.env.NODE_ENV !== "production";
 
 export default function Home() {
   const { status } = useSession();

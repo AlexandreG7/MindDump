@@ -1,10 +1,11 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isAuthBypassEnabled } from "./lib/devAuth";
 
 function middleware(req: NextRequest) {
-  // Skip auth entirely in dev mode
-  if (process.env.SKIP_AUTH === "true") {
+  // Skip auth entirely in dev mode (jamais actif en production, voir devAuth.ts)
+  if (isAuthBypassEnabled) {
     return NextResponse.next();
   }
 

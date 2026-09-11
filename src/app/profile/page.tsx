@@ -231,7 +231,7 @@ export default function ProfilePage() {
   const [pwdSuccess, setPwdSuccess] = useState(false);
   const [pwdLoading, setPwdLoading] = useState(false);
 
-  const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
+  const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true" && process.env.NODE_ENV !== "production";
 
   // ── Feature flags ─────────────────────────────────────────────
   const { flags, toggle: toggleFeature } = useFeaturesContext();

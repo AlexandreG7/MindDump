@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendNotificationEmail } from "@/lib/mail";
 
-// This endpoint is called by the cron job to send notifications
-// Protected by a secret token
+// Comparaison à temps constant pour éviter les fuites temporelles sur le secret.
+function safeEqual(a: string, b: string): boolean {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ba.length !== bb.length) return false;
+  return timingSafeEqual(ba, bb);
+}
+
+// This endpoint is called by the cron job to send notifications.
+// Protégé par un secret dédié CRON_SECRET (retombe sur NEXTAUTH_SECRET pour
+// compatibilité si CRON_SECRET n'est pas encore défini).
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.NEXTAUTH_SECRET}`) {
+  const authHeader = req.headers.get("authorization") ?? "";
+  const secret = process.env.CRON_SECRET || process.env.NEXTAUTH_SECRET || "";
+  if (!secret || !safeEqual(authHeader, `Bearer ${secret}`)) {
     return NextResponse.json({ error: "Non autorise" }, { status: 401 });
   }
 

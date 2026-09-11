@@ -34,7 +34,7 @@ const ALL_NAV_ITEMS = [
   { href: "/kids", label: "Semainier", icon: Baby, feature: "kids" as FeatureKey },
 ];
 
-const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true";
+const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true" && process.env.NODE_ENV !== "production";
 
 export function Navbar() {
   const pathname = usePathname();
