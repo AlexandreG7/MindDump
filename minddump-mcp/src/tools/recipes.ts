@@ -1,12 +1,23 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { client } from "../client.js";
+import { hasImageSource, uploadRecipeImage } from "../image.js";
+
+// Sources possibles pour une photo de recette (une seule à la fois).
+const imageSourceShape = {
+  imageUrl: z.string().optional().describe("URL http(s) d'une photo à télécharger"),
+  imageBase64: z.string().optional().describe("Photo encodée en base64 (data URI acceptée)"),
+  imagePath: z
+    .string()
+    .optional()
+    .describe("Chemin d'un fichier image local (uniquement quand le MCP tourne en local)"),
+};
 
 export function registerRecipeTools(server: McpServer) {
   // ─── Créer une recette ──────────────────────────────────────
   server.tool(
     "create_recipe",
-    "Créer une nouvelle recette dans MindDump. Si une URL HelloFresh, Jow ou Quitoque est fournie, importe automatiquement avec photo, ingrédients et étapes enrichies. Sinon, crée manuellement.",
+    "Créer une nouvelle recette dans MindDump. Si une URL HelloFresh, Jow ou Quitoque est fournie, importe automatiquement avec photo, ingrédients et étapes enrichies. Sinon, crée manuellement ; une photo peut alors être jointe via imageUrl, imageBase64 ou imagePath.",
     {
       title: z.string().optional().describe("Nom de la recette (optionnel si URL fournie)"),
       url: z.string().optional().describe("URL d'une recette HelloFresh, Jow ou Quitoque — si fournie, importe automatiquement avec enrichissement complet"),
@@ -28,6 +39,7 @@ export function registerRecipeTools(server: McpServer) {
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
       planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
       inCatalog: z.boolean().optional().default(true).describe("Ajouter au catalogue de recettes"),
+      ...imageSourceShape,
     },
     async (params) => {
       try {
@@ -92,7 +104,7 @@ export function registerRecipeTools(server: McpServer) {
           };
         }
 
-        const recipe = await client.post("/api/recipes", {
+        const recipe = await client.post<{ id: string }>("/api/recipes", {
           title: params.title,
           description: params.description,
           servings: params.servings,
@@ -105,11 +117,21 @@ export function registerRecipeTools(server: McpServer) {
           inCatalog: params.inCatalog,
         });
 
+        let photoNote = "";
+        if (hasImageSource(params)) {
+          try {
+            const image = await uploadRecipeImage(recipe.id, params);
+            photoNote = `\nPhoto ajoutée : ${image}`;
+          } catch (error) {
+            photoNote = `\n⚠️ Recette créée mais la photo n'a pas pu être ajoutée : ${(error as Error).message}`;
+          }
+        }
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `Recette "${params.title}" créée avec succès !\n\n${JSON.stringify(recipe, null, 2)}`,
+              text: `Recette "${params.title}" créée avec succès !${photoNote}\n\n${JSON.stringify(recipe, null, 2)}`,
             },
           ],
         };
@@ -190,6 +212,29 @@ export function registerRecipeTools(server: McpServer) {
               text: JSON.stringify(recipe, null, 2),
             },
           ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text" as const, text: `Erreur: ${(error as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── Ajouter / remplacer la photo d'une recette ─────────────
+  server.tool(
+    "set_recipe_photo",
+    "Ajouter ou remplacer la photo principale d'une recette existante. Fournir une seule source : imageUrl (photo en ligne), imageBase64, ou imagePath (fichier local, MCP en local uniquement). Formats : JPG, PNG, GIF, WebP, 8 Mo max.",
+    {
+      recipeId: z.string().describe("ID de la recette"),
+      ...imageSourceShape,
+    },
+    async (params) => {
+      try {
+        const image = await uploadRecipeImage(params.recipeId, params);
+        return {
+          content: [{ type: "text" as const, text: `Photo de la recette mise à jour : ${image}` }],
         };
       } catch (error) {
         return {

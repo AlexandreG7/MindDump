@@ -78,6 +78,24 @@ export class MindDumpClient {
   delete<T = unknown>(path: string, body?: unknown) {
     return this.request<T>(path, { method: "DELETE", body });
   }
+
+  /** Envoi multipart (fichiers). Le Content-Type est posé par fetch. */
+  async upload<T = unknown>(path: string, form: FormData): Promise<T> {
+    const headers: Record<string, string> = {};
+    if (this.apiKey) {
+      headers["Authorization"] = `Bearer ${this.apiKey}`;
+    }
+
+    const response = await fetch(this.buildUrl(path), { method: "POST", headers, body: form });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const errorMsg = (data as { error?: string }).error || response.statusText;
+      throw new Error(`API POST ${path} failed (${response.status}): ${errorMsg}`);
+    }
+
+    return data as T;
+  }
 }
 
 export const client = new MindDumpClient();
