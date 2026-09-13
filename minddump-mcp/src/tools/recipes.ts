@@ -38,7 +38,6 @@ export function registerRecipeTools(server: McpServer) {
         .describe("Liste des ingrédients (ignoré si URL HelloFresh)"),
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
       planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
-      inCatalog: z.boolean().optional().default(true).describe("Ajouter au catalogue de recettes"),
       ...imageSourceShape,
     },
     async (params) => {
@@ -49,7 +48,7 @@ export function registerRecipeTools(server: McpServer) {
             servings: params.servings,
             groupId: params.groupId,
             planned: params.planned,
-            inCatalog: params.inCatalog,
+            inCatalog: true,
           });
           return {
             content: [
@@ -67,7 +66,7 @@ export function registerRecipeTools(server: McpServer) {
             servings: params.servings,
             groupId: params.groupId,
             planned: params.planned,
-            inCatalog: params.inCatalog,
+            inCatalog: true,
           });
           return {
             content: [
@@ -85,7 +84,7 @@ export function registerRecipeTools(server: McpServer) {
             servings: params.servings,
             groupId: params.groupId,
             planned: params.planned,
-            inCatalog: params.inCatalog,
+            inCatalog: true,
           });
           return {
             content: [
@@ -114,7 +113,7 @@ export function registerRecipeTools(server: McpServer) {
           ingredients: params.ingredients || [],
           groupId: params.groupId,
           planned: params.planned,
-          inCatalog: params.inCatalog,
+          inCatalog: true,
         });
 
         let photoNote = "";
@@ -294,7 +293,6 @@ export function registerRecipeTools(server: McpServer) {
       servings: z.number().optional().default(4).describe("Nombre de portions souhaité"),
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
       planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
-      inCatalog: z.boolean().optional().default(true).describe("Ajouter au catalogue"),
     },
     async (params) => {
       try {
@@ -303,7 +301,7 @@ export function registerRecipeTools(server: McpServer) {
           servings: params.servings,
           groupId: params.groupId,
           planned: params.planned,
-          inCatalog: params.inCatalog,
+          inCatalog: true,
         });
 
         return {
@@ -332,7 +330,6 @@ export function registerRecipeTools(server: McpServer) {
       servings: z.number().optional().default(4).describe("Nombre de portions souhaité"),
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
       planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
-      inCatalog: z.boolean().optional().default(true).describe("Ajouter au catalogue"),
     },
     async (params) => {
       try {
@@ -341,7 +338,7 @@ export function registerRecipeTools(server: McpServer) {
           servings: params.servings,
           groupId: params.groupId,
           planned: params.planned,
-          inCatalog: params.inCatalog,
+          inCatalog: true,
         });
 
         return {
@@ -410,7 +407,6 @@ export function registerRecipeTools(server: McpServer) {
       servings: z.number().optional().default(2).describe("Nombre de portions souhaité"),
       groupId: z.string().optional().describe("ID du groupe pour partager la recette (optionnel)"),
       planned: z.boolean().optional().default(false).describe("Marquer comme recette planifiée"),
-      inCatalog: z.boolean().optional().default(true).describe("Ajouter au catalogue"),
     },
     async (params) => {
       try {
@@ -419,7 +415,7 @@ export function registerRecipeTools(server: McpServer) {
           servings: params.servings,
           groupId: params.groupId,
           planned: params.planned,
-          inCatalog: params.inCatalog,
+          inCatalog: true,
         });
 
         return {
