@@ -3,6 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { config, validateConfig } from "./config.js";
 import { registerRecipeTools } from "./tools/recipes.js";
@@ -37,7 +38,38 @@ async function startStdio() {
   console.error("[MindDump MCP] Serveur démarré en mode stdio");
 }
 
-// ─── Mode SSE (distant, Claude mobile / web / n'importe quel client) ─
+// ─── Mode distant (Claude mobile / web / n'importe quel client) ─
+//
+// Deux transports sur le même port :
+// - Streamable HTTP sans état (POST /mcp, ou POST /sse) : chaque requête crée
+//   son propre serveur, rien n'est gardé en mémoire → pas de « session
+//   invalide » quand la connexion est coupée (proxy, mobile, redéploiement).
+// - SSE historique (GET /sse + POST /messages) pour les clients qui ne
+//   connaissent que ce transport. Session liée à la connexion ouverte.
+
+const SSE_KEEPALIVE_MS = 25_000;
+
+async function handleStreamableHttp(req: IncomingMessage, res: ServerResponse) {
+  const server = createMcpServer();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
+  res.on("close", () => {
+    transport.close();
+    server.close();
+  });
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res);
+  } catch (error) {
+    console.error("[MindDump MCP] Erreur requête Streamable HTTP:", error);
+    if (!res.headersSent) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32603, message: "Erreur interne" }, id: null }));
+    }
+  }
+}
 
 async function startSSE() {
   // Map pour stocker les transports SSE actifs par session
@@ -48,8 +80,9 @@ async function startSSE() {
 
     // ── CORS ──────────────────────────────────────────────
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id, Mcp-Protocol-Version");
+    res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);
@@ -74,6 +107,22 @@ async function startSSE() {
       return;
     }
 
+    // ── Streamable HTTP (sans état) ───────────────────────
+    // POST /sse aussi : les clients récents essaient d'abord Streamable HTTP
+    // sur l'URL configurée, avant de se rabattre sur SSE.
+    if ((url.pathname === "/mcp" || url.pathname === "/sse") && req.method === "POST") {
+      await handleStreamableHttp(req, res);
+      return;
+    }
+    // Un client Streamable HTTP envoie Mcp-Protocol-Version sur son GET
+    // optionnel : ne pas lui ouvrir une session SSE historique.
+    if (url.pathname === "/mcp" || (url.pathname === "/sse" && req.headers["mcp-protocol-version"])) {
+      // Sans état : pas de flux GET ni de fermeture de session.
+      res.writeHead(405, { "Content-Type": "application/json", Allow: "POST" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "Méthode non autorisée" }, id: null }));
+      return;
+    }
+
     // ── SSE endpoint : le client se connecte ici ──────────
     if (url.pathname === "/sse" && req.method === "GET") {
       const server = createMcpServer();
@@ -83,7 +132,11 @@ async function startSSE() {
       sessions.set(sessionId, transport);
       console.error(`[MindDump MCP] Nouvelle session SSE: ${sessionId}`);
 
+      // Commentaire SSE régulier : évite que le proxy coupe une connexion inactive.
+      const keepalive = setInterval(() => res.write(": ping\n\n"), SSE_KEEPALIVE_MS);
+
       res.on("close", () => {
+        clearInterval(keepalive);
         sessions.delete(sessionId);
         console.error(`[MindDump MCP] Session SSE fermée: ${sessionId}`);
       });
@@ -96,8 +149,9 @@ async function startSSE() {
     if (url.pathname === "/messages" && req.method === "POST") {
       const sessionId = url.searchParams.get("sessionId");
       if (!sessionId || !sessions.has(sessionId)) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Session invalide" }));
+        console.error(`[MindDump MCP] Message pour une session inconnue: ${sessionId}`);
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Session invalide ou expirée, reconnecte le client MCP" }));
         return;
       }
 
@@ -112,7 +166,8 @@ async function startSSE() {
   });
 
   httpServer.listen(config.port, "0.0.0.0", () => {
-    console.error(`[MindDump MCP] Serveur SSE démarré sur http://0.0.0.0:${config.port}`);
+    console.error(`[MindDump MCP] Serveur distant démarré sur http://0.0.0.0:${config.port}`);
+    console.error(`[MindDump MCP]   → HTTP:     http://0.0.0.0:${config.port}/mcp (Streamable HTTP)`);
     console.error(`[MindDump MCP]   → SSE:      http://0.0.0.0:${config.port}/sse`);
     console.error(`[MindDump MCP]   → Messages: http://0.0.0.0:${config.port}/messages`);
     console.error(`[MindDump MCP]   → Health:   http://0.0.0.0:${config.port}/health`);
