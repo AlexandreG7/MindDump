@@ -1,13 +1,11 @@
-import Link from "next/link";
-import { Bot, Calendar, MapPin, ArrowLeft, KeyRound, Rss, Link2 } from "lucide-react";
+"use client";
 
-function Code({ children }: { children: string }) {
-  return (
-    <pre className="bg-secondary/50 border border-border rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre">
-      {children}
-    </pre>
-  );
-}
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { Bot, Calendar, MapPin, ArrowLeft, KeyRound, Rss, Link2, Copy, Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 function Section({
   id,
@@ -28,6 +26,72 @@ function Section({
       </div>
       <div className="space-y-4 text-sm text-foreground/90">{children}</div>
     </section>
+  );
+}
+
+function McpPrompt() {
+  const [appUrl, setAppUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const prompt = useMemo(() => {
+    const url = appUrl.trim() || "<URL de mon app MindDump>";
+    const key = apiKey.trim() || "<ma clé API MindDump>";
+    return `Connecte-toi à mon app MindDump via MCP, pour que je puisse te demander de gérer mes tâches, mes courses et mes recettes en te parlant directement.
+
+Configure une entrée "minddump" dans ma config MCP (le fichier de config Claude Desktop, ou .mcp.json si tu es dans le projet MindDump) qui lance le serveur du dossier minddump-mcp/ (commande "npx tsx src/index.ts") avec ces variables d'environnement :
+MINDDUMP_API_URL=${url}
+MINDDUMP_API_KEY=${key}
+
+Si tu n'as pas accès aux fichiers de ce projet (par exemple sur mobile ou le web), connecte-toi plutôt en mode distant : ajoute un serveur MCP de type "sse" à la place, avec l'URL et le secret que je te donnerai.
+
+Crée le fichier de config s'il n'existe pas, redémarre-toi si besoin, puis confirme que la connexion fonctionne.`;
+  }, [appUrl, apiKey]);
+
+  const copyPrompt = () => {
+    navigator.clipboard.writeText(prompt);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>URL de ton app MindDump</Label>
+          <Input
+            placeholder="https://mon-minddump.example"
+            value={appUrl}
+            onChange={(e) => setAppUrl(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Ta clé API</Label>
+          <Input
+            placeholder="mdk_..."
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="relative">
+        <pre className="bg-secondary/50 border border-border rounded-lg p-3 pr-12 text-xs whitespace-pre-wrap">
+          {prompt}
+        </pre>
+        <Button
+          size="sm"
+          variant={copied ? "default" : "outline"}
+          onClick={copyPrompt}
+          className="absolute top-2 right-2 h-7 px-2"
+        >
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Remplis les deux champs (facultatif), copie le prompt, colle-le dans une conversation
+        Claude (Desktop, Code, ou l&apos;app mobile) — il s&apos;occupe du reste.
+      </p>
+    </div>
   );
 }
 
@@ -53,7 +117,8 @@ export default function DocsPage() {
         <p className="text-muted-foreground">
           MindDump peut être piloté en langage naturel depuis Claude : « ajoute du lait à ma
           liste de courses », « montre mes tâches urgentes », « crée une liste de courses pour
-          la lasagne »… Deux façons de le connecter.
+          la lasagne »… Pas besoin de toucher à un fichier de config toi-même : demande à Claude
+          de le faire.
         </p>
 
         <div className="space-y-2">
@@ -69,54 +134,8 @@ export default function DocsPage() {
         </div>
 
         <div className="space-y-2">
-          <p className="font-medium">2a. Claude Desktop (installation locale)</p>
-          <p className="text-muted-foreground">
-            Ajoute dans <code className="text-xs bg-secondary/50 px-1 py-0.5 rounded">~/Library/Application Support/Claude/claude_desktop_config.json</code> :
-          </p>
-          <Code>{`{
-  "mcpServers": {
-    "minddump": {
-      "command": "npx",
-      "args": ["tsx", "/chemin/absolu/vers/minddump-mcp/src/index.ts"],
-      "env": {
-        "MINDDUMP_API_URL": "https://ton-domaine.example",
-        "MINDDUMP_API_KEY": "mdk_ta-cle-ici"
-      }
-    }
-  }
-}`}</Code>
-          <p className="text-muted-foreground">Puis redémarre Claude Desktop.</p>
-        </div>
-
-        <div className="space-y-2">
-          <p className="font-medium">2b. Claude Code (dans ce projet)</p>
-          <p className="text-muted-foreground">
-            Le même bloc va dans <code className="text-xs bg-secondary/50 px-1 py-0.5 rounded">.mcp.json</code> à
-            la racine du dépôt, avec <code className="text-xs bg-secondary/50 px-1 py-0.5 rounded">args: [&quot;tsx&quot;, &quot;./minddump-mcp/src/index.ts&quot;]</code>.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <p className="font-medium">2c. Accès distant (Claude mobile / web)</p>
-          <p className="text-muted-foreground">
-            Le serveur MCP tourne aussi en mode SSE, accessible depuis n&apos;importe où sans
-            installation locale :
-          </p>
-          <Code>{`{
-  "mcpServers": {
-    "minddump": {
-      "type": "sse",
-      "url": "https://<url-du-serveur-mcp>/sse",
-      "headers": { "Authorization": "Bearer <MCP_SECRET>" }
-    }
-  }
-}`}</Code>
-          <p className="text-muted-foreground">
-            Ce mode utilise un secret partagé côté serveur (variable{" "}
-            <code className="text-xs bg-secondary/50 px-1 py-0.5 rounded">MCP_SECRET</code>) et
-            agit avec la clé API configurée sur le serveur — demande le secret à la personne qui
-            héberge l&apos;instance si tu ne l&apos;as pas déployée toi-même.
-          </p>
+          <p className="font-medium">2. Copier le prompt et le donner à Claude</p>
+          <McpPrompt />
         </div>
 
         <div className="space-y-1.5">
