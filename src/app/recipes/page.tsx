@@ -223,10 +223,14 @@ export default function RecipesPage() {
     if (pendingImage && created.id) {
       const formData = new FormData();
       formData.append("image", pendingImage);
-      await fetch(`/api/recipes/${created.id}/image`, {
+      const imgRes = await fetch(`/api/recipes/${created.id}/image`, {
         method: "POST",
         body: formData,
       });
+      if (!imgRes.ok) {
+        const { error } = await imgRes.json().catch(() => ({ error: null }));
+        alert(error || "Recette créée, mais impossible d'enregistrer l'image");
+      }
     }
 
     setNewRecipe({
@@ -284,10 +288,14 @@ export default function RecipesPage() {
   const uploadImage = async (recipeId: string, file: File) => {
     const formData = new FormData();
     formData.append("image", file);
-    await fetch(`/api/recipes/${recipeId}/image`, {
+    const res = await fetch(`/api/recipes/${recipeId}/image`, {
       method: "POST",
       body: formData,
     });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: null }));
+      alert(error || "Impossible d'enregistrer l'image");
+    }
     fetchRecipes();
   };
 
@@ -1292,10 +1300,12 @@ function RecipeCard({
         >
           <Camera className="h-3.5 w-3.5" />
         </button>
-        <input ref={cardImageRef} type="file" accept="image/*" className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) onUploadImage(recipe.id, f); }}
-        />
       </div>
+      {/* Hors de la zone cliquable : le clic programmatique sur l'input remonterait
+          jusqu'à onOpenDetail et quitterait la page avant la sélection du fichier. */}
+      <input ref={cardImageRef} type="file" accept="image/*" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onUploadImage(recipe.id, f); e.target.value = ""; }}
+      />
 
       {/* Header */}
       <div className="p-5 pb-3">

@@ -39,6 +39,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_module
 COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
+# Images envoyées par les utilisateurs : monter un volume persistant ici.
+ENV UPLOAD_DIR=/app/data/uploads
+RUN mkdir -p /app/data/uploads && chown -R nextjs:nodejs /app/data
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000

@@ -18,6 +18,7 @@ import {
   CalendarPlus,
   ShoppingCart,
   BookMarked,
+  Camera,
 } from "lucide-react";
 
 interface Ingredient {
@@ -243,6 +244,8 @@ export default function RecipeDetailPage() {
   const [cookingMode, setCookingMode] = useState(false);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
   const [servingMultiplier, setServingMultiplier] = useState(1);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const fetchRecipe = useCallback(() => {
     fetch(`/api/recipes/${id}`)
@@ -304,6 +307,23 @@ export default function RecipeDetailPage() {
     fetchRecipe();
   };
 
+  const uploadImage = async (file: File) => {
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append("image", file);
+    const res = await fetch(`/api/recipes/${id}/image`, {
+      method: "POST",
+      body: formData,
+    });
+    setUploadingImage(false);
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: null }));
+      alert(error || "Impossible d'enregistrer l'image");
+      return;
+    }
+    fetchRecipe();
+  };
+
   const closeCookingMode = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
@@ -319,7 +339,7 @@ export default function RecipeDetailPage() {
   return (
     <div className="recipe-detail-page">
       {/* Hero */}
-      <div className="relative">
+      <div className="relative group/hero">
         {recipe.image ? (
           <div className="recipe-hero">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -335,6 +355,28 @@ export default function RecipeDetailPage() {
             <UtensilsCrossed className="h-20 w-20 text-orange-300" />
           </div>
         )}
+
+        <button
+          onClick={() => imageInputRef.current?.click()}
+          disabled={uploadingImage}
+          className={`absolute bottom-4 right-4 z-20 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-opacity [@media(hover:none)]:opacity-100 ${
+            uploadingImage ? "opacity-100 animate-pulse" : "opacity-0 group-hover/hero:opacity-100"
+          }`}
+          title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
+        >
+          <Camera className="h-4 w-4" />
+        </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) uploadImage(f);
+            e.target.value = "";
+          }}
+        />
 
         <button
           onClick={() => router.back()}

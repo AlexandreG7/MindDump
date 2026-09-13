@@ -30,6 +30,11 @@ const nextConfig = {
       { protocol: "https", hostname: "static.jow.fr" },
     ],
   },
+  // Les images envoyées après le build ne sont pas servies depuis public/ :
+  // une route API les lit depuis UPLOAD_DIR.
+  async rewrites() {
+    return [{ source: "/uploads/:path*", destination: "/api/uploads/:path*" }];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

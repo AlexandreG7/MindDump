@@ -4,7 +4,7 @@ import { getSessionUser, unauthorized } from "@/lib/session";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { randomBytes } from "crypto";
 import path from "path";
-import { existsSync } from "fs";
+import { UPLOAD_DIR, resolveUploadPaths } from "@/lib/uploads";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 Mo
 
@@ -20,6 +20,12 @@ function detectImageExt(buf: Buffer): string | null {
     buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
   ) return "webp";
   return null;
+}
+
+async function deleteUpload(url: string) {
+  for (const filePath of resolveUploadPaths(url)) {
+    await unlink(filePath).catch(() => {});
+  }
 }
 
 export async function POST(
@@ -60,17 +66,17 @@ export async function POST(
   // 3. Nom de fichier aléatoire (jamais dérivé d'une entrée client → pas de
   //    traversée de chemin).
   const filename = `${recipe.id}-${randomBytes(8).toString("hex")}.${ext}`;
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "recipes");
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, filename), buffer);
+  const uploadDir = path.join(UPLOAD_DIR, "recipes");
+  try {
+    await mkdir(uploadDir, { recursive: true });
+    await writeFile(path.join(uploadDir, filename), buffer);
+  } catch (err) {
+    console.error("[recipe image] écriture impossible dans", uploadDir, err);
+    return NextResponse.json({ error: "Impossible d'enregistrer l'image" }, { status: 500 });
+  }
 
   // Delete old image if exists
-  if (recipe.image) {
-    const oldPath = path.join(process.cwd(), "public", recipe.image);
-    if (existsSync(oldPath)) {
-      await unlink(oldPath).catch(() => {});
-    }
-  }
+  if (recipe.image) await deleteUpload(recipe.image);
 
   const imageUrl = `/uploads/recipes/${filename}`;
   await prisma.recipe.update({
@@ -93,12 +99,7 @@ export async function DELETE(
     select: { image: true },
   });
 
-  if (recipe?.image) {
-    const filePath = path.join(process.cwd(), "public", recipe.image);
-    if (existsSync(filePath)) {
-      await unlink(filePath).catch(() => {});
-    }
-  }
+  if (recipe?.image) await deleteUpload(recipe.image);
 
   await prisma.recipe.updateMany({
     where: { id: params.id, userId: user.id },
