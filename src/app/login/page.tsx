@@ -33,7 +33,10 @@ export default function LoginPage() {
     if (result?.error) {
       setError("Email ou mot de passe incorrect.");
     } else {
-      router.push("/");
+      // Retour à la page demandée (ex. lien de partage), chemins internes uniquement.
+      const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
+      const isInternal = callbackUrl && /^\/(?![\/\\])/.test(callbackUrl);
+      router.push(isInternal ? callbackUrl : "/");
       router.refresh();
     }
   };

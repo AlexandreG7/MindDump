@@ -283,6 +283,7 @@ model Recipe {
   cookTime    Int?    // minutes
   steps       String  @db.Text // JSON array of steps
   image       String?
+  shareToken  String? @unique // lien de partage public, null = non partagé
   planned     Boolean @default(false)
   inCatalog   Boolean @default(false)
   createdAt   DateTime @default(now())
