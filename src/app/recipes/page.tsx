@@ -87,6 +87,9 @@ export default function RecipesPage() {
   const [activeTab, setActiveTab] = useState<Tab>("catalogue");
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // Vues liste et compacte : un seul input fichier, hors des éléments cliquables.
+  const tileImageInputRef = useRef<HTMLInputElement>(null);
+  const tileImageRecipeId = useRef<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
@@ -297,6 +300,12 @@ export default function RecipesPage() {
       alert(error || "Impossible d'enregistrer l'image");
     }
     fetchRecipes();
+  };
+
+  const pickTileImage = (e: React.MouseEvent, recipeId: string) => {
+    e.stopPropagation();
+    tileImageRecipeId.current = recipeId;
+    tileImageInputRef.current?.click();
   };
 
   const removeImage = async (recipeId: string) => {
@@ -861,20 +870,29 @@ export default function RecipesPage() {
             <div
               key={recipe.id}
               onClick={() => router.push(`/recipes/${recipe.id}`)}
-              className="recipe-card flex items-center gap-4 p-0 cursor-pointer"
+              className="recipe-card group/list flex items-center gap-4 p-0 cursor-pointer"
             >
-              {recipe.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={recipe.image}
-                  alt={recipe.title}
-                  className="w-20 h-20 object-cover rounded-l-2xl shrink-0"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-l-2xl shrink-0 bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
-                  <UtensilsCrossed className="h-6 w-6 text-orange-300" />
-                </div>
-              )}
+              <div className="relative shrink-0">
+                {recipe.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={recipe.image}
+                    alt={recipe.title}
+                    className="w-20 h-20 object-cover rounded-l-2xl"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-l-2xl bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
+                    <UtensilsCrossed className="h-6 w-6 text-orange-300" />
+                  </div>
+                )}
+                <button
+                  onClick={(e) => pickTileImage(e, recipe.id)}
+                  className="absolute bottom-1 right-1 p-1 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/list:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-black/50"
+                  title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
+                >
+                  <Camera className="h-3 w-3" />
+                </button>
+              </div>
               <div className="flex-1 min-w-0 py-3 pr-4">
                 <h3 className="handwritten text-xl font-semibold truncate">{recipe.title}</h3>
                 {(recipe.prepTime || recipe.cookTime) && (
@@ -904,18 +922,27 @@ export default function RecipesPage() {
               onClick={() => router.push(`/recipes/${recipe.id}`)}
               className="recipe-card cursor-pointer group/compact"
             >
-              {recipe.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={recipe.image}
-                  alt={recipe.title}
-                  className="w-full aspect-square object-cover"
-                />
-              ) : (
-                <div className="w-full aspect-square bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
-                  <UtensilsCrossed className="h-8 w-8 text-orange-300" />
-                </div>
-              )}
+              <div className="relative">
+                {recipe.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={recipe.image}
+                    alt={recipe.title}
+                    className="w-full aspect-square object-cover"
+                  />
+                ) : (
+                  <div className="w-full aspect-square bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
+                    <UtensilsCrossed className="h-8 w-8 text-orange-300" />
+                  </div>
+                )}
+                <button
+                  onClick={(e) => pickTileImage(e, recipe.id)}
+                  className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/compact:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-black/50"
+                  title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <div className="p-2.5">
                 <h3 className="handwritten text-base font-semibold leading-tight line-clamp-2">{recipe.title}</h3>
               </div>
@@ -923,6 +950,18 @@ export default function RecipesPage() {
           ))}
         </div>
       )}
+
+      <input
+        ref={tileImageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f && tileImageRecipeId.current) uploadImage(tileImageRecipeId.current, f);
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }
@@ -1296,7 +1335,8 @@ function RecipeCard({
         )}
         <button
           onClick={(e) => { e.stopPropagation(); cardImageRef.current?.click(); }}
-          className="absolute bottom-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-black/50 z-10"
+          className="absolute bottom-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-black/50 z-10"
+          title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
         >
           <Camera className="h-3.5 w-3.5" />
         </button>
