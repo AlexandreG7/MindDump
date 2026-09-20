@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { buildItemAccessWhere } from "@/lib/groupAuth";
 
 export async function POST(
   req: NextRequest,
@@ -11,7 +12,7 @@ export async function POST(
 
   // Verify list ownership
   const list = await prisma.shoppingList.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
   });
   if (!list) return NextResponse.json({ error: "Non trouve" }, { status: 404 });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { buildItemAccessWhere } from "@/lib/groupAuth";
 
 // Create a recipe from shopping list items
 export async function POST(
@@ -11,7 +12,7 @@ export async function POST(
   if (!user) return unauthorized();
 
   const list = await prisma.shoppingList.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
     include: { items: true },
   });
 
@@ -34,6 +35,9 @@ export async function POST(
       cookTime: body.cookTime || null,
       steps: JSON.stringify(body.steps || []),
       userId: user.id,
+      // La recette suit le groupe de la liste, sinon elle serait invisible
+      // pour les autres membres qui voient pourtant la liste d'origine.
+      groupId: list.groupId,
       ingredients: {
         create: items.map((item) => ({
           name: item.name,

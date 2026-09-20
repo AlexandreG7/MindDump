@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { buildItemAccessWhere } from "@/lib/groupAuth";
 import { isRecurrence, nextOccurrence } from "@/lib/recurrence";
 
 export async function PATCH(
@@ -12,8 +13,9 @@ export async function PATCH(
 
   const body = await req.json();
 
+  const access = await buildItemAccessWhere(user.id);
   const existing = await prisma.todo.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...access },
   });
 
   if (!existing) {
@@ -21,7 +23,7 @@ export async function PATCH(
   }
 
   const todo = await prisma.todo.updateMany({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...access },
     data: {
       ...(body.title !== undefined && { title: body.title }),
       ...(body.description !== undefined && { description: body.description }),
@@ -88,7 +90,7 @@ export async function DELETE(
   if (!user) return unauthorized();
 
   await prisma.todo.deleteMany({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
   });
 
   return NextResponse.json({ success: true });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { buildItemAccessWhere } from "@/lib/groupAuth";
 
 export async function PATCH(
   req: NextRequest,
@@ -9,15 +10,16 @@ export async function PATCH(
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
-  // Verify list ownership
+  // Liste accessible : propriétaire ou membre du groupe
   const list = await prisma.shoppingList.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
   });
   if (!list) return NextResponse.json({ error: "Non trouve" }, { status: 404 });
 
   const body = await req.json();
-  await prisma.shoppingItem.update({
-    where: { id: params.itemId },
+  // listId dans le filtre : un article ne peut être modifié que via sa propre liste
+  const updated = await prisma.shoppingItem.updateMany({
+    where: { id: params.itemId, listId: params.id },
     data: {
       ...(body.name !== undefined && { name: body.name }),
       ...(body.quantity !== undefined && { quantity: body.quantity }),
@@ -30,6 +32,10 @@ export async function PATCH(
     },
   });
 
+  if (updated.count === 0) {
+    return NextResponse.json({ error: "Non trouve" }, { status: 404 });
+  }
+
   return NextResponse.json({ success: true });
 }
 
@@ -41,11 +47,17 @@ export async function DELETE(
   if (!user) return unauthorized();
 
   const list = await prisma.shoppingList.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
   });
   if (!list) return NextResponse.json({ error: "Non trouve" }, { status: 404 });
 
-  await prisma.shoppingItem.delete({ where: { id: params.itemId } });
+  const deleted = await prisma.shoppingItem.deleteMany({
+    where: { id: params.itemId, listId: params.id },
+  });
+
+  if (deleted.count === 0) {
+    return NextResponse.json({ error: "Non trouve" }, { status: 404 });
+  }
 
   return NextResponse.json({ success: true });
 }
