@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { buildItemAccessWhere } from "@/lib/groupAuth";
 import {
   fetchEnrichedData,
   type EnrichedData,
@@ -16,7 +17,7 @@ export async function GET(
   if (!user) return unauthorized();
 
   const recipe = await prisma.recipe.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
     include: { ingredients: true },
   });
 
@@ -35,6 +36,15 @@ export async function PATCH(
   if (!user) return unauthorized();
 
   const body = await req.json();
+
+  const access = await buildItemAccessWhere(user.id);
+  const accessible = await prisma.recipe.findFirst({
+    where: { id: params.id, ...access },
+    select: { id: true },
+  });
+  if (!accessible) {
+    return NextResponse.json({ error: "Non trouve" }, { status: 404 });
+  }
 
   if (body.ingredients) {
     await prisma.recipeIngredient.deleteMany({
@@ -66,7 +76,7 @@ export async function PATCH(
   }
 
   await prisma.recipe.updateMany({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...access },
     data: {
       ...(body.title !== undefined && { title: body.title }),
       ...(body.description !== undefined && { description: body.description }),
@@ -92,7 +102,7 @@ export async function DELETE(
   if (!user) return unauthorized();
 
   await prisma.recipe.deleteMany({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
   });
 
   return NextResponse.json({ success: true });
@@ -117,7 +127,7 @@ export async function PUT(
     }
 
     const recipe = await prisma.recipe.findFirst({
-      where: { id: params.id, userId: user.id },
+      where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
       include: { ingredients: true },
     });
     if (!recipe) {

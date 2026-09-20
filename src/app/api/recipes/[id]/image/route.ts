@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { buildItemAccessWhere } from "@/lib/groupAuth";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { randomBytes } from "crypto";
 import path from "path";
@@ -37,7 +38,7 @@ export async function POST(
 
   // 1. Vérifier la propriété de la recette AVANT toute écriture disque.
   const recipe = await prisma.recipe.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
     select: { id: true, image: true },
   });
   if (!recipe) {
@@ -95,14 +96,14 @@ export async function DELETE(
   if (!user) return unauthorized();
 
   const recipe = await prisma.recipe.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
     select: { image: true },
   });
 
   if (recipe?.image) await deleteUpload(recipe.image);
 
   await prisma.recipe.updateMany({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
     data: { image: null },
   });
 

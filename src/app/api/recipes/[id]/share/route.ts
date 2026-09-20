@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { buildItemAccessWhere } from "@/lib/groupAuth";
 
 // Crée (ou renvoie) le lien de partage public d'une recette.
 export async function POST(
@@ -12,7 +13,7 @@ export async function POST(
   if (!user) return unauthorized();
 
   const recipe = await prisma.recipe.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
     select: { id: true, shareToken: true },
   });
   if (!recipe) {
@@ -42,7 +43,7 @@ export async function DELETE(
   if (!user) return unauthorized();
 
   await prisma.recipe.updateMany({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
     data: { shareToken: null },
   });
 

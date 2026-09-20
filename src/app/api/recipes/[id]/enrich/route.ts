@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { buildItemAccessWhere } from "@/lib/groupAuth";
 import {
   fetchHelloFreshPage,
   parseHelloFreshPage,
@@ -34,7 +35,7 @@ export async function POST(
     }
 
     const recipe = await prisma.recipe.findFirst({
-      where: { id: params.id, userId: user.id },
+      where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
       include: { ingredients: true },
     });
     if (!recipe) {

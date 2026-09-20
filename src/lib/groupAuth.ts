@@ -57,3 +57,25 @@ export async function buildResourceWhere(
     ],
   };
 }
+
+/**
+ * Construit le filtre Prisma d'accès à une ressource unique (/api/xxx/[id]) :
+ * le propriétaire, ou n'importe quel membre du groupe auquel elle est rattachée.
+ * Même règle de visibilité que buildResourceWhere, qui alimente les listes.
+ */
+export async function buildItemAccessWhere(
+  userId: string
+): Promise<{ OR: ({ userId: string } | { groupId: { in: string[] } })[] }> {
+  const memberships = await prisma.groupMember.findMany({
+    where: { userId },
+    select: { groupId: true },
+  });
+  const groupIds = memberships.map((m) => m.groupId);
+
+  return {
+    OR: [
+      { userId },
+      ...(groupIds.length > 0 ? [{ groupId: { in: groupIds } }] : []),
+    ],
+  };
+}

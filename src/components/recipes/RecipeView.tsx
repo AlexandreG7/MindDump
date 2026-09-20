@@ -392,7 +392,7 @@ export function RecipeView({
             Ingrédients
           </h2>
           <div className="space-y-0.5">
-            {recipe.ingredients.map((ing) => (
+            {(recipe.ingredients ?? []).map((ing) => (
               <button
                 key={ing.id}
                 onClick={() => toggleIngredient(ing.id)}

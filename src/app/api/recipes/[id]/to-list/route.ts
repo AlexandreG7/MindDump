@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { buildItemAccessWhere } from "@/lib/groupAuth";
 
 export async function POST(
   req: NextRequest,
@@ -10,7 +11,7 @@ export async function POST(
   if (!user) return unauthorized();
 
   const recipe = await prisma.recipe.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
     include: { ingredients: true },
   });
 

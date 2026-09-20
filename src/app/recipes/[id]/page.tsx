@@ -25,19 +25,45 @@ export default function RecipeDetailPage() {
   const router = useRouter();
   const { isReady } = useAuth();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchRecipe = useCallback(() => {
-    fetch(`/api/recipes/${id}`)
-      .then((r) => r.json())
-      .then(setRecipe);
+  const fetchRecipe = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/recipes/${id}`);
+      if (!res.ok) {
+        setLoadError(true);
+        return;
+      }
+      setLoadError(false);
+      setRecipe(await res.json());
+    } catch {
+      setLoadError(true);
+    }
   }, [id]);
 
   useEffect(() => {
     if (isReady && id) fetchRecipe();
   }, [isReady, id, fetchRecipe]);
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
+        <p className="font-medium text-foreground">Recette introuvable</p>
+        <p className="text-sm text-muted-foreground">
+          Elle a peut-être été supprimée, ou tu n&apos;y as pas accès.
+        </p>
+        <button
+          onClick={() => router.push("/recipes")}
+          className="text-sm text-muted-foreground underline hover:text-foreground"
+        >
+          Retour aux recettes
+        </button>
+      </div>
+    );
+  }
 
   if (!isReady || !recipe) return null;
 
