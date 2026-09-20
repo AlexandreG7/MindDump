@@ -11,6 +11,7 @@ import {
   ToggleLeft,
 } from "lucide-react";
 import { Reveal, useScrub } from "./motion";
+import { GUIDES } from "@/lib/content/guides";
 
 /* ── 2. The chaos: scattered notes converging into a tidy stack ── */
 
@@ -237,7 +238,24 @@ export function CtaSection() {
           </div>
         </Reveal>
 
-        <p className="text-center text-xs text-muted-foreground mt-10">
+        {/* Maillage interne : sans ces liens, les pages de contenu ne sont
+            atteignables que par le sitemap. */}
+        <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mt-12 text-sm text-muted-foreground">
+          {GUIDES.map((guide) => (
+            <Link
+              key={guide.slug}
+              href={`/${guide.slug}`}
+              className="hover:text-foreground transition-colors"
+            >
+              {guide.navLabel}
+            </Link>
+          ))}
+          <Link href="/docs" className="hover:text-foreground transition-colors">
+            Documentation
+          </Link>
+        </nav>
+
+        <p className="text-center text-xs text-muted-foreground mt-8">
           MindDump — vide ta charge mentale.
         </p>
       </div>
