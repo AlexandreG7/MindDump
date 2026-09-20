@@ -196,7 +196,8 @@ export function KidsWeekly() {
               style={{
                 backgroundColor: theme.bg,
                 borderColor: today ? theme.color : "transparent",
-              }}
+                "--day-color": theme.color,
+              } as React.CSSProperties}
             >
               <div
                 className="kids-day-header"

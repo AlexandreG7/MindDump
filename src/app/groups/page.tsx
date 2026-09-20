@@ -250,7 +250,7 @@ export default function GroupsPage() {
                   <div className="flex items-center gap-2">
                     <h2 className="font-semibold text-lg leading-tight truncate">{group.name}</h2>
                     {group.isOwner && (
-                      <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full shrink-0">
+                      <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/15 px-2 py-0.5 rounded-full shrink-0">
                         <Crown className="h-3 w-3" />
                         Propriétaire
                       </span>
@@ -273,7 +273,7 @@ export default function GroupsPage() {
                 {group.isOwner && !group.isDefault && editingId !== group.id && (
                   <button
                     onClick={() => setDefaultGroup(group.id)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-amber-600 hover:bg-amber-50 text-xs font-medium transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15 text-xs font-medium transition-colors"
                     title="Définir comme groupe par défaut"
                   >
                     <Star className="h-4 w-4" />
@@ -375,7 +375,7 @@ export default function GroupsPage() {
                     <Input
                       value={inviteLinks[group.id]}
                       readOnly
-                      className="text-xs h-8 bg-white"
+                      className="text-xs h-8 bg-card"
                     />
                     <Button
                       size="sm"

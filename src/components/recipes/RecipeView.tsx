@@ -295,8 +295,8 @@ export function RecipeView({
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           </div>
         ) : (
-          <div className="recipe-hero bg-gradient-to-br from-orange-100 to-orange-50 flex items-center justify-center">
-            <UtensilsCrossed className="h-20 w-20 text-orange-300" />
+          <div className="recipe-hero bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-950/40 dark:to-orange-900/30 flex items-center justify-center">
+            <UtensilsCrossed className="h-20 w-20 text-orange-300 dark:text-orange-400/60" />
           </div>
         )}
 
@@ -375,7 +375,7 @@ export function RecipeView({
                     onClick={() => setServingMultiplier(mult)}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                       servingMultiplier === mult
-                        ? "bg-white text-foreground shadow-sm"
+                        ? "bg-card text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -398,7 +398,7 @@ export function RecipeView({
                 onClick={() => toggleIngredient(ing.id)}
                 className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors text-left ${
                   checkedIngredients.has(ing.id)
-                    ? "bg-green-50 text-muted-foreground"
+                    ? "bg-green-50 dark:bg-green-500/10 text-muted-foreground"
                     : "hover:bg-secondary"
                 }`}
               >

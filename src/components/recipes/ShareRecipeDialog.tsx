@@ -87,7 +87,7 @@ export function ShareRecipeDialog({
                 className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 title="Copier le lien"
               >
-                {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
               </button>
               <button
                 onClick={revokeLink}

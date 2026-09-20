@@ -275,6 +275,10 @@ export default function RecipesPage() {
         await fetch(`/api/recipes/${id}`, { method: "DELETE" });
       }
     } else {
+      const message = recipe.planned
+        ? `Retirer « ${recipe.title} » du catalogue ? Elle restera dans les recettes prévues.`
+        : `Supprimer « ${recipe.title} » ? Cette action est irréversible.`;
+      if (!confirm(message)) return;
       if (recipe.planned) {
         await fetch(`/api/recipes/${id}`, {
           method: "PATCH",
@@ -654,7 +658,7 @@ export default function RecipesPage() {
           onClick={() => setActiveTab("prevues")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
             activeTab === "prevues"
-              ? "bg-white text-foreground shadow-sm"
+              ? "bg-card text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -672,7 +676,7 @@ export default function RecipesPage() {
           onClick={() => setActiveTab("catalogue")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
             activeTab === "catalogue"
-              ? "bg-white text-foreground shadow-sm"
+              ? "bg-card text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -689,7 +693,7 @@ export default function RecipesPage() {
       {/* Search + View toggle */}
       <div className="flex items-center gap-3">
         <div className="relative max-w-md flex-1" ref={searchRef}>
-          <div className="flex items-center gap-1.5 flex-wrap bg-white border border-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
+          <div className="flex items-center gap-1.5 flex-wrap bg-card border border-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
             {filters.map((f) => (
               <span
                 key={f}
@@ -734,7 +738,7 @@ export default function RecipesPage() {
             )}
           </div>
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-xl shadow-lg z-20 py-1 overflow-hidden">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-xl shadow-lg z-20 py-1 overflow-hidden">
               {suggestions.map((name) => (
                 <button
                   key={name}
@@ -761,7 +765,7 @@ export default function RecipesPage() {
             <ArrowUpDown className="h-4 w-4" />
           </button>
           {sortOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-white border border-border rounded-xl shadow-lg z-20 py-1 w-44 overflow-hidden">
+            <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-xl shadow-lg z-20 py-1 w-44 overflow-hidden">
               {([
                 { value: "recent" as SortOption, label: "Plus récent" },
                 { value: "oldest" as SortOption, label: "Plus ancien" },
@@ -797,7 +801,7 @@ export default function RecipesPage() {
               title={title}
               className={`p-1.5 rounded-md transition-all ${
                 viewMode === mode
-                  ? "bg-white text-foreground shadow-sm"
+                  ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -881,8 +885,8 @@ export default function RecipesPage() {
                     className="w-20 h-20 object-cover rounded-l-2xl"
                   />
                 ) : (
-                  <div className="w-20 h-20 rounded-l-2xl bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
-                    <UtensilsCrossed className="h-6 w-6 text-orange-300" />
+                  <div className="w-20 h-20 rounded-l-2xl bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/40 dark:to-orange-900/30 flex items-center justify-center">
+                    <UtensilsCrossed className="h-6 w-6 text-orange-300 dark:text-orange-400/60" />
                   </div>
                 )}
                 <button
@@ -931,8 +935,8 @@ export default function RecipesPage() {
                     className="w-full aspect-square object-cover"
                   />
                 ) : (
-                  <div className="w-full aspect-square bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
-                    <UtensilsCrossed className="h-8 w-8 text-orange-300" />
+                  <div className="w-full aspect-square bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/40 dark:to-orange-900/30 flex items-center justify-center">
+                    <UtensilsCrossed className="h-8 w-8 text-orange-300 dark:text-orange-400/60" />
                   </div>
                 )}
                 <button
@@ -1205,13 +1209,13 @@ function RecipeCard({
               <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover/img:opacity-100">
                 <button
                   onClick={() => editImageRef.current?.click()}
-                  className="p-2 bg-white/90 rounded-full text-foreground hover:bg-white"
+                  className="p-2 bg-card/90 rounded-full text-foreground hover:bg-card"
                 >
                   <Camera className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => onRemoveImage(recipe.id)}
-                  className="p-2 bg-white/90 rounded-full text-destructive hover:bg-white"
+                  className="p-2 bg-card/90 rounded-full text-destructive hover:bg-card"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -1324,11 +1328,11 @@ function RecipeCard({
           </>
         ) : (
           <div className="recipe-thumbnail-placeholder">
-            <UtensilsCrossed className="h-10 w-10 text-orange-300 relative z-10" />
+            <UtensilsCrossed className="h-10 w-10 text-orange-300 dark:text-orange-400/60 relative z-10" />
           </div>
         )}
         {activeTab === "prevues" && recipe.inCatalog && (
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-foreground text-xs font-medium px-2.5 py-1 rounded-full z-10">
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-card/90 backdrop-blur-sm text-foreground text-xs font-medium px-2.5 py-1 rounded-full z-10">
             <BookMarked className="h-3 w-3" />
             Catalogue
           </div>
@@ -1410,7 +1414,7 @@ function RecipeCard({
                     <p className="text-sm text-destructive">{enrichError}</p>
                   )}
                   {enrichResult && (
-                    <div className="text-sm text-green-600 space-y-1">
+                    <div className="text-sm text-green-600 dark:text-green-400 space-y-1">
                       <p className="font-medium">Recette enrichie !</p>
                       <ul className="text-xs space-y-0.5 text-muted-foreground">
                         {enrichResult.image && <li>Image ajoutee</li>}

@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useGroupContext } from "./GroupContext";
 import { useFeaturesContext, type FeatureKey } from "./FeaturesContext";
+import { ThemeToggle } from "./ThemeToggle";
 
 const ALL_NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, feature: null },
@@ -211,17 +212,24 @@ export function Navbar() {
             )}
           </Link>
 
-          {!skipAuth && !collapsed && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start gap-2 text-muted-foreground"
-              onClick={() => signOut()}
-            >
-              <LogOut className="h-4 w-4" />
-              Déconnexion
-            </Button>
+          {!collapsed && (
+            <div className="flex items-center gap-1">
+              {!skipAuth && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 justify-start gap-2 text-muted-foreground"
+                  onClick={() => signOut()}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Déconnexion
+                </Button>
+              )}
+              <ThemeToggle className="ml-auto p-2" />
+            </div>
           )}
+
+          {collapsed && <ThemeToggle className="w-full flex justify-center p-2" iconClassName="h-5 w-5" />}
 
           {!skipAuth && collapsed && (
             <button
@@ -238,9 +246,12 @@ export function Navbar() {
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b px-4 py-3 flex items-center justify-between">
         <h1 className="text-lg font-bold">MindDump</h1>
-        <Button variant="ghost" size="icon" onClick={() => setMobileOpen(!mobileOpen)}>
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle className="p-2" />
+          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(!mobileOpen)}>
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
       </div>
 
       {/* Mobile menu */}

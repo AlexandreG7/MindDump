@@ -497,7 +497,7 @@ export default function ProfilePage() {
               <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{pwdError}</p>
             )}
             {pwdSuccess && (
-              <p className="text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg flex items-center gap-2">
+              <p className="text-sm text-green-700 bg-green-50 dark:text-green-400 dark:bg-green-500/15 px-3 py-2 rounded-lg flex items-center gap-2">
                 <Check className="h-4 w-4" />Mot de passe modifié avec succès.
               </p>
             )}
@@ -528,7 +528,7 @@ export default function ProfilePage() {
               </DialogTitle></DialogHeader>
               {newlyCreatedKey ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+                  <p className="text-sm text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/15 px-3 py-2 rounded-lg">
                     Sauvegardez cette clé maintenant. Elle ne sera plus affichée en entier.
                   </p>
                   <div className="flex gap-2">
@@ -787,7 +787,7 @@ export default function ProfilePage() {
                       <span className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full shrink-0">défaut</span>
                     )}
                     {group.isOwner && (
-                      <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0">
+                      <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/15 px-1.5 py-0.5 rounded-full shrink-0">
                         <Crown className="h-2.5 w-2.5" />Propriétaire
                       </span>
                     )}
@@ -912,14 +912,14 @@ export default function ProfilePage() {
                   <p className="text-xs text-destructive">{inviteByIdError[group.id]}</p>
                 )}
                 {inviteByIdSuccess[group.id] && (
-                  <p className="text-xs text-green-600">{inviteByIdSuccess[group.id]}</p>
+                  <p className="text-xs text-green-600 dark:text-green-400">{inviteByIdSuccess[group.id]}</p>
                 )}
 
                 {/* Invite by link */}
                 <div className="pt-1 border-t border-border/50">
                   {inviteLinks[group.id] ? (
                     <div className="flex gap-2">
-                      <Input value={inviteLinks[group.id]} readOnly className="text-xs h-8 bg-white" />
+                      <Input value={inviteLinks[group.id]} readOnly className="text-xs h-8 bg-card" />
                       <Button size="sm" variant={copiedId === group.id ? "default" : "outline"}
                         onClick={() => copyLink(group.id)} className="shrink-0">
                         {copiedId === group.id

@@ -27,6 +27,66 @@
     --input: 220 13% 91%;
     --ring: 24 85% 53%;
     --radius: 0.75rem;
+
+    /* Surfaces & tints used by the custom components below */
+    --surface-subtle: 220 14% 98%;
+    --surface-hover: 220 14% 94%;
+    --border-strong: 220 13% 83%;
+    --primary-soft: 24 80% 95%;
+    --primary-soft-hover: 24 80% 90%;
+    --primary-soft-foreground: 24 70% 35%;
+  }
+
+  /* ── Dark mode : gris foncé plutôt que noir ── */
+  .dark {
+    color-scheme: dark;
+    --background: 225 6% 14%;          /* #212226 */
+    --foreground: 220 12% 91%;
+    --card: 225 6% 18%;                /* #2B2C30 */
+    --card-foreground: 220 12% 91%;
+    --popover: 225 6% 20%;
+    --popover-foreground: 220 12% 91%;
+    --primary: 24 88% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 225 5% 23%;
+    --secondary-foreground: 220 10% 80%;
+    --muted: 225 5% 22%;
+    --muted-foreground: 220 7% 62%;
+    --accent: 225 5% 25%;
+    --accent-foreground: 220 12% 94%;
+    --destructive: 0 68% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 225 5% 27%;
+    --input: 225 5% 30%;
+    --ring: 24 88% 56%;
+
+    --surface-subtle: 225 6% 16%;
+    --surface-hover: 225 5% 26%;
+    --border-strong: 225 5% 40%;
+    --primary-soft: 24 45% 22%;
+    --primary-soft-hover: 24 45% 28%;
+    --primary-soft-foreground: 28 90% 72%;
+  }
+
+  /* La landing page reste en clair */
+  .dark .lp-root {
+    color-scheme: light;
+    --background: 40 20% 97%;
+    --foreground: 220 20% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 14%;
+    --primary: 24 85% 53%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 15% 32%;
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 10% 48%;
+    --accent: 150 30% 93%;
+    --accent-foreground: 150 40% 22%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    color: hsl(var(--foreground));
   }
 }
 
@@ -44,8 +104,8 @@
 @layer components {
   /* ── Grocery list (clean card) ── */
   .grocery-list {
-    background: white;
-    border: 1px solid hsl(220 13% 91%);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
 
@@ -54,14 +114,14 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.875rem 1rem;
-    border-bottom: 1px solid hsl(220 13% 91%);
-    background: hsl(220 14% 98%);
+    border-bottom: 1px solid hsl(var(--border));
+    background: hsl(var(--surface-subtle));
   }
 
   .grocery-progress-bar {
     height: 4px;
     width: 80px;
-    background: hsl(220 13% 91%);
+    background: hsl(var(--border));
     border-radius: 999px;
     overflow: hidden;
   }
@@ -95,7 +155,7 @@
     width: 22px;
     height: 22px;
     border-radius: 6px;
-    border: 2px solid hsl(220 13% 80%);
+    border: 2px solid hsl(var(--border-strong));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -120,8 +180,8 @@
 
   .grocery-item-done {
     text-decoration: line-through;
-    text-decoration-color: hsl(220 10% 65%);
-    color: hsl(220 10% 55%);
+    text-decoration-color: hsl(var(--muted-foreground));
+    color: hsl(var(--muted-foreground));
   }
 
   .grocery-qty-badge {
@@ -129,8 +189,8 @@
     font-weight: 500;
     padding: 0.125rem 0.5rem;
     border-radius: 999px;
-    background: hsl(24 80% 94%);
-    color: hsl(24 70% 35%);
+    background: hsl(var(--primary-soft));
+    color: hsl(var(--primary-soft-foreground));
     white-space: nowrap;
     flex-shrink: 0;
     border: none;
@@ -139,15 +199,15 @@
   }
 
   .grocery-qty-badge:hover {
-    background: hsl(24 80% 88%);
+    background: hsl(var(--primary-soft-hover));
   }
 
   .grocery-qty-badge-empty {
     opacity: 0;
     width: 24px;
     text-align: center;
-    background: hsl(220 13% 93%);
-    color: hsl(220 10% 55%);
+    background: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
   }
 
   .grocery-item:hover .grocery-qty-badge-empty,
@@ -162,7 +222,7 @@
     border-radius: 6px;
     border: 1px solid hsl(24 85% 53%);
     outline: none;
-    background: white;
+    background: hsl(var(--card));
     flex-shrink: 0;
   }
 
@@ -173,8 +233,8 @@
     font-size: 0.6875rem;
     padding: 0.0625rem 0.375rem;
     border-radius: 4px;
-    background: hsl(24 80% 95%);
-    color: hsl(24 60% 40%);
+    background: hsl(var(--primary-soft));
+    color: hsl(var(--primary-soft-foreground));
     margin-top: 0.125rem;
   }
 
@@ -191,24 +251,24 @@
     border-radius: 8px;
     border: none;
     background: transparent;
-    color: hsl(220 10% 48%);
+    color: hsl(var(--muted-foreground));
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
     -webkit-tap-highlight-color: transparent;
   }
 
   .grocery-icon-btn:hover {
-    background: hsl(220 14% 94%);
+    background: hsl(var(--surface-hover));
   }
 
   .grocery-icon-btn-active {
-    background: hsl(24 80% 94%);
-    color: hsl(24 70% 35%);
+    background: hsl(var(--primary-soft));
+    color: hsl(var(--primary-soft-foreground));
   }
 
   .grocery-icon-btn-danger:hover {
-    background: hsl(0 80% 95%);
-    color: hsl(0 65% 48%);
+    background: hsl(var(--destructive) / 0.12);
+    color: hsl(var(--destructive));
   }
 
   .grocery-add-section {
@@ -221,10 +281,10 @@
     gap: 0.375rem;
     width: 100%;
     padding: 0.5rem;
-    border: 1px dashed hsl(220 13% 85%);
+    border: 1px dashed hsl(var(--border-strong));
     border-radius: 8px;
     background: transparent;
-    color: hsl(220 10% 55%);
+    color: hsl(var(--muted-foreground));
     font-size: 0.8125rem;
     cursor: pointer;
     transition: all 0.15s;
@@ -234,12 +294,12 @@
   .grocery-add-btn:hover {
     border-color: hsl(24 85% 53%);
     color: hsl(24 85% 53%);
-    background: hsl(24 80% 97%);
+    background: hsl(var(--primary-soft));
   }
 
   .grocery-checked-section {
-    border-top: 1px solid hsl(220 13% 91%);
-    background: hsl(220 14% 98%);
+    border-top: 1px solid hsl(var(--border));
+    background: hsl(var(--surface-subtle));
   }
 
   .grocery-checked-toggle {
@@ -250,7 +310,7 @@
     padding: 0.625rem 1rem;
     border: none;
     background: transparent;
-    color: hsl(220 10% 55%);
+    color: hsl(var(--muted-foreground));
     font-size: 0.75rem;
     font-weight: 500;
     text-transform: uppercase;
@@ -260,7 +320,7 @@
   }
 
   .grocery-checked-toggle:hover {
-    color: hsl(220 10% 35%);
+    color: hsl(var(--foreground));
   }
 
   .grocery-checked-item {
@@ -273,9 +333,9 @@
 
   /* ── Clean recipe card ── */
   .recipe-card {
-    background: white;
+    background: hsl(var(--card));
     border-radius: 16px;
-    border: 1px solid hsl(220 13% 91%);
+    border: 1px solid hsl(var(--border));
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.2s ease, transform 0.2s ease;
     overflow: hidden;
@@ -346,7 +406,7 @@
 
   .recipe-sidebar {
     padding: 1.5rem;
-    border-bottom: 1px solid hsl(220 13% 91%);
+    border-bottom: 1px solid hsl(var(--border));
   }
 
   @media (min-width: 768px) {
@@ -354,7 +414,7 @@
       width: 340px;
       flex-shrink: 0;
       border-bottom: none;
-      border-right: 1px solid hsl(220 13% 91%);
+      border-right: 1px solid hsl(var(--border));
       position: sticky;
       top: 0;
       max-height: calc(100dvh - 4rem);
@@ -386,7 +446,7 @@
     gap: 0.5rem;
     padding: 1rem 1.5rem;
     flex-wrap: wrap;
-    border-bottom: 1px solid hsl(220 13% 91%);
+    border-bottom: 1px solid hsl(var(--border));
   }
 
   .recipe-info-chip {
@@ -395,10 +455,10 @@
     gap: 0.375rem;
     padding: 0.375rem 0.75rem;
     border-radius: 999px;
-    background: hsl(220 14% 96%);
+    background: hsl(var(--secondary));
     font-size: 0.8125rem;
     font-weight: 500;
-    color: hsl(220 20% 14%);
+    color: hsl(var(--foreground));
   }
 
   /* ── Fullscreen cooking mode ── */
@@ -597,7 +657,7 @@
   .recipe-thumbnail-placeholder {
     width: 100%;
     height: 160px;
-    background: linear-gradient(135deg, hsl(24 80% 95%) 0%, hsl(30 60% 92%) 100%);
+    background: linear-gradient(135deg, hsl(var(--primary-soft)) 0%, hsl(30 60% 92%) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -611,6 +671,15 @@
     inset: 0;
     background: radial-gradient(circle at 30% 70%, hsl(24 60% 88%) 0%, transparent 60%),
                 radial-gradient(circle at 70% 30%, hsl(35 50% 90%) 0%, transparent 50%);
+  }
+
+  .dark .recipe-thumbnail-placeholder {
+    background: linear-gradient(135deg, hsl(24 30% 20%) 0%, hsl(30 25% 17%) 100%);
+  }
+
+  .dark .recipe-thumbnail-placeholder::before {
+    background: radial-gradient(circle at 30% 70%, hsl(24 35% 25%) 0%, transparent 60%),
+                radial-gradient(circle at 70% 30%, hsl(35 25% 22%) 0%, transparent 50%);
   }
 
   .line-clamp-2 {
@@ -680,7 +749,11 @@
     min-height: 150px;
     overflow: hidden;
     text-align: center;
-    background: white;
+    background: hsl(var(--card));
+  }
+
+  .dark .kids-day-card {
+    background: color-mix(in srgb, var(--day-color, transparent) 14%, hsl(var(--card))) !important;
   }
 
   .kids-day-card:hover {
@@ -770,7 +843,7 @@
   }
 
   .kids-editor {
-    background: white;
+    background: hsl(var(--card));
     border-radius: 24px;
     width: 100%;
     max-width: 480px;
@@ -899,14 +972,14 @@
     padding: 0.375rem;
     border-radius: 14px;
     border: 3px solid transparent;
-    background: hsl(220 14% 96%);
+    background: hsl(var(--secondary));
     cursor: pointer;
     transition: all 0.15s ease;
     -webkit-tap-highlight-color: transparent;
   }
 
   .kids-icon-btn:hover {
-    background: hsl(220 14% 93%);
+    background: hsl(var(--surface-hover));
   }
 
   .kids-icon-btn:active {
@@ -919,13 +992,13 @@
 
   .kids-icon-selected {
     border-color: hsl(var(--primary));
-    background: hsl(24 80% 96%);
+    background: hsl(var(--primary-soft));
     box-shadow: 0 2px 8px rgba(249, 115, 22, 0.2);
     animation: kids-pop 0.25s ease;
   }
 
   .kids-icon-selected:hover {
-    background: hsl(24 80% 93%);
+    background: hsl(var(--primary-soft-hover));
   }
 
   @keyframes kids-pop {
@@ -1001,7 +1074,7 @@
   }
 
   .kids-stats {
-    background: white;
+    background: hsl(var(--card));
     border-radius: 24px;
     max-width: 420px;
     width: 100%;
