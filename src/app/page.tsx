@@ -1,23 +1,21 @@
-"use client";
-
-import { useSession } from "next-auth/react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { isAuthBypassEnabled } from "@/lib/devAuth";
 import { Dashboard } from "@/components/Dashboard";
 import { Landing } from "@/components/landing/Landing";
 
-const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true" && process.env.NODE_ENV !== "production";
+/**
+ * Le choix landing / dashboard se fait côté serveur, et pas depuis
+ * useSession() : un composant client aurait servi un HTML vide (« Chargement »)
+ * aux robots d'indexation, qui arrivent toujours déconnectés. Le rendu dépend
+ * du cookie de session, la page est donc dynamique par nature.
+ */
+export default async function Home() {
+  // Jamais actif en production (voir devAuth.ts).
+  if (isAuthBypassEnabled) return <Dashboard />;
 
-export default function Home() {
-  const { status } = useSession();
-
-  if (skipAuth || status === "authenticated") return <Dashboard />;
-
-  if (status === "loading") {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-muted-foreground">Chargement...</p>
-      </div>
-    );
-  }
+  const session = await getServerSession(authOptions);
+  if (session?.user) return <Dashboard />;
 
   return <Landing />;
 }

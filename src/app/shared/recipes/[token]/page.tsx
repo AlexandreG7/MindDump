@@ -11,10 +11,10 @@ export async function generateMetadata({
   params: { token: string };
 }): Promise<Metadata> {
   const recipe = await findSharedRecipe(params.token);
-  if (!recipe) return { title: "Recette introuvable - MindDump" };
+  if (!recipe) return { title: "Recette introuvable" };
+  // metadataBase et le suffixe « · MindDump » du titre viennent du layout racine.
   return {
-    ...(process.env.NEXTAUTH_URL && { metadataBase: new URL(process.env.NEXTAUTH_URL) }),
-    title: `${recipe.title} - MindDump`,
+    title: recipe.title,
     description: recipe.description || "Une recette partagée avec toi sur MindDump",
     // Aperçu dans les messageries (WhatsApp, iMessage...)
     openGraph: {
@@ -22,7 +22,7 @@ export async function generateMetadata({
       description: recipe.description || "Une recette partagée avec toi sur MindDump",
       ...(recipe.image && { images: [recipe.image] }),
     },
-    robots: { index: false },
+    robots: { index: false, follow: false },
   };
 }
 
