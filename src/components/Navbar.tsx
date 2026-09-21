@@ -69,7 +69,8 @@ export function Navbar() {
   const userEmail = skipAuth ? "dev@minddump.local" : session?.user?.email;
   const userImage = skipAuth ? null : session?.user?.image;
 
-  if (!isLoggedIn) return null;
+  // L'écran de consentement bloque l'app : pas de navigation tant qu'il n'est pas validé.
+  if (!isLoggedIn || pathname === "/consentement") return null;
 
   return (
     <>

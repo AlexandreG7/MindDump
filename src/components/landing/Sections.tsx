@@ -388,6 +388,9 @@ export function CtaSection() {
           <Link href="/docs" className="hover:text-foreground transition-colors">
             Documentation
           </Link>
+          <Link href="/confidentialite" className="hover:text-foreground transition-colors">
+            Confidentialité
+          </Link>
         </nav>
 
         <p className="text-center text-xs text-muted-foreground mt-8">

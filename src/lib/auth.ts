@@ -7,6 +7,8 @@ import { verifyPassword } from "./password";
 import { ensureDefaultGroup } from "./defaultGroup";
 import { generateUniquePublicId } from "./publicId";
 
+const LOGIN_HISTORY_MONTHS = 12;
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -57,6 +59,16 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = (user as { role?: string }).role ?? "user";
       }
+      // Consentement RGPD : tant que le jeton ne le porte pas, on relit la base
+      // (seuls les comptes sans consentement paient cette requête). Le jeton est
+      // ainsi mis à jour après /consentement, via useSession().update().
+      if (!token.consented && token.sub) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { consentedAt: true },
+        });
+        token.consented = !!dbUser?.consentedAt;
+      }
       return token;
     },
     async session({ session, token }) {
@@ -69,6 +81,30 @@ export const authOptions: NextAuthOptions = {
     },
   },
   events: {
+    // Historique des connexions pour le dashboard admin. On utilise l'event et non
+    // le callback signIn : pour un premier login Google, le callback reçoit le
+    // profil Google avant la création de l'utilisateur en base (pas encore d'id),
+    // alors que l'event arrive après. Les deux se déclenchent pour Credentials.
+    async signIn({ user, account }) {
+      try {
+        await prisma.$transaction([
+          prisma.loginEvent.create({
+            data: { userId: user.id, provider: account?.provider ?? null },
+          }),
+          prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          }),
+        ]);
+        // Durée de conservation annoncée dans /confidentialite : 12 mois.
+        const cutoff = new Date();
+        cutoff.setMonth(cutoff.getMonth() - LOGIN_HISTORY_MONTHS);
+        await prisma.loginEvent.deleteMany({ where: { createdAt: { lt: cutoff } } });
+      } catch (error) {
+        // Une statistique ne doit jamais empêcher de se connecter.
+        console.error("LoginEvent non enregistré", error);
+      }
+    },
     // Créer le groupe par défaut à la première connexion (Google OAuth ou autre)
     async createUser({ user }) {
       const publicId = await generateUniquePublicId();

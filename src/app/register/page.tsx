@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
 
 export default function RegisterPage() {
@@ -16,6 +17,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -31,13 +33,17 @@ export default function RegisterPage() {
       setError("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
+    if (!consent) {
+      setError("Tu dois accepter la politique de confidentialité pour créer un compte.");
+      return;
+    }
 
     setLoading(true);
 
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, consent }),
     });
 
     const data = await res.json();
@@ -136,6 +142,27 @@ export default function RegisterPage() {
                 required
                 autoComplete="new-password"
               />
+            </div>
+
+            <div className="flex items-start gap-2.5 pt-1">
+              <Checkbox
+                id="consent"
+                checked={consent}
+                onCheckedChange={(v) => setConsent(v === true)}
+                className="mt-0.5"
+                aria-required="true"
+              />
+              <Label htmlFor="consent" className="text-sm font-normal leading-snug text-muted-foreground">
+                J&apos;accepte la{" "}
+                <Link
+                  href="/confidentialite"
+                  target="_blank"
+                  className="text-primary font-medium hover:underline"
+                >
+                  politique de confidentialité
+                </Link>{" "}
+                et le traitement de mes données pour le fonctionnement de MindDump.
+              </Label>
             </div>
 
             {error && (

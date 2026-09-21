@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Caveat, Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { themeInitScript } from "@/lib/theme";
 import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 
-const inter = Inter({ subsets: ["latin"] });
+// next/font télécharge les polices au build et les sert depuis minddump.fr :
+// aucun appel à Google Fonts depuis le navigateur (IP des visiteurs, RGPD).
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const caveat = Caveat({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-caveat" });
 
 export const metadata: Metadata = {
   // Base des URLs relatives ci-dessous (canonical, images Open Graph).
@@ -61,7 +64,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${inter.variable} ${caveat.variable}`}>
         <Providers>
           <div className="flex h-screen overflow-hidden">
             <Navbar />

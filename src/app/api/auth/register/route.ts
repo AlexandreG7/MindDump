@@ -3,9 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { ensureDefaultGroup } from "@/lib/defaultGroup";
 import { generateUniquePublicId } from "@/lib/publicId";
+import { CONSENT_VERSION } from "@/lib/consent";
 
 export async function POST(req: NextRequest) {
-  const { name, email, password } = await req.json();
+  const { name, email, password, consent } = await req.json();
+
+  // RGPD : le consentement doit être explicite, y compris pour un POST direct.
+  if (consent !== true) {
+    return NextResponse.json(
+      { error: "Tu dois accepter la politique de confidentialité pour créer un compte." },
+      { status: 400 }
+    );
+  }
 
   if (!email || !password) {
     return NextResponse.json(
@@ -39,6 +48,8 @@ export async function POST(req: NextRequest) {
       emailVerified: new Date(),
       role: "user",
       publicId,
+      consentedAt: new Date(),
+      consentVersion: CONSENT_VERSION,
     },
   });
 

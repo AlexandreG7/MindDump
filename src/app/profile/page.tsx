@@ -43,7 +43,10 @@ import {
   MapPin,
   LocateFixed,
   BookOpen,
+  Download,
+  ShieldCheck,
 } from "lucide-react";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { useFeaturesContext, type FeatureKey } from "@/components/FeaturesContext";
 
 interface Member {
@@ -712,6 +715,37 @@ export default function ProfilePage() {
               </button>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── Mes données (RGPD) ──────────────────────────────────── */}
+      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Mes données</h2>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-1">
+          Récupère toutes tes données au format JSON, ou supprime ton compte. Détails dans la{" "}
+          <Link href="/confidentialite" className="text-primary hover:underline">
+            politique de confidentialité
+          </Link>
+          .
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm" variant="outline">
+            <a href="/api/users/me/export" download>
+              <Download className="h-4 w-4 mr-2" />Exporter mes données
+            </a>
+          </Button>
+          {!skipAuth && (
+            <DeleteAccountDialog
+              trigger={
+                <button className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1.5 rounded-lg hover:bg-destructive/10">
+                  <Trash2 className="h-3.5 w-3.5" />Supprimer mon compte
+                </button>
+              }
+            />
+          )}
         </div>
       </section>
 

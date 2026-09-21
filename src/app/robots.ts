@@ -24,6 +24,8 @@ export default function robots(): MetadataRoute.Robots {
           "/recipes",
           "/kids",
           "/groups",
+          "/admin",
+          "/consentement",
           "/shared/",
           "/uploads/",
         ],
