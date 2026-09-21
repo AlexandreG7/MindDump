@@ -13,10 +13,15 @@ import { AdminDashboard } from "./AdminDashboard";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Administration",
-  robots: { index: false, follow: false },
-};
+// Titre donné aux seuls admins : même le <title> ne doit rien révéler de la
+// page à qui reçoit la 404.
+export async function generateMetadata(): Promise<Metadata> {
+  const admin = await getAdminUser();
+  return {
+    ...(admin ? { title: "Administration" } : {}),
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function AdminPage() {
   // Le middleware garantit déjà une session ; on revérifie ici car c'est le

@@ -4,7 +4,7 @@
 //   node prisma/promote-admin.js alice@exemple.fr --revoke  -> role "user"
 //
 // En production (Coolify) : terminal du conteneur de l'app, même commande.
-// Voir docs/admin-et-rgpd.md.
+// Voir docs/admin.md.
 const { PrismaClient } = require("@prisma/client");
 
 async function main() {

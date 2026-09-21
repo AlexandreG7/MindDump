@@ -6,7 +6,7 @@ PRISMA="node ./node_modules/prisma/build/index.js"
 # Migrations versionnées (prisma/migrations). Une base créée à l'époque de
 # `db push` n'a pas d'historique : Prisma refuse alors de migrer (P3005). On la
 # marque une seule fois comme étant au niveau de la baseline 0_init, puis on
-# applique les migrations suivantes. Voir docs/admin-et-rgpd.md.
+# applique les migrations suivantes. Voir docs/migrations-prisma.md.
 echo "Applying Prisma migrations..."
 if ! OUTPUT=$($PRISMA migrate deploy 2>&1); then
   echo "$OUTPUT"
