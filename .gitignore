@@ -7,3 +7,4 @@ out/
 next-env.d.ts
 .mcp.json
 minddump-mcp/dist/
+.env.backup*
