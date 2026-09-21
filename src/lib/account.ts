@@ -1,6 +1,7 @@
 import { unlink } from "fs/promises";
 import { prisma } from "./prisma";
 import { resolveUploadPaths } from "./uploads";
+import { revokeAppleToken } from "./authProviders";
 
 // Mot à taper pour confirmer la suppression du compte (UI et API).
 export const DELETE_CONFIRMATION = "SUPPRIMER";
@@ -130,7 +131,8 @@ function parseJson(value: string): unknown {
  * - Tout le reste part en cascade depuis User (éléments personnels, adhésions,
  *   clés API, préférences, semainier, historique de connexion, comptes OAuth).
  * - Les jetons de vérification liés à l'email et les photos de recettes
- *   supprimées sont effacés à part (pas de relation en base).
+ *   supprimées sont effacés à part (pas de relation en base), et les jetons
+ *   Apple sont révoqués auprès d'Apple.
  */
 export async function deleteUserAccount(userId: string, { keepShared }: { keepShared: boolean }) {
   const user = await prisma.user.findUnique({
@@ -138,6 +140,7 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
     select: {
       email: true,
       recipes: { where: { image: { startsWith: "/uploads/" } }, select: { image: true } },
+      accounts: { where: { provider: "apple" }, select: { refresh_token: true } },
     },
   });
   if (!user) return false;
@@ -206,6 +209,9 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
     }
     await tx.user.delete({ where: { id: userId } });
   });
+
+  // Apple demande de révoquer ses jetons quand le compte est supprimé.
+  for (const account of user.accounts) await revokeAppleToken(account.refresh_token);
 
   // Fichiers : après la transaction, et seulement s'ils ne sont plus référencés
   // (une copie de recette partagée a normalement son propre fichier).

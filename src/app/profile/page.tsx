@@ -47,6 +47,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
+import { LoginMethods } from "@/components/LoginMethods";
 import { useFeaturesContext, type FeatureKey } from "@/components/FeaturesContext";
 
 interface Member {
@@ -459,6 +460,9 @@ export default function ProfilePage() {
           Partage ton identifiant pour que d&apos;autres utilisateurs puissent t&apos;inviter dans un groupe.
         </p>
       </section>
+
+      {/* ── Moyens de connexion (mot de passe, Google, Apple) ───── */}
+      {!skipAuth && <LoginMethods />}
 
       {/* ── Changer le mot de passe ─────────────────────────────── */}
       {!skipAuth && (

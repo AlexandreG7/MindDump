@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { OAuthButtons } from "@/components/OAuthButtons";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
 
 export default function RegisterPage() {
@@ -80,6 +81,9 @@ export default function RegisterPage() {
               </Link>
             </p>
           </div>
+
+          {/* Un compte créé via Google ou Apple passe ensuite par /consentement. */}
+          <OAuthButtons callbackUrl="/" label="S'inscrire avec" />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">

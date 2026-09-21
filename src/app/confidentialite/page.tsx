@@ -93,8 +93,10 @@ export default function PrivacyPolicyPage() {
               <Row label="Compte">
                 Prénom, adresse e-mail, mot de passe (stocké uniquement sous forme chiffrée,
                 irréversible), identifiant public, date de création du compte. Si tu te connectes avec
-                Google : ton nom, ton e-mail et ta photo de profil Google, ainsi que les jetons de
-                connexion fournis par Google.
+                Google ou Apple, ou si tu lies l&apos;un de ces comptes : ton nom, ton e-mail (avec
+                Apple, éventuellement une adresse relais qu&apos;Apple te fournit), ta photo de profil
+                Google, ton identifiant chez ce fournisseur et les jetons de connexion qu&apos;il
+                fournit.
               </Row>
               <Row label="Contenus">
                 Ce que tu crées : todos, événements et rappels, abonnements à des calendriers externes
@@ -176,7 +178,11 @@ export default function PrivacyPolicyPage() {
           <li>
             {mailProvider} : envoi des rappels (ton e-mail et le titre du rappel).
           </li>
-          <li>Google (États-Unis) : uniquement si tu choisis « Se connecter avec Google ».</li>
+          <li>
+            Google et Apple (États-Unis) : uniquement si tu te connectes avec l&apos;un d&apos;eux ou
+            si tu lies ton compte depuis ton profil. Tu peux délier un fournisseur à tout moment ;
+            à la suppression du compte, les jetons Apple sont révoqués.
+          </li>
           <li>
             Open-Meteo (Suisse) et OpenStreetMap Nominatim (Royaume-Uni) : les coordonnées de la
             ville choisie pour la météo, sans ton nom ni ton e-mail.
@@ -192,8 +198,8 @@ export default function PrivacyPolicyPage() {
         </p>
         <p>
           Les transferts hors de l&apos;Union européenne se font vers des pays reconnus comme
-          offrant une protection adéquate (Suisse, Royaume-Uni) ou, pour Google, dans le cadre du
-          Data Privacy Framework UE–États-Unis.
+          offrant une protection adéquate (Suisse, Royaume-Uni) ou, pour Google et Apple, dans le
+          cadre du Data Privacy Framework UE–États-Unis.
         </p>
       </Section>
 

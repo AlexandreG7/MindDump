@@ -1,26 +1,19 @@
 import { NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
 import { verifyPassword } from "./password";
 import { ensureDefaultGroup } from "./defaultGroup";
 import { generateUniquePublicId } from "./publicId";
+import { oauthCookies, oauthProviders } from "./authProviders";
 
 const LOGIN_HISTORY_MONTHS = 12;
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    // Google OAuth (si les variables d'env sont définies)
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-      ? [
-          GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          }),
-        ]
-      : []),
+    // Google, Apple (si leurs variables d'env sont définies), voir authProviders.ts
+    ...oauthProviders(),
 
     // Email + mot de passe
     CredentialsProvider({
@@ -54,6 +47,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  cookies: oauthCookies((process.env.NEXTAUTH_URL ?? "").startsWith("https://")),
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

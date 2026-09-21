@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, LogIn } from "lucide-react";
+import { OAuthButtons, oauthErrorMessage } from "@/components/OAuthButtons";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,6 +17,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [callbackUrl, setCallbackUrl] = useState("/");
+
+  // Retour d'un fournisseur OAuth en erreur (?error=…) et page demandée (?callbackUrl=…).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setError(oauthErrorMessage(params.get("error")));
+    const requested = params.get("callbackUrl");
+    if (requested && /^\/(?![\/\\])/.test(requested)) setCallbackUrl(requested);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,9 +44,7 @@ export default function LoginPage() {
       setError("Email ou mot de passe incorrect.");
     } else {
       // Retour à la page demandée (ex. lien de partage), chemins internes uniquement.
-      const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
-      const isInternal = callbackUrl && /^\/(?![\/\\])/.test(callbackUrl);
-      router.push(isInternal ? callbackUrl : "/");
+      router.push(callbackUrl);
       router.refresh();
     }
   };
@@ -61,6 +69,8 @@ export default function LoginPage() {
               </Link>
             </p>
           </div>
+
+          <OAuthButtons callbackUrl={callbackUrl} />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
