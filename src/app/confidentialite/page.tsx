@@ -192,8 +192,9 @@ export default function PrivacyPolicyPage() {
               </Row>
               <Row label="Stockage local">
                 <code>theme</code> (clair ou sombre), <code>sidebarCollapsed</code> (menu replié),{" "}
-                <code>currentGroupId</code> (groupe actif). Restent sur ton appareil, ne sont pas
-                envoyés au serveur.
+                <code>currentGroupId</code> (groupe actif), <code>nextauth.message</code>
+                (synchronise la connexion et la déconnexion entre onglets). Restent sur ton appareil,
+                ne sont pas envoyés au serveur.
               </Row>
             </tbody>
           </table>

@@ -25,6 +25,13 @@ export function DailyBarChart({ data, unit }: { data: DayPoint[]; unit: string }
   const barW = Math.max(1, slot - GAP);
   const y = (v: number) => PAD.top + innerH - (v / max) * innerH;
   const hovered = hover !== null ? data[hover] : null;
+  // Aux extrémités, l'infobulle s'aligne sur la barre au lieu de déborder.
+  const tooltipAlign =
+    hover === null || (hover > 3 && hover < data.length - 4)
+      ? "-translate-x-1/2"
+      : hover <= 3
+        ? "-translate-x-2"
+        : "-translate-x-[calc(100%-0.5rem)]";
 
   return (
     <div className="space-y-2">
@@ -72,7 +79,8 @@ export function DailyBarChart({ data, unit }: { data: DayPoint[]; unit: string }
                     className={hover === i ? "fill-primary" : "fill-primary/80"}
                   />
                 )}
-                {(i % 7 === 0 || i === data.length - 1) && (
+                {/* Un libellé par semaine, calé sur le dernier jour (aujourd'hui) */}
+                {(data.length - 1 - i) % 7 === 0 && (
                   <text
                     x={x + barW / 2}
                     y={HEIGHT - 6}
@@ -90,7 +98,7 @@ export function DailyBarChart({ data, unit }: { data: DayPoint[]; unit: string }
 
         {hovered && hover !== null && (
           <div
-            className="pointer-events-none absolute -top-2 -translate-x-1/2 -translate-y-full rounded-md border border-border bg-popover px-2 py-1 text-xs shadow-sm whitespace-nowrap"
+            className={`pointer-events-none absolute -top-2 -translate-y-full rounded-md ${tooltipAlign}  border border-border bg-popover px-2 py-1 text-xs shadow-sm whitespace-nowrap`}
             style={{ left: `${((PAD.left + (hover + 0.5) * slot) / WIDTH) * 100}%` }}
           >
             <span className="text-muted-foreground">{formatDay(hovered.day)} · </span>

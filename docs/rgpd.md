@@ -10,7 +10,8 @@
 - **Politique** : `/confidentialite` (`src/app/confidentialite/page.tsx`). Les passages `[à compléter]` sont à renseigner avant la mise
   en production.
 - **Cookies** : uniquement des cookies strictement nécessaires (session NextAuth) et des préférences
-  d'interface en localStorage (`theme`, `sidebarCollapsed`, `currentGroupId`). Pas de bandeau
+  d'interface en localStorage (`theme`, `sidebarCollapsed`, `currentGroupId`), plus
+  `nextauth.message` posé par NextAuth pour synchroniser la session entre onglets. Pas de bandeau
   (exemption CNIL), mais une mention dans la politique. Les polices sont servies localement
   (`next/font`) : plus d'appel à Google Fonts.
 - **Droits** : dans `/profile`, « Exporter mes données » (`GET /api/users/me/export`) et
