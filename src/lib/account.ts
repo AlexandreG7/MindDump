@@ -113,20 +113,26 @@ function parseJson(value: string): unknown {
 
 /**
  * Droit à l'effacement (art. 17 RGPD). Supprime le compte et tout ce qui en
- * dépend, sans laisser de ligne orpheline :
+ * dépend, sans laisser de ligne orpheline ni casser un groupe encore utilisé :
  *
- * - Groupes possédés : la relation GroupOwner n'a pas de cascade (la base
- *   refuserait la suppression). Un groupe partagé (non personnel) qui a encore des
- *   membres passe au plus ancien admin, à défaut au plus ancien membre ; sinon il
- *   est supprimé, comme le groupe par défaut. La suppression d'un groupe détache
- *   (SetNull) les éléments que les autres membres y avaient mis : ils les gardent.
- * - Tout le reste part en cascade depuis User (todos, événements, abonnements
- *   calendrier, listes et articles, recettes et ingrédients, adhésions, clés API,
- *   préférences, semainier, historique de connexion, comptes OAuth).
- * - Les jetons de vérification liés à l'email et les photos de recettes stockées
- *   sur disque sont supprimés à part (pas de relation en base).
+ * - Groupes possédés (la relation GroupOwner n'a pas de cascade, la base
+ *   refuserait la suppression) : s'il reste des membres, le groupe passe au plus
+ *   ancien admin, à défaut au plus ancien membre, y compris le groupe par défaut
+ *   (qui devient un groupe ordinaire chez son nouveau propriétaire) ; sinon il
+ *   est supprimé. Les éléments des autres membres ne sont jamais touchés.
+ * - keepShared = choix de la personne pour ce qu'ELLE a rangé dans un groupe qui
+ *   continue d'exister (todos, événements, listes, recettes) :
+ *     true  -> ces éléments passent au propriétaire du groupe, rien ne disparaît
+ *              pour les autres membres ;
+ *     false -> ils sont supprimés avec le reste.
+ *   Les abonnements calendrier (URL ICS, souvent porteuses d'un jeton privé) et
+ *   le semainier sont toujours supprimés.
+ * - Tout le reste part en cascade depuis User (éléments personnels, adhésions,
+ *   clés API, préférences, semainier, historique de connexion, comptes OAuth).
+ * - Les jetons de vérification liés à l'email et les photos de recettes
+ *   supprimées sont effacés à part (pas de relation en base).
  */
-export async function deleteUserAccount(userId: string) {
+export async function deleteUserAccount(userId: string, { keepShared }: { keepShared: boolean }) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -152,15 +158,47 @@ export async function deleteUserAccount(userId: string) {
 
     for (const group of ownedGroups) {
       const heir = group.members.find((m) => m.role === "admin") ?? group.members[0];
-      if (group.isDefault || !heir) {
+      if (!heir) {
+        // Personne d'autre : le groupe disparaît, ses éléments (tous à cette
+        // personne) redeviennent personnels puis partent avec le compte.
         await tx.group.delete({ where: { id: group.id } });
         continue;
       }
-      await tx.group.update({ where: { id: group.id }, data: { ownerId: heir.userId } });
+      // Le nouveau propriétaire a déjà son propre groupe par défaut.
+      await tx.group.update({
+        where: { id: group.id },
+        data: { ownerId: heir.userId, isDefault: false },
+      });
       await tx.groupMember.update({
         where: { groupId_userId: { groupId: group.id, userId: heir.userId } },
         data: { role: "admin" },
       });
+    }
+
+    if (keepShared) {
+      // Groupes restants où la personne a rangé des éléments : elle n'en possède
+      // plus aucun à ce stade, chacun a donc un autre propriétaire.
+      const inGroup = { userId, groupId: { not: null } };
+      const groupIds = new Set<string>();
+      const collect = (rows: { groupId: string | null }[]) =>
+        rows.forEach((r) => r.groupId && groupIds.add(r.groupId));
+      collect(await tx.todo.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
+      collect(await tx.calendarEvent.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
+      collect(await tx.shoppingList.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
+      collect(await tx.recipe.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
+
+      const groups = await tx.group.findMany({
+        where: { id: { in: Array.from(groupIds) } },
+        select: { id: true, ownerId: true },
+      });
+      for (const g of groups) {
+        const where = { userId, groupId: g.id };
+        const data = { userId: g.ownerId };
+        await tx.todo.updateMany({ where, data });
+        await tx.calendarEvent.updateMany({ where, data });
+        await tx.shoppingList.updateMany({ where, data });
+        await tx.recipe.updateMany({ where, data });
+      }
     }
 
     if (user.email) {

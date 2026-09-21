@@ -9,6 +9,7 @@ services:
     env_file: .env
     volumes:
       - uploads_data:/app/data/uploads
+      - backups_data:/app/data/backups
     depends_on:
       db:
         condition: service_healthy
@@ -48,3 +49,4 @@ services:
 volumes:
   postgres_data:
   uploads_data:
+  backups_data:

@@ -215,7 +215,10 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong className="text-foreground">Effacement</strong> : « Supprimer mon compte » dans ton
-            profil supprime immédiatement et définitivement ton compte et tes contenus.
+            profil supprime immédiatement et définitivement ton compte et tes contenus personnels.
+            Pour ce que tu as ajouté dans un groupe partagé qui continue d&apos;exister, tu choisis :
+            le laisser aux autres membres (il passe alors au propriétaire du groupe) ou le
+            supprimer.
           </li>
           <li>
             <strong className="text-foreground">Rectification</strong> : tes contenus sont modifiables

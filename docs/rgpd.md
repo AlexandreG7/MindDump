@@ -15,8 +15,17 @@
   (exemption CNIL), mais une mention dans la politique. Les polices sont servies localement
   (`next/font`) : plus d'appel à Google Fonts.
 - **Droits** : dans `/profile`, « Exporter mes données » (`GET /api/users/me/export`) et
-  « Supprimer mon compte » (`DELETE /api/users/me/account`). La suppression transmet les groupes
-  partagés qui ont encore des membres (au plus ancien admin, sinon au plus ancien membre), supprime
-  les autres groupes ainsi que le groupe par défaut, puis efface les photos de recettes du disque.
+  « Supprimer mon compte » (`DELETE /api/users/me/account`). La suppression :
+  - transmet tout groupe qui a encore des membres (au plus ancien admin, sinon au plus ancien
+    membre), **groupe par défaut compris** (il devient un groupe ordinaire chez son nouveau
+    propriétaire) ; les groupes sans autre membre sont supprimés ;
+  - laisse **la personne choisir** (`keepShared`, obligatoire, sans valeur par défaut) pour ce
+    qu'elle a rangé dans ces groupes : le laisser aux autres membres (rattaché au propriétaire du
+    groupe) ou le supprimer. Dans l'app, tout élément appartient à un groupe (le groupe par défaut
+    si rien n'est précisé) ;
+  - supprime toujours le semainier et les abonnements calendrier (URL ICS souvent porteuses d'un
+    jeton privé : les transférer continuerait d'importer l'agenda de la personne partie) ;
+  - ne touche jamais aux éléments des autres membres, puis efface du disque les photos des
+    recettes supprimées.
 
 Les colonnes `consentedAt` / `consentVersion` sont créées par migration : voir `docs/migrations-prisma.md`.

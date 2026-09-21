@@ -26,6 +26,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# pg_dump pour la sauvegarde automatique avant migration (entrypoint.sh).
+# Version = celle du serveur PostgreSQL (postgres:16 dans docker-compose.yml).
+RUN apk add --no-cache postgresql16-client
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -41,7 +45,9 @@ RUN chmod +x ./entrypoint.sh
 
 # Images envoyées par les utilisateurs : monter un volume persistant ici.
 ENV UPLOAD_DIR=/app/data/uploads
-RUN mkdir -p /app/data/uploads && chown -R nextjs:nodejs /app/data
+# Sauvegardes de la base avant migration : monter aussi un volume persistant ici.
+ENV BACKUP_DIR=/app/data/backups
+RUN mkdir -p /app/data/uploads /app/data/backups && chown -R nextjs:nodejs /app/data
 
 USER nextjs
 EXPOSE 3000

@@ -22,6 +22,15 @@ export async function DELETE(req: NextRequest) {
     );
   }
 
+  // Choix explicite pour les éléments rangés dans des groupes partagés (voir
+  // deleteUserAccount) : pas de valeur par défaut, ni dans un sens ni dans l'autre.
+  if (typeof body.keepShared !== "boolean") {
+    return NextResponse.json(
+      { error: "Indique ce que deviennent tes éléments partagés dans tes groupes." },
+      { status: 400 }
+    );
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { password: true },
@@ -34,6 +43,6 @@ export async function DELETE(req: NextRequest) {
     }
   }
 
-  await deleteUserAccount(session.user.id);
+  await deleteUserAccount(session.user.id, { keepShared: body.keepShared });
   return NextResponse.json({ ok: true });
 }
