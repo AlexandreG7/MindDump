@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Baby,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,8 @@ export function Navbar() {
   const userName = skipAuth ? "Dev User" : session?.user?.name;
   const userEmail = skipAuth ? "dev@minddump.local" : session?.user?.email;
   const userImage = skipAuth ? null : session?.user?.image;
+  // Affichage seulement : l'accès réel est vérifié côté serveur (lib/admin.ts).
+  const isAdmin = !skipAuth && session?.user?.role === "admin";
 
   // L'écran de consentement bloque l'app : pas de navigation tant qu'il n'est pas validé.
   if (!isLoggedIn || pathname === "/consentement") return null;
@@ -226,7 +229,19 @@ export function Navbar() {
                   Déconnexion
                 </Button>
               )}
-              <ThemeToggle className="ml-auto p-2" />
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  title="Administration"
+                  className={cn(
+                    "ml-auto p-2 rounded-md transition-colors",
+                    pathname === "/admin" ? "text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  <Shield className="h-4 w-4" />
+                </Link>
+              )}
+              <ThemeToggle className={cn("p-2", !isAdmin && "ml-auto")} />
             </div>
           )}
 
