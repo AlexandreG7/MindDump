@@ -1,6 +1,6 @@
 # MindDump MCP Server
 
-Serveur MCP pour connecter Claude à ton app MindDump. Permet de gérer recettes, tâches et listes de courses directement depuis Claude.
+Serveur MCP pour connecter Claude à ton app MindDump. Permet de gérer recettes, tâches, listes de courses et calendrier directement depuis Claude.
 
 ## Tools disponibles
 
@@ -20,6 +20,10 @@ Serveur MCP pour connecter Claude à ton app MindDump. Permet de gérer recettes
 | `add_to_shopping_list` | Ajouter des articles à une liste |
 | `get_shopping_list` | Voir le détail d'une liste |
 | `list_groups` | Lister les groupes (pour le partage) |
+| `create_event` | Ajouter un rendez-vous ou une échéance au calendrier |
+| `list_events` | Lister les événements d'un mois (calendriers abonnés compris) |
+| `update_event` | Déplacer ou modifier un événement |
+| `delete_event` | Supprimer un événement |
 
 ## Installation
 

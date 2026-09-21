@@ -202,6 +202,8 @@ model CalendarEvent {
   color       String?   // hex color, e.g. "#3b82f6"
   notifyBefore Int?     // minutes before event
   notified    Boolean   @default(false)
+  // Evenement recurrent : date de la derniere occurrence deja rappelee.
+  notifiedOccurrence DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

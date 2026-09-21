@@ -6,7 +6,9 @@ export function registerTodoTools(server: McpServer) {
   // ─── Créer un todo ─────────────────────────────────────────
   server.tool(
     "create_todo",
-    "Ajouter une tâche à faire dans MindDump. Peut être urgente ou planifiée, avec date d'échéance et notification.",
+    "Ajouter une tâche à faire dans MindDump. Peut être urgente ou planifiée, avec date d'échéance, récurrence et notification. " +
+      "Pour une échéance administrative annuelle (assurance, contrôle, déclaration), utiliser priority PLANNED et recurrence \"yearly\" : " +
+      "cochée, la tâche se recrée pour l'année suivante. Une tâche de groupe rappelle tous ses membres.",
     {
       title: z.string().describe("Titre de la tâche"),
       description: z.string().optional().describe("Description détaillée"),
@@ -19,10 +21,14 @@ export function registerTodoTools(server: McpServer) {
         .string()
         .optional()
         .describe("Date d'échéance au format ISO 8601 (ex: 2026-04-01T10:00:00Z)"),
+      recurrence: z
+        .enum(["daily", "weekly", "biweekly", "monthly", "yearly"])
+        .optional()
+        .describe("Répétition (nécessite dueDate) : l'occurrence suivante est créée quand la tâche est cochée"),
       notifyBefore: z
         .number()
         .optional()
-        .describe("Envoyer une notification X minutes avant la date d'échéance"),
+        .describe("Envoyer une notification X minutes avant la date d'échéance (1 jour = 1440, 30 jours = 43200)"),
       groupId: z.string().optional().describe("ID du groupe pour partager la tâche"),
     },
     async (params) => {
@@ -32,6 +38,7 @@ export function registerTodoTools(server: McpServer) {
           description: params.description,
           priority: params.priority,
           dueDate: params.dueDate,
+          recurrence: params.recurrence,
           notifyBefore: params.notifyBefore,
           groupId: params.groupId,
         });
@@ -134,13 +141,18 @@ export function registerTodoTools(server: McpServer) {
   // ─── Modifier un todo ──────────────────────────────────────
   server.tool(
     "update_todo",
-    "Modifier une tâche existante (titre, description, priorité, date d'échéance, statut)",
+    "Modifier une tâche existante (titre, description, priorité, date d'échéance, récurrence, rappel, statut)",
     {
       todoId: z.string().describe("ID de la tâche"),
       title: z.string().optional().describe("Nouveau titre"),
       description: z.string().optional().describe("Nouvelle description"),
       priority: z.enum(["URGENT", "PLANNED"]).optional().describe("Nouvelle priorité"),
       dueDate: z.string().optional().describe("Nouvelle date d'échéance (ISO 8601)"),
+      recurrence: z
+        .enum(["daily", "weekly", "biweekly", "monthly", "yearly", "none"])
+        .optional()
+        .describe("Nouvelle répétition, ou \"none\" pour la retirer"),
+      notifyBefore: z.number().optional().describe("Nouveau délai de rappel, en minutes avant l'échéance"),
       completed: z.boolean().optional().describe("Marquer comme terminée ou non"),
     },
     async (params) => {

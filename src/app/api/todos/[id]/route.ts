@@ -36,6 +36,14 @@ export async function PATCH(
         recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
       }),
       ...(body.notifyBefore !== undefined && { notifyBefore: body.notifyBefore }),
+      // Déplacer l'échéance ou changer le rappel ré-arme le rappel.
+      ...(((body.dueDate !== undefined &&
+        (body.dueDate ? new Date(body.dueDate).getTime() : null) !==
+          (existing.dueDate?.getTime() ?? null)) ||
+        (body.notifyBefore !== undefined &&
+          (body.notifyBefore || null) !== existing.notifyBefore)) && {
+        notified: false,
+      }),
       ...(body.position !== undefined && { position: body.position }),
     },
   });

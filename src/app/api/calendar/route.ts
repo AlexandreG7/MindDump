@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
-import { isEventColor, nextOccurrence } from "@/lib/recurrence";
+import { isEventColor, isRecurrence, nextOccurrence } from "@/lib/recurrence";
 
 function expandRecurrences(
   events: Array<{
@@ -16,6 +16,7 @@ function expandRecurrences(
     color: string | null;
     notifyBefore: number | null;
     notified: boolean;
+    notifiedOccurrence: Date | null;
     createdAt: Date;
     updatedAt: Date;
     userId: string;
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
       date: new Date(body.date),
       endDate: body.endDate ? new Date(body.endDate) : null,
       allDay: body.allDay || false,
-      recurrence: body.recurrence && body.recurrence !== "none" ? body.recurrence : null,
+      recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
       color: isEventColor(body.color) ? body.color : null,
       notifyBefore: body.notifyBefore || null,
       userId: user.id,

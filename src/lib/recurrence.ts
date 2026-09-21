@@ -1,10 +1,11 @@
-export type Recurrence = "daily" | "weekly" | "biweekly" | "monthly";
+export type Recurrence = "daily" | "weekly" | "biweekly" | "monthly" | "yearly";
 
 export const RECURRENCE_OPTIONS: Array<{ value: Recurrence; label: string }> = [
   { value: "daily", label: "Quotidien" },
   { value: "weekly", label: "Hebdomadaire" },
   { value: "biweekly", label: "Toutes les 2 semaines" },
   { value: "monthly", label: "Mensuel" },
+  { value: "yearly", label: "Annuel" },
 ];
 
 export const RECURRENCE_LABELS: Record<string, string> = Object.fromEntries(
@@ -34,6 +35,11 @@ export function nextOccurrence(date: Date, recurrence: string): Date | null {
     case "monthly":
       next.setMonth(next.getMonth() + 1);
       return next;
+    case "yearly":
+      next.setFullYear(next.getFullYear() + 1);
+      // Un 29 fevrier retombe au 28 les annees non bissextiles, pas au 1er mars.
+      if (next.getMonth() !== date.getMonth()) next.setDate(0);
+      return next;
     default:
       return null;
   }
@@ -45,6 +51,7 @@ export const RRULE_BY_RECURRENCE: Record<string, string> = {
   weekly: "FREQ=WEEKLY",
   biweekly: "FREQ=WEEKLY;INTERVAL=2",
   monthly: "FREQ=MONTHLY",
+  yearly: "FREQ=YEARLY",
 };
 
 /** Palette proposee pour colorer les evenements du calendrier. */
