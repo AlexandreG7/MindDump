@@ -62,6 +62,10 @@ model User {
   weatherLon    Float?
   weatherCity   String?
   createdAt     DateTime  @default(now())
+  lastLoginAt   DateTime?
+  // Preuve du consentement RGPD : date et version du texte accepté (voir src/lib/consent.ts)
+  consentedAt    DateTime?
+  consentVersion String?
 
   accounts              Account[]
   sessions              Session[]
@@ -75,6 +79,23 @@ model User {
   featureFlags          UserFeatureFlag[]
   apiKeys               ApiKey[]
   kidDayEntries         KidDayEntry[]
+  loginEvents           LoginEvent[]
+
+  @@index([createdAt])
+}
+
+// Historique des connexions (statistiques admin). Alimenté par l'event signIn de
+// NextAuth : la stratégie JWT ne remplit pas la table Session.
+model LoginEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  provider  String?  // "credentials" | "google"
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }
 
 // ─── API Keys (pour MCP et intégrations externes) ────────────
@@ -300,6 +321,7 @@ model Recipe {
 
   @@index([userId])
   @@index([groupId])
+  @@index([createdAt])
 }
 
 model RecipeIngredient {

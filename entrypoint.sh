@@ -1,8 +1,26 @@
 #!/bin/sh
 set -e
 
-echo "Running Prisma db push to ensure database schema is up to date..."
-node ./node_modules/prisma/build/index.js db push --skip-generate --accept-data-loss 2>&1 || echo "Warning: prisma db push failed, continuing anyway..."
+PRISMA="node ./node_modules/prisma/build/index.js"
+
+# Migrations versionnées (prisma/migrations). Une base créée à l'époque de
+# `db push` n'a pas d'historique : Prisma refuse alors de migrer (P3005). On la
+# marque une seule fois comme étant au niveau de la baseline 0_init, puis on
+# applique les migrations suivantes. Voir docs/admin-et-rgpd.md.
+echo "Applying Prisma migrations..."
+if ! OUTPUT=$($PRISMA migrate deploy 2>&1); then
+  echo "$OUTPUT"
+  if echo "$OUTPUT" | grep -q "P3005"; then
+    echo "Existing database without migration history: baselining 0_init..."
+    $PRISMA migrate resolve --applied 0_init
+    $PRISMA migrate deploy
+  else
+    echo "Error: prisma migrate deploy failed, aborting startup."
+    exit 1
+  fi
+else
+  echo "$OUTPUT"
+fi
 
 echo "Backfilling public IDs..."
 node prisma/backfill-public-ids.js
