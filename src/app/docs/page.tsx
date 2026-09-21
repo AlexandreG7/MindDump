@@ -37,7 +37,7 @@ function McpPrompt() {
   const prompt = useMemo(() => {
     const url = appUrl.trim() || "<URL de mon app MindDump>";
     const key = apiKey.trim() || "<ma clé API MindDump>";
-    return `Connecte-toi à mon app MindDump via MCP, pour que je puisse te demander de gérer mes tâches, mes courses et mes recettes en te parlant directement.
+    return `Connecte-toi à mon app MindDump via MCP, pour que je puisse te demander de gérer mes tâches, mes rendez-vous, mes courses et mes recettes en te parlant directement.
 
 Configure une entrée "minddump" dans ma config MCP (le fichier de config Claude Desktop, ou .mcp.json si tu es dans le projet MindDump) qui lance le serveur du dossier minddump-mcp/ (commande "npx tsx src/index.ts") avec ces variables d'environnement :
 MINDDUMP_API_URL=${url}
@@ -142,7 +142,8 @@ export default function DocsPage() {
           <p className="font-medium">Outils disponibles</p>
           <p className="text-muted-foreground">
             Recettes (créer, lister, convertir en liste de courses), tâches (créer, lister,
-            compléter, modifier), listes de courses, groupes.
+            compléter, modifier), calendrier (ajouter, lister, déplacer, supprimer un
+            rendez-vous), listes de courses, groupes.
           </p>
         </div>
       </Section>

@@ -6,7 +6,13 @@ import { AlertCircle, Calendar, ChefHat, ShoppingCart, Sparkles } from "lucide-r
 import { ScrollRootContext } from "./motion";
 import { LoopSection } from "./LoopSection";
 import { AiSection } from "./AiSection";
-import { ChaosSection, CtaSection, HouseholdSection, ModulesSection } from "./Sections";
+import {
+  ChaosSection,
+  CtaSection,
+  DeadlinesSection,
+  HouseholdSection,
+  ModulesSection,
+} from "./Sections";
 
 const HERO_NOTES: {
   text: string;
@@ -179,6 +185,7 @@ export function Landing() {
           <LoopSection />
           <AiSection />
           <ModulesSection />
+          <DeadlinesSection />
           <HouseholdSection />
           <CtaSection />
         </div>

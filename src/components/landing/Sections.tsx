@@ -3,10 +3,13 @@
 import Link from "next/link";
 import {
   Baby,
+  Bell,
   Calendar,
   CheckSquare,
   ChefHat,
   Link2,
+  RefreshCw,
+  Repeat,
   ShoppingCart,
   ToggleLeft,
 } from "lucide-react";
@@ -157,6 +160,138 @@ export function ModulesSection() {
   );
 }
 
+/* ── 5 bis. The other mental load: appointments and deadlines ──
+   Deliberately calm after the two animated demos: a plain reveal, no scrub.
+   The hero's "rdv pédiatre jeudi" and "relancer le plombier" notes land here,
+   filed and dated. Every claim below exists in the app — keep it that way. */
+
+const HOUSEHOLD_WEEK = [
+  {
+    day: "jeu.",
+    time: "15:00",
+    title: "rdv pédiatre",
+    source: "Ajouté par Camille",
+    color: "#ec4899",
+  },
+  {
+    day: "ven.",
+    time: "18:00",
+    title: "Réunion parents",
+    source: "Calendrier de l'école",
+    color: "#14b8a6",
+    subscribed: true,
+  },
+  {
+    day: "lun.",
+    time: "échéance",
+    title: "relancer le plombier",
+    source: "Tâche",
+    color: "#f97316",
+  },
+  {
+    day: "15 mars",
+    time: "chaque année",
+    title: "Assurance habitation",
+    source: "Échéance annuelle",
+    color: "#8b5cf6",
+    yearly: true,
+  },
+];
+
+const DEADLINE_PROOFS = [
+  {
+    icon: RefreshCw,
+    title: "Rien à re-saisir",
+    body: "Abonne le foyer au calendrier de l'école, du club ou à ton agenda perso : ses dates s'affichent pour tout le monde.",
+  },
+  {
+    icon: Bell,
+    title: "Le foyer prévenu, pas une seule personne",
+    body: "Le rappel par e-mail part à chaque membre du groupe, pas seulement à celui qui a noté le rendez-vous.",
+  },
+  {
+    icon: Repeat,
+    title: "Ce qui revient une fois par an",
+    body: "Assurance, contrôle technique, déclaration : une échéance annuelle se note une fois et revient toute seule.",
+  },
+  {
+    icon: Calendar,
+    title: "Lisible depuis ton agenda habituel",
+    body: "Le calendrier du foyer s'exporte en .ics : il apparaît dans Google ou Apple Agenda. Personne n'est obligé de changer d'app.",
+  },
+];
+
+export function DeadlinesSection() {
+  return (
+    <section className="py-24 md:py-32">
+      <div className="lp-shell grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+        <Reveal className="lp-reveal-left">
+          <p className="lp-eyebrow">Rendez-vous et échéances</p>
+          <h2 className="lp-title mt-2">L&apos;autre charge mentale&nbsp;: celle qui a une date limite.</h2>
+          <p className="text-muted-foreground mt-4 leading-relaxed">
+            Le rendez-vous pris sur ton téléphone, toute la famille le sait. Les dates du foyer
+            ne vivent plus dans une seule tête — elles vivent au même endroit, et elles
+            préviennent à temps.
+          </p>
+
+          <ul className="mt-8 space-y-5">
+            {DEADLINE_PROOFS.map((proof) => (
+              <li key={proof.title} className="flex gap-3">
+                <span className="h-9 w-9 shrink-0 rounded-lg bg-accent flex items-center justify-center">
+                  <proof.icon className="h-4 w-4 text-accent-foreground" />
+                </span>
+                <div>
+                  <p className="font-semibold text-sm">{proof.title}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
+                    {proof.body}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+
+        <Reveal delay={120} className="lp-reveal-right">
+          <div className="lp-card p-5 sm:p-6" aria-hidden="true">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-semibold">Calendrier du foyer</p>
+              <p className="text-xs text-muted-foreground">3 sources, une vue</p>
+            </div>
+
+            <ul className="mt-4 divide-y divide-border">
+              {HOUSEHOLD_WEEK.map((item) => (
+                <li key={item.title} className="flex items-center gap-3 py-3">
+                  <span className="w-14 shrink-0 text-xs text-muted-foreground leading-tight">
+                    <span className="block font-semibold text-foreground">{item.day}</span>
+                    {item.time}
+                  </span>
+                  <span
+                    className="h-8 w-1 shrink-0 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium truncate">{item.title}</span>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      {item.subscribed && <RefreshCw className="h-3 w-3" />}
+                      {item.yearly && <Repeat className="h-3 w-3" />}
+                      {item.source}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-4 flex items-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-xs text-accent-foreground">
+              <Bell className="h-3.5 w-3.5 shrink-0" />
+              Rappel « rdv pédiatre » envoyé aux 2 membres du foyer
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
 /* ── 5. The household ── */
 
 export function HouseholdSection() {
@@ -168,7 +303,7 @@ export function HouseholdSection() {
           <h2 className="lp-title mt-2">Une liste partagée vaut mieux que dix rappels.</h2>
           <p className="text-muted-foreground mt-4 leading-relaxed">
             Invite ton foyer avec un lien. Pas de compte à configurer, pas de réglages. Les
-            recettes, les courses et le calendrier deviennent communs — et la charge cesse de
+            recettes, les courses, les rendez-vous et les échéances deviennent communs — et la charge cesse de
             reposer sur une seule personne.
           </p>
           <div className="flex items-center gap-2 mt-6 text-sm font-medium text-primary">

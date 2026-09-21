@@ -100,7 +100,7 @@ export const GUIDES: Guide[] = [
           },
           {
             title: "Dicter au lieu de saisir",
-            body: "MindDump se connecte à un assistant IA : tu peux lui demander d'ajouter des tâches, d'importer une recette ou de remplir la liste de courses en langage courant, et c'est écrit dans l'app.",
+            body: "MindDump se connecte à un assistant IA : tu peux lui demander d'ajouter des tâches ou un rendez-vous, d'importer une recette ou de remplir la liste de courses en langage courant, et c'est écrit dans l'app.",
           },
         ],
       },
@@ -135,7 +135,7 @@ export const GUIDES: Guide[] = [
           "Les deux. Seul, il sert d'endroit unique pour les tâches, les repas et les courses. À plusieurs, il devient un espace commun où chacun voit et met à jour la même chose.",
       },
     ],
-    related: ["liste-de-courses-partagee", "menus-de-la-semaine", "calendrier-familial-partage"],
+    related: ["liste-de-courses-partagee", "menus-de-la-semaine", "rendez-vous-famille"],
   },
   {
     slug: "liste-de-courses-partagee",
@@ -346,7 +346,204 @@ export const GUIDES: Guide[] = [
           "Oui, les recettes que tu planifies s'affichent sur les jours correspondants, avec les autres événements de la semaine.",
       },
     ],
-    related: ["charge-mentale", "menus-de-la-semaine", "liste-de-courses-partagee"],
+    related: ["rendez-vous-famille", "charge-mentale", "echeances-administratives-famille"],
+  },
+  {
+    slug: "rendez-vous-famille",
+    metaTitle: "Rendez-vous de la famille : arrêter d'être le seul à les connaître",
+    metaDescription:
+      "Pédiatre, dentiste, réunion de parents : organiser les rendez-vous de la famille pour que tout le foyer les connaisse et soit prévenu, sans tout re-saisir.",
+    eyebrow: "Cas d'usage",
+    navLabel: "Rendez-vous de la famille",
+    title: "Les rendez-vous de la famille : arrêter d'être le seul à les connaître",
+    intro:
+      "Un rendez-vous chez le pédiatre ne s'oublie pas faute de mémoire. Il s'oublie parce que l'information est restée à un seul endroit : dans le SMS de confirmation, sur un seul téléphone, dans la tête de la personne qui l'a pris. Le problème n'est pas de s'en souvenir, c'est de le diffuser.",
+    sections: [
+      {
+        heading: "Ce qui échoue : le SMS sur un seul téléphone",
+        paragraphs: [
+          "La plupart des rendez-vous du foyer se prennent en ligne ou au téléphone, et leur confirmation arrive chez celui qui les a pris. L'autre parent n'en sait rien, sauf si on pense à le lui dire — et à le lui redire la veille.",
+          "Le rappel du cabinet médical ne change rien à ce déséquilibre : il prévient la personne qui savait déjà. Celle qui devait se libérer, garder le petit frère ou faire le trajet découvre le rendez-vous le jour même.",
+        ],
+      },
+      {
+        heading: "Tous les rendez-vous ne se ressemblent pas",
+        paragraphs: [
+          "Ranger tout dans un agenda est l'erreur classique. La charge administrative d'un foyer mélange en réalité quatre familles d'objets, qui n'ont ni le même rythme ni les mêmes besoins.",
+        ],
+        bullets: [
+          {
+            title: "Le rendez-vous",
+            body: "Pédiatre, dentiste, orthophoniste, réunion de parents, garagiste. Daté à l'heure, il doit être connu de tous ceux qu'il concerne.",
+          },
+          {
+            title: "L'échéance récurrente",
+            body: "Assurance, contrôle technique, déclaration d'impôts, renouvellement de papiers. Elle revient une fois par an ou moins, et rien ne la rappelle entre deux fois.",
+          },
+          {
+            title: "Le dossier",
+            body: "Les pièces à réunir pour une inscription ou une démarche. Il se prépare en avance, avec une liste de choses à rassembler.",
+          },
+          {
+            title: "La démarche",
+            body: "Un remboursement, un dossier en attente, une résiliation. Elle vit de relances, et il faut savoir où elle en est.",
+          },
+        ],
+      },
+      {
+        heading: "Agréger plutôt que re-saisir",
+        paragraphs: [
+          "Un calendrier familial qui exige de tout recopier se vide en trois semaines. Le bon réflexe est l'inverse : faire venir les dates là où le foyer regarde.",
+          "Dans MindDump, tu abonnes le groupe à un calendrier externe au format iCal — celui de l'école, du club de sport, ou ton agenda personnel où arrivent déjà tes confirmations. Ses dates s'affichent pour tous les membres du foyer, sans une ligne de saisie. Pour le reste, un rendez-vous ajouté par l'un apparaît chez tous les autres.",
+        ],
+      },
+      {
+        heading: "Rester lisible depuis l'agenda qu'on utilise déjà",
+        paragraphs: [
+          "Personne n'abandonne son agenda, et il ne faut pas le demander. Le calendrier du foyer s'exporte en flux .ics : ajoute-le une fois dans Google Agenda ou Apple Agenda, et les rendez-vous de la famille apparaissent à côté des tiens.",
+          "C'est ce qui rend l'outil tenable à deux : celui ou celle qui ne veut pas d'une application de plus voit quand même le pédiatre de jeudi, là où il regarde déjà.",
+        ],
+      },
+      {
+        heading: "Prévenir le foyer, pas seulement celui qui a noté",
+        paragraphs: [
+          "Un rendez-vous rattaché au groupe envoie son rappel par e-mail à chacun de ses membres, au délai choisi : la veille, une semaine avant, ou le matin même. L'autre parent n'a plus besoin qu'on pense à lui dire.",
+          "Et si le rendez-vous se prend en passant, un assistant IA connecté à MindDump peut l'ajouter pour toi : « ajoute le rendez-vous chez le pédiatre jeudi à 15 h », et il est dans le calendrier du foyer.",
+        ],
+      },
+      {
+        heading: "La question qui reste : qui y va ?",
+        paragraphs: [
+          "Savoir qu'il y a un rendez-vous ne dit pas qui s'en occupe. MindDump ne désigne pas encore de responsable par événement. En attendant, la convention la plus simple marche bien : le prénom de la personne qui accompagne dans le titre (« Pédiatre — Léo, avec Camille »). Tout le foyer le lit, et personne n'a besoin de demander.",
+        ],
+      },
+      {
+        heading: "Deux maisons, un seul calendrier",
+        paragraphs: [
+          "En garde alternée, le doute coûte plus cher que l'oubli : le rendez-vous d'orthophonie tombe sur la semaine de l'autre parent, est-ce qu'il le sait ? Un groupe partagé crée un espace neutre, consultable par chacun sans passer par l'autre, et le flux .ics permet à chacun de garder son propre agenda.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Comment partager les rendez-vous médicaux des enfants entre parents ?",
+        answer:
+          "Créez un calendrier commun au foyer et ajoutez-y chaque rendez-vous au moment où il est pris. Dans MindDump, un rendez-vous rattaché au groupe est visible par tous ses membres, et son rappel e-mail part à chacun d'eux.",
+      },
+      {
+        question: "Faut-il re-saisir les rendez-vous déjà dans mon agenda ?",
+        answer:
+          "Non. MindDump s'abonne aux calendriers externes au format iCal (Google, Apple, école, club) et affiche leurs dates pour tout le foyer. Dans l'autre sens, le calendrier du foyer s'exporte en .ics vers ton agenda habituel.",
+      },
+      {
+        question: "MindDump prend-il les rendez-vous chez le médecin ?",
+        answer:
+          "Non. Le rendez-vous se prend comme d'habitude, sur la plateforme du praticien ou par téléphone. MindDump sert à ce que le foyer entier le connaisse et soit prévenu à temps.",
+      },
+      {
+        question: "Peut-on stocker les ordonnances ou les documents dans MindDump ?",
+        answer:
+          "Non, MindDump ne stocke aucun document. Tu peux noter dans la description du rendez-vous ce qu'il faut apporter, mais les papiers restent là où tu les ranges aujourd'hui.",
+      },
+    ],
+    related: ["echeances-administratives-famille", "calendrier-familial-partage", "charge-mentale"],
+  },
+  {
+    slug: "echeances-administratives-famille",
+    metaTitle: "Échéances administratives du foyer : ce qui s'oublie une fois par an",
+    metaDescription:
+      "Assurance, contrôle technique, vaccins, impôts, papiers d'identité : l'inventaire des échéances annuelles d'une famille, et comment ne plus les porter de tête.",
+    eyebrow: "Guide pratique",
+    navLabel: "Échéances du foyer",
+    title: "Les échéances du foyer : ce qui s'oublie une fois par an",
+    intro:
+      "Ce qui revient chaque semaine finit par devenir une habitude. Ce qui revient une fois par an ne devient jamais une habitude : on l'a oublié depuis la dernière fois. Assurance, contrôle technique, rappel de vaccin, déclaration de revenus — c'est justement parce qu'elles sont rares que ces échéances pèsent.",
+    sections: [
+      {
+        heading: "Pourquoi les échéances annuelles échappent à la mémoire",
+        paragraphs: [
+          "La mémoire d'un foyer fonctionne très bien sur la semaine et très mal sur l'année. Entre deux occurrences, rien ne rappelle l'échéance : pas de routine, pas de courrier fiable, pas de collègue qui en parle.",
+          "Résultat, elles reposent sur une seule personne, souvent celle qui s'en est occupée l'année précédente — et qui garde, douze mois durant, un pense-bête qui ne se voit pas.",
+        ],
+      },
+      {
+        heading: "L'inventaire annuel d'une famille",
+        paragraphs: [
+          "Toutes ne concernent pas chaque foyer, mais la liste est plus longue qu'on ne le croit. Les dates exactes dépendent de chaque situation : vérifie-les sur tes propres contrats et sur les sites officiels.",
+        ],
+        bullets: [
+          {
+            title: "Les contrats",
+            body: "Assurance habitation, assurance auto, mutuelle, abonnements d'énergie ou de box : chacun a sa date anniversaire, souvent le seul moment pour renégocier ou résilier.",
+          },
+          {
+            title: "Le véhicule",
+            body: "Le contrôle technique revient tous les deux ans pour une voiture particulière, après le premier à quatre ans. L'entretien et les pneus hiver suivent leur propre calendrier.",
+          },
+          {
+            title: "La santé",
+            body: "Les rappels de vaccins suivent le calendrier vaccinal (ameli.fr le détaille par âge), sans oublier ceux des animaux. Les rendez-vous de suivi annuels — dentiste, ophtalmologiste — entrent dans la même catégorie.",
+          },
+          {
+            title: "Les impôts",
+            body: "La déclaration de revenus au printemps, puis les avis de taxe foncière et les éventuels acomptes. Les dates changent chaque année : note-les dès qu'elles sont publiées.",
+          },
+          {
+            title: "L'école et les activités",
+            body: "Inscriptions scolaires, cantine, périscolaire, centre de loisirs, clubs de sport : la plupart se jouent entre le printemps et la rentrée, avec des places limitées.",
+          },
+          {
+            title: "Les papiers d'identité",
+            body: "Carte d'identité et passeport ont une durée de validité. Les délais de rendez-vous en mairie s'allongent avant l'été : mieux vaut vérifier les dates d'expiration dès l'hiver.",
+          },
+        ],
+      },
+      {
+        heading: "Noter une fois, être prévenu chaque année",
+        paragraphs: [
+          "Une échéance annuelle se note une seule fois. Dans MindDump, une tâche planifiée ou un événement du calendrier peut se répéter chaque année : la date revient d'elle-même, sans rien re-saisir.",
+          "Le rappel part par e-mail au délai que tu choisis — un mois avant pour une assurance à renégocier, une semaine pour un vaccin. Et si l'échéance est rattachée au foyer, chaque membre reçoit le rappel : ce n'est plus la seule personne qui s'en souvenait qui porte l'alerte.",
+        ],
+        bullets: [
+          {
+            title: "Une tâche annuelle",
+            body: "Pour ce qu'il faut faire : renégocier l'assurance, déclarer ses revenus. Une fois cochée, elle se recrée pour l'année suivante.",
+          },
+          {
+            title: "Un événement annuel",
+            body: "Pour ce qui tombe à une date : la date anniversaire d'un contrat, le rappel de vaccin. Il apparaît chaque année dans le calendrier du foyer, avec son rappel.",
+          },
+          {
+            title: "Dicté plutôt que saisi",
+            body: "Avec l'assistant IA connecté à MindDump : « rappelle-nous chaque année, un mois avant le 15 mars, de renégocier l'assurance habitation ».",
+          },
+        ],
+      },
+      {
+        heading: "Par où commencer",
+        paragraphs: [
+          "Prends un quart d'heure avec les relevés bancaires de l'année : chaque prélèvement annuel est une échéance. Note les dates anniversaires, règle le rappel un mois avant, et rattache-les au foyer. L'année prochaine, c'est l'app qui s'en souviendra.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Comment ne pas oublier les échéances administratives annuelles ?",
+        answer:
+          "En les notant une seule fois avec une répétition annuelle et un rappel en avance. Dans MindDump, une tâche ou un événement annuel revient chaque année et envoie un e-mail au délai choisi, à toi et aux membres du foyer.",
+      },
+      {
+        question: "Quelles sont les principales échéances annuelles d'une famille ?",
+        answer:
+          "Les dates anniversaires des contrats (assurances, mutuelle, énergie), le contrôle technique, les rappels de vaccins, la déclaration de revenus, les inscriptions scolaires et périscolaires, et la validité des papiers d'identité.",
+      },
+      {
+        question: "Les membres de la famille reçoivent-ils aussi le rappel ?",
+        answer:
+          "Oui, si l'échéance est rattachée au foyer : le rappel e-mail part à chacun des membres du groupe, pas seulement à la personne qui l'a créée.",
+      },
+    ],
+    related: ["rendez-vous-famille", "charge-mentale", "calendrier-familial-partage"],
   },
 ];
 
