@@ -7,8 +7,12 @@
 - **Comptes Google et comptes antérieurs** : le middleware redirige vers `/consentement` tant que
   le jeton ne porte pas `consented`. Le callback `jwt` relit la base tant que ce n'est pas le cas.
   Les routes API ne sont pas bloquées : le blocage porte sur l'interface.
-- **Politique** : `/confidentialite` (`src/app/confidentialite/page.tsx`). Les passages `[à compléter]` sont à renseigner avant la mise
-  en production.
+- **Politique** : `/confidentialite` (`src/app/confidentialite/page.tsx`), page publique mais en
+  `noindex` et hors sitemap : l'adresse de contact y est affichée en clair.
+  L'identité de l'éditeur vient de variables d'environnement (Coolify), pas du code, car le dépôt
+  GitHub est public : `PRIVACY_CONTROLLER`, `PRIVACY_CONTACT_EMAIL`, `PRIVACY_MAIL_PROVIDER`
+  (voir `src/lib/privacy.ts`). Tant qu'elles ne sont pas définies, la page affiche « [à compléter…] » :
+  à renseigner **avant** la mise en production, puisque tout le monde doit accepter ce texte.
 - **Cookies** : uniquement des cookies strictement nécessaires (session NextAuth) et des préférences
   d'interface en localStorage (`theme`, `sidebarCollapsed`, `currentGroupId`), plus
   `nextauth.message` posé par NextAuth pour synchroniser la session entre onglets. Pas de bandeau

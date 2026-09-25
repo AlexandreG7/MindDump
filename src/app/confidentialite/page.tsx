@@ -1,13 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CONSENT_VERSION } from "@/lib/consent";
+import { getPrivacyInfo } from "@/lib/privacy";
+
+// Lue à chaque requête : l'identité de l'éditeur vient de variables
+// d'environnement (voir src/lib/privacy.ts), pas du build.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Politique de confidentialité",
   description:
     "Quelles données MindDump collecte, pourquoi, combien de temps, avec qui elles sont partagées et comment exercer tes droits.",
   alternates: { canonical: "/confidentialite" },
+  // Page publique et accessible à tous, mais tenue hors des moteurs de
+  // recherche : l'adresse de contact y est affichée en clair.
+  robots: { index: false, follow: true },
 };
+
+// Affiche une adresse e-mail en lien cliquable, un texte « à compléter » tel quel.
+function Contact({ email }: { email: string }) {
+  if (!email.includes("@")) return <span className="text-foreground">{email}</span>;
+  return (
+    <a href={`mailto:${email}`} className="text-primary hover:underline">
+      {email}
+    </a>
+  );
+}
 
 // Texte de départ à relire. Toute modification substantielle doit
 // s'accompagner d'une nouvelle CONSENT_VERSION (src/lib/consent.ts).
@@ -34,6 +52,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 export default function PrivacyPolicyPage() {
+  const { controller, contactEmail, mailProvider } = getPrivacyInfo();
+
   return (
     <article className="max-w-3xl mx-auto space-y-10 py-6">
       <header className="space-y-2">
@@ -60,9 +80,9 @@ export default function PrivacyPolicyPage() {
 
       <Section title="Qui est responsable de tes données ?">
         <p>
-          Le responsable du traitement est [à compléter : nom ou raison sociale de l&apos;éditeur,
-          adresse]. Pour toute question sur tes données :{" "}
-          <span className="text-foreground">[à compléter : adresse e-mail de contact]</span>.
+          Le responsable du traitement est {controller}. L&apos;application est hébergée par Hetzner
+          Online GmbH (Allemagne). Pour toute question sur tes données :{" "}
+          <Contact email={contactEmail} />.
         </p>
       </Section>
 
@@ -137,7 +157,9 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>Historique de connexion : 12 mois, puis supprimé automatiquement.</li>
           <li>
-            Sauvegardes de la base de données : [à compléter : durée de conservation des sauvegardes].
+            Sauvegardes de la base : une sauvegarde hebdomadaire conservée sur le serveur, et des
+            sauvegardes techniques créées avant chaque mise à jour (les 3 dernières, puis une par
+            semaine pendant 3 mois).
           </li>
         </ul>
       </Section>
@@ -152,8 +174,7 @@ export default function PrivacyPolicyPage() {
         <ul className="list-disc pl-5 space-y-2">
           <li>Hetzner Online GmbH (Allemagne) : hébergement de l&apos;application, de la base et des photos.</li>
           <li>
-            [à compléter : prestataire d&apos;envoi d&apos;e-mails] : envoi des rappels (ton e-mail et
-            le titre du rappel).
+            {mailProvider} : envoi des rappels (ton e-mail et le titre du rappel).
           </li>
           <li>Google (États-Unis) : uniquement si tu choisis « Se connecter avec Google ».</li>
           <li>
@@ -226,7 +247,7 @@ export default function PrivacyPolicyPage() {
           </li>
         </ul>
         <p>
-          Pour toute autre demande : [à compléter : adresse e-mail de contact]. Nous répondons sous
+          Pour toute autre demande : <Contact email={contactEmail} />. Nous répondons sous
           un mois. Si tu estimes que tes droits ne sont pas respectés, tu peux saisir la CNIL
           (cnil.fr).
         </p>
