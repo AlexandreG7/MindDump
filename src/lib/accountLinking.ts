@@ -3,6 +3,7 @@ import type { Adapter, AdapterUser } from "next-auth/adapters";
 import { randomBytes } from "crypto";
 import { encode, decode } from "next-auth/jwt";
 import { prisma } from "./prisma";
+import { useSecureCookies } from "./secureCookies";
 
 /**
  * Liaison d'un fournisseur OAuth (Google, Apple) à un compte existant, depuis
@@ -28,7 +29,7 @@ import { prisma } from "./prisma";
  * navigateur (et l'ouvrir dans le compte de la première).
  */
 
-const secure = (process.env.NEXTAUTH_URL ?? "").startsWith("https://");
+const secure = useSecureCookies;
 export const LINK_COOKIE = secure ? "__Secure-minddump.link-intent" : "minddump.link-intent";
 const LINK_TTL_S = 10 * 60;
 

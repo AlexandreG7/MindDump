@@ -6,6 +6,7 @@ import { verifyPassword } from "./password";
 import { ensureDefaultGroup } from "./defaultGroup";
 import { generateUniquePublicId } from "./publicId";
 import { oauthCookies, oauthProviders } from "./authProviders";
+import { useSecureCookies } from "./secureCookies";
 
 const LOGIN_HISTORY_MONTHS = 12;
 
@@ -47,7 +48,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
-  cookies: oauthCookies((process.env.NEXTAUTH_URL ?? "").startsWith("https://")),
+  cookies: oauthCookies(useSecureCookies),
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

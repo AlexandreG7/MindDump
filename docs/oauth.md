@@ -37,6 +37,9 @@ Google/Apple d'une autre personne qui se connecte ensuite sur le même navigateu
 
 Pour la même raison, en HTTPS, les cookies NextAuth `pkce`, `state`, `nonce` et `callback-url`
 passent en SameSite=None (`oauthCookies()`). Le cookie de session et le jeton CSRF restent en Lax.
+« En HTTPS » est déterminé par `src/lib/secureCookies.ts`, qui suit la même règle que NextAuth
+(`NEXTAUTH_URL`, à défaut `NODE_ENV`) : les noms de cookies doivent rester identiques des deux
+côtés, sinon la liaison échoue.
 
 ## Configurer Google
 
