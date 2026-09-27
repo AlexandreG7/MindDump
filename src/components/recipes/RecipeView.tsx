@@ -153,11 +153,11 @@ function CookingMode({
     >
       {/* Top bar */}
       <div className="cooking-topbar">
-        <button onClick={onClose} className="cooking-btn">
+        <button aria-label="Fermer le mode cuisine" onClick={onClose} className="cooking-btn">
           <X className="h-5 w-5" />
         </button>
         <span className="cooking-title">{recipe.title}</span>
-        <button onClick={toggleFullscreen} className="cooking-btn">
+        <button aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"} onClick={toggleFullscreen} className="cooking-btn">
           {isFullscreen ? (
             <Minimize className="h-5 w-5" />
           ) : (
@@ -303,7 +303,7 @@ export function RecipeView({
         {heroOverlay}
 
         {onBack && (
-          <button
+          <button aria-label="Retour"
             onClick={onBack}
             className="absolute top-4 left-4 z-10 p-2.5 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-colors"
           >

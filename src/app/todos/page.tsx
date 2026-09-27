@@ -158,7 +158,7 @@ export default function TodosPage() {
                   </div>
                 )}
               </div>
-              <Button
+              <Button aria-label="Supprimer la tâche"
                 variant="ghost"
                 size="icon"
                 onClick={() => deleteTodo(todo.id)}
@@ -183,7 +183,7 @@ export default function TodosPage() {
                     onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
                   />
                   <p className="text-sm line-through flex-1">{todo.title}</p>
-                  <Button
+                  <Button aria-label="Supprimer la tâche"
                     variant="ghost"
                     size="icon"
                     onClick={() => deleteTodo(todo.id)}

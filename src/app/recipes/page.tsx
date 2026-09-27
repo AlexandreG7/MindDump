@@ -572,7 +572,7 @@ export default function RecipesPage() {
                         alt="Aperçu"
                         className="w-full h-44 object-cover rounded-xl"
                       />
-                      <button
+                      <button aria-label="Retirer la photo"
                         onClick={() => {
                           setPendingImage(null);
                           if (imageInputRef.current) imageInputRef.current.value = "";
@@ -644,7 +644,7 @@ export default function RecipesPage() {
                       <Input placeholder="Qte" value={ing.quantity} onChange={(e) => updateIngredient(i, "quantity", e.target.value)} className="w-20" />
                       <Input placeholder="Unite" value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} className="w-20" />
                       {newRecipe.ingredients.length > 1 && (
-                        <Button variant="ghost" size="icon" onClick={() => removeIngredientField(i)}><X className="h-4 w-4" /></Button>
+                        <Button aria-label="Retirer l'ingrédient" variant="ghost" size="icon" onClick={() => removeIngredientField(i)}><X className="h-4 w-4" /></Button>
                       )}
                     </div>
                   ))}
@@ -661,7 +661,7 @@ export default function RecipesPage() {
                       <span className="text-sm text-muted-foreground mt-2 w-6 shrink-0">{i + 1}.</span>
                       <Textarea placeholder={`Etape ${i + 1}`} value={step} onChange={(e) => updateStep(i, e.target.value)} className="flex-1" rows={2} />
                       {newRecipe.steps.length > 1 && (
-                        <Button variant="ghost" size="icon" onClick={() => removeStepField(i)}><X className="h-4 w-4" /></Button>
+                        <Button aria-label="Retirer l'étape" variant="ghost" size="icon" onClick={() => removeStepField(i)}><X className="h-4 w-4" /></Button>
                       )}
                     </div>
                   ))}
@@ -724,9 +724,9 @@ export default function RecipesPage() {
                 className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium pl-2.5 pr-1.5 py-1 rounded-full"
               >
                 {f}
-                <button
+                <button aria-label={`Retirer le filtre ${f}`}
                   onClick={() => removeFilter(f)}
-                  className="p-0.5 rounded-full hover:bg-primary/20"
+                  className="p-0.5 touch:p-1 rounded-full hover:bg-primary/20"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -753,9 +753,9 @@ export default function RecipesPage() {
               />
             </div>
             {(searchQuery || filters.length > 0) && (
-              <button
+              <button aria-label="Effacer la recherche"
                 onClick={() => { setSearchQuery(""); setFilters([]); }}
-                className="p-0.5 text-muted-foreground hover:text-foreground"
+                className="p-1.5 -m-1 rounded-md text-muted-foreground hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -941,7 +941,7 @@ export default function RecipesPage() {
                 )}
                 <button
                   onClick={(e) => pickTileImage(e, recipe.id)}
-                  className="absolute bottom-1 right-1 p-1 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/list:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-black/50"
+                  className="absolute bottom-1 right-1 p-1 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/list:opacity-100 touch:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/50"
                   title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
                 >
                   <Camera className="h-3 w-3" />
@@ -1000,7 +1000,7 @@ export default function RecipesPage() {
                 )}
                 <button
                   onClick={(e) => pickTileImage(e, recipe.id)}
-                  className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/compact:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-black/50"
+                  className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/compact:opacity-100 touch:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/50"
                   title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
                 >
                   <Camera className="h-3.5 w-3.5" />
@@ -1295,7 +1295,7 @@ function RecipeCard({
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={URL.createObjectURL(pendingEditImage)} alt="Aperçu" className="w-full h-44 object-cover" />
-              <button
+              <button aria-label="Retirer la photo"
                 onClick={() => { setPendingEditImage(null); if (editImageRef.current) editImageRef.current.value = ""; }}
                 className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white hover:bg-black/70"
               >
@@ -1306,14 +1306,14 @@ function RecipeCard({
             <div className="relative group/img">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={recipe.image} alt={recipe.title} className="w-full h-44 object-cover" />
-              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover/img:opacity-100">
-                <button
+              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover/img:opacity-100 touch:opacity-100 touch:items-end touch:justify-end touch:p-2">
+                <button aria-label="Changer la photo"
                   onClick={() => editImageRef.current?.click()}
                   className="p-2 bg-card/90 rounded-full text-foreground hover:bg-card"
                 >
                   <Camera className="h-4 w-4" />
                 </button>
-                <button
+                <button aria-label="Supprimer la photo"
                   onClick={() => onRemoveImage(recipe.id)}
                   className="p-2 bg-card/90 rounded-full text-destructive hover:bg-card"
                 >
@@ -1372,7 +1372,7 @@ function RecipeCard({
                   <Input value={ing.name} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], name: e.target.value }; setEditIngredients(u); }} placeholder="Nom" className="flex-1 h-8 text-sm" />
                   <Input value={ing.quantity} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], quantity: e.target.value }; setEditIngredients(u); }} placeholder="Qte" className="w-16 h-8 text-sm" />
                   <Input value={ing.unit} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], unit: e.target.value }; setEditIngredients(u); }} placeholder="Unite" className="w-16 h-8 text-sm" />
-                  <button onClick={() => setEditIngredients(editIngredients.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10">
+                  <button aria-label="Retirer l'ingrédient" onClick={() => setEditIngredients(editIngredients.filter((_, j) => j !== i))} className="p-1.5 rounded-md hover:bg-destructive/10">
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 </div>
@@ -1390,7 +1390,7 @@ function RecipeCard({
                 <div key={i} className="flex gap-2 items-start">
                   <span className="text-xs text-muted-foreground mt-2 w-5 shrink-0">{i + 1}.</span>
                   <Textarea value={step} onChange={(e) => { const u = [...editSteps]; u[i] = e.target.value; setEditSteps(u); }} rows={2} className="flex-1 text-sm" />
-                  <button onClick={() => setEditSteps(editSteps.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10 mt-1">
+                  <button aria-label="Retirer l'étape" onClick={() => setEditSteps(editSteps.filter((_, j) => j !== i))} className="p-1.5 rounded-md hover:bg-destructive/10 mt-1">
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 </div>
@@ -1439,7 +1439,7 @@ function RecipeCard({
         )}
         <button
           onClick={(e) => { e.stopPropagation(); cardImageRef.current?.click(); }}
-          className="absolute bottom-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-black/50 z-10"
+          className="absolute bottom-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/card:opacity-100 touch:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/50 z-10"
           title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
         >
           <Camera className="h-3.5 w-3.5" />
@@ -1488,7 +1488,7 @@ function RecipeCard({
             <Dialog open={enrichOpen} onOpenChange={(open) => { setEnrichOpen(open); if (!open) { setEnrichUrl(""); setEnrichError(""); setEnrichResult(null); } }}>
               <DialogTrigger asChild>
                 <button
-                  className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 transition-opacity"
+                  className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 touch:opacity-100 transition-opacity"
                   title="Enrichir depuis HelloFresh"
                 >
                   <Download className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1550,15 +1550,15 @@ function RecipeCard({
                 </div>
               </DialogContent>
             </Dialog>
-            <button
+            <button aria-label="Modifier la recette"
               onClick={startEditing}
-              className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 transition-opacity"
+              className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 touch:opacity-100 transition-opacity"
             >
               <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
-            <button
+            <button aria-label="Supprimer la recette"
               onClick={() => onDelete(recipe.id)}
-              className="p-1.5 rounded-lg hover:bg-destructive/10 opacity-0 group-hover/card:opacity-100 transition-opacity"
+              className="p-1.5 rounded-lg hover:bg-destructive/10 opacity-0 group-hover/card:opacity-100 touch:opacity-100 transition-opacity"
             >
               <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
@@ -1588,17 +1588,17 @@ function RecipeCard({
             />
             <Input placeholder="Qte" value={newIng.quantity} onChange={(e) => setNewIng({ ...newIng, quantity: e.target.value })} className="w-16 h-8 text-sm" />
             <Input placeholder="Unite" value={newIng.unit} onChange={(e) => setNewIng({ ...newIng, unit: e.target.value })} className="w-16 h-8 text-sm" />
-            <button onClick={quickAddIngredient} className="p-1 rounded hover:bg-secondary">
+            <button aria-label="Ajouter l'ingrédient" onClick={quickAddIngredient} className="p-1.5 rounded-md hover:bg-secondary">
               <Check className="h-4 w-4 text-primary" />
             </button>
-            <button onClick={() => { setAddingIngredient(false); setNewIng({ name: "", quantity: "", unit: "" }); }} className="p-1 rounded hover:bg-secondary">
+            <button aria-label="Annuler" onClick={() => { setAddingIngredient(false); setNewIng({ name: "", quantity: "", unit: "" }); }} className="p-1.5 rounded-md hover:bg-secondary">
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
         ) : (
           <button
             onClick={() => setAddingIngredient(true)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2 opacity-0 group-hover/card:opacity-100"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2 opacity-0 group-hover/card:opacity-100 touch:opacity-100"
           >
             <Plus className="h-3 w-3" />Ajouter un ingredient
           </button>

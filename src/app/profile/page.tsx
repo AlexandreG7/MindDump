@@ -494,8 +494,8 @@ export default function ProfilePage() {
                   placeholder="••••••••"
                   className="pr-10"
                 />
-                <button type="button" onClick={() => setShowPwd((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <button aria-label={showPwd ? "Masquer le mot de passe" : "Afficher le mot de passe"} type="button" onClick={() => setShowPwd((s) => !s)}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-muted-foreground hover:text-foreground">
                   {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
@@ -598,7 +598,7 @@ export default function ProfilePage() {
                   <span className="text-xs text-muted-foreground">
                     {new Date(k.createdAt).toLocaleDateString("fr-FR")}
                   </span>
-                  <button onClick={() => deleteApiKey(k.id)}
+                  <button aria-label="Supprimer la clé API" onClick={() => deleteApiKey(k.id)}
                     className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -719,7 +719,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               {/* Toggle switch */}
-              <button
+              <button aria-label={label}
                 role="switch"
                 aria-checked={flags[key]}
                 onClick={() => toggleFeature(key, !flags[key])}
@@ -827,10 +827,10 @@ export default function ProfilePage() {
                     <Input value={editName} onChange={(e) => setEditName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") renameGroup(group.id); if (e.key === "Escape") setEditingId(null); }}
                       className="h-7 text-sm" autoFocus />
-                    <button onClick={() => renameGroup(group.id)} className="p-1 rounded hover:bg-secondary">
+                    <button aria-label="Valider le nom" onClick={() => renameGroup(group.id)} className="p-1.5 rounded-md hover:bg-secondary">
                       <Check className="h-4 w-4 text-primary" />
                     </button>
-                    <button onClick={() => setEditingId(null)} className="p-1 rounded hover:bg-secondary">
+                    <button aria-label="Annuler" onClick={() => setEditingId(null)} className="p-1.5 rounded-md hover:bg-secondary">
                       <X className="h-4 w-4 text-muted-foreground" />
                     </button>
                   </div>
@@ -853,18 +853,18 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {group.isOwner && editingId !== group.id && (
-                  <button onClick={() => { setEditingId(group.id); setEditName(group.name); }}
+                  <button aria-label="Renommer le groupe" onClick={() => { setEditingId(group.id); setEditName(group.name); }}
                     className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}
                 {group.isOwner ? (
-                  <button onClick={() => deleteGroup(group.id)}
+                  <button aria-label="Supprimer le groupe" onClick={() => deleteGroup(group.id)}
                     className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 ) : (
-                  <button onClick={() => leaveGroup(group.id)}
+                  <button aria-label="Quitter le groupe" onClick={() => leaveGroup(group.id)}
                     className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                     <UserMinus className="h-3.5 w-3.5" />
                   </button>
@@ -904,11 +904,11 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-1">
                       <button onClick={() => toggleRole(group.id, member.user.id, member.role)}
                         title={member.role === "admin" ? "Rétrograder" : "Promouvoir admin"}
-                        className="p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                        className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
                         <Shield className="h-3.5 w-3.5" />
                       </button>
-                      <button onClick={() => removeMember(group.id, member.user.id)}
-                        className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                      <button aria-label="Retirer du groupe" onClick={() => removeMember(group.id, member.user.id)}
+                        className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>

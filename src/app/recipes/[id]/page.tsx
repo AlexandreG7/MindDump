@@ -135,8 +135,8 @@ export default function RecipeDetailPage() {
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={uploadingImage}
-              className={`absolute bottom-4 right-4 z-20 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-opacity [@media(hover:none)]:opacity-100 ${
-                uploadingImage ? "opacity-100 animate-pulse" : "opacity-0 group-hover/hero:opacity-100"
+              className={`absolute bottom-4 right-4 z-20 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-opacity touch:opacity-100 ${
+                uploadingImage ? "opacity-100 animate-pulse" : "opacity-0 group-hover/hero:opacity-100 touch:opacity-100"
               }`}
               title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
             >
