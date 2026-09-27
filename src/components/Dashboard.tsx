@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useFeaturesContext } from "@/components/FeaturesContext";
 import { InstallPrompt } from "./InstallPrompt";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const WMO_LABELS: Record<number, { label: string; icon: typeof Sun }> = {
   0: { label: "Dégagé", icon: Sun },
@@ -138,8 +139,17 @@ export function Dashboard() {
 
   if (status === "loading" || flagsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-muted-foreground">Chargement...</p>
+      <div className="space-y-6" aria-busy="true" aria-label="Chargement du tableau de bord">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-64 max-w-full" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-[6.5rem] rounded-lg" />
+          ))}
+        </div>
+        <Skeleton className="h-40 rounded-lg" />
       </div>
     );
   }
