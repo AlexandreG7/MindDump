@@ -21,7 +21,7 @@ Web Push                 WebView                    finitions natives          f
 | 1.2 | Service worker et page hors ligne | M | ☑ |
 | 1.3 | Listes de courses hors ligne | M | ☑ |
 | 1.4 | Notifications Web Push | L | ☑ (reste : clés VAPID dans Coolify, test sur appareils réels) |
-| 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☐ |
+| 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☑ (reste : test sur Android réel) |
 | 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☐ |
 | 2.2 | Appareils connectés (liste, révocation) | S | ☐ |
 | 3.1 | Projet Capacitor (iOS + Android) | M | ☐ |
@@ -170,13 +170,21 @@ un abonnement expiré est nettoyé.
 
 ### 1.5 Partage vers MindDump (Android) et invitation à installer
 
-- [ ] `share_target` dans le manifest → page `/partager` qui reconnaît une URL
-      HelloFresh / Jow / Quitoque et appelle la route d'import correspondante
-      (puis enrichissement HelloFresh automatique) ; sinon propose d'en faire un
-      todo.
-- [ ] Invitation à installer discrète (`beforeinstallprompt` sur Android,
-      courte explication « Partager → Sur l'écran d'accueil » sur iOS), masquable,
-      jamais affichée en mode standalone ni dans l'app native.
+- [x] `share_target` (GET) dans le manifest → `/partager` (protégée par le
+      middleware : un visiteur non connecté y revient après connexion, contenu
+      partagé conservé). Un lien HelloFresh / Jow / Quitoque (hôte exact,
+      `src/lib/share.ts`) est importé tout de suite par la route d'import
+      habituelle, enrichissement HelloFresh compris, puis la recette s'ouvre.
+      Sinon, ou si l'import échoue : « Créer une tâche » (titre partagé, lien en
+      description).
+- [x] `InstallPrompt` en tête du dashboard : bouton « Installer » quand Chrome
+      émet `beforeinstallprompt` (capté dès le chargement du module), rappel
+      « Partager → Sur l'écran d'accueil » sur Safari iOS. Jamais en mode
+      standalone ; fermé une fois pour toutes (`installPromptDismissed`,
+      mentionné dans `/confidentialite`).
+- [ ] Hors plan, repéré en passant : les routes d'import HelloFresh / Quitoque
+      récupèrent côté serveur toute URL contenant le mot « hellofresh » /
+      « quitoque » (SSRF). Tâche séparée proposée.
 
 **Validation** : depuis l'app HelloFresh Android, Partager → MindDump importe la
 recette.

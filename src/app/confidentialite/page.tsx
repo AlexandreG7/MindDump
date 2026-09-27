@@ -246,7 +246,8 @@ export default function PrivacyPolicyPage() {
                 affiché dans le semainier), <code>nextauth.message</code>
                 (synchronise la connexion et la déconnexion entre onglets),{" "}
                 <code>minddump-offline-list-ops</code> (modifications de listes faites sans réseau, en
-                attente d&apos;envoi). Restent sur ton appareil.
+                attente d&apos;envoi), <code>installPromptDismissed</code> (invitation à installer
+                l&apos;app fermée). Restent sur ton appareil.
               </Row>
               <Row label="Hors ligne">
                 Le service worker de MindDump garde sur ton appareil le code de l&apos;application, les

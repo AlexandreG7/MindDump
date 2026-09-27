@@ -24,6 +24,7 @@ import {
   CloudDrizzle,
 } from "lucide-react";
 import { useFeaturesContext } from "@/components/FeaturesContext";
+import { InstallPrompt } from "./InstallPrompt";
 
 const WMO_LABELS: Record<number, { label: string; icon: typeof Sun }> = {
   0: { label: "Dégagé", icon: Sun },
@@ -203,6 +204,8 @@ export function Dashboard() {
         </h1>
         <p className="text-muted-foreground mt-1">Voici un aperçu de ta journée</p>
       </div>
+
+      <InstallPrompt />
 
       {/* Summary cards */}
       {summaryCards.length > 0 && (
