@@ -213,6 +213,7 @@ model Group {
   profiles       FamilyProfile[]
   wallDevices    WallDevice[]
   mealPlanEntries MealPlanEntry[]
+  driveProducts  DriveProduct[]
 
   @@index([ownerId])
 }
@@ -363,6 +364,35 @@ model ShoppingItem {
 
   @@index([listId])
   @@index([recipeId])
+}
+
+// Produit de drive retenu pour un article de liste de courses (« mon lait,
+// c'est celui-là »), partagé par le groupe. Voir docs/drive-match.md.
+model DriveProduct {
+  id         String    @id @default(cuid())
+  store      String    // enseigne : "match"
+  key        String    // article normalisé (src/lib/drive/normalize.ts)
+  name       String    // libellé d'article tel que saisi, pour l'affichage
+  sku        String
+  ean        String?
+  label      String
+  brand      String?
+  packaging  String?   // « 6 x 1 L », « Palier de 500 g »
+  image      String?
+  price      Float?    // dernier prix vu
+  unitPrice  Float?
+  unitLabel  String?   // « /kg », « /l », « /unité »
+  quantity   Int       @default(1) // quantité par défaut quand l'article n'en précise pas
+  useCount   Int       @default(0)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, store, key])
+  @@index([groupId])
 }
 
 model Recipe {
