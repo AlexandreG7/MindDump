@@ -10,7 +10,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:ownership": "sh scripts/test-ownership.sh"
   },
   "dependencies": {
     "next": "^14.2.0",

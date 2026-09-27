@@ -89,10 +89,15 @@ export async function GET(req: NextRequest) {
 
     const allEvents = await prisma.calendarEvent.findMany({
       where: {
-        ...baseWhere,
-        OR: [
-          { date: { lte: rangeEnd }, recurrence: { not: null, notIn: ["none", ""] } },
-          { date: { gte: rangeStart, lte: rangeEnd } },
+        // AND, pas de spread : un second OR écraserait le filtre d'accès.
+        AND: [
+          ...baseWhere.AND,
+          {
+            OR: [
+              { date: { lte: rangeEnd }, recurrence: { not: null, notIn: ["none", ""] } },
+              { date: { gte: rangeStart, lte: rangeEnd } },
+            ],
+          },
         ],
       },
       orderBy: { date: "asc" },

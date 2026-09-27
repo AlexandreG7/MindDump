@@ -19,6 +19,16 @@ RUN npx prisma generate
 ENV NODE_OPTIONS="--max-old-space-size=512"
 RUN npm run build
 
+# Test de non-régression bloquant : un élément (recette, tâche, liste, événement)
+# reste toujours visible par son auteur, quel que soit le sort de son groupe
+# (docs/adr/0001-les-elements-restent-attaches-a-leur-auteur.md). Base PostgreSQL
+# jetable, jamais celle de production. Un échec arrête le déploiement : l'ancienne
+# version reste en ligne.
+FROM builder AS test
+RUN apk add --no-cache postgresql16
+ENV PG_BIN=/usr/libexec/postgresql16
+RUN sh scripts/test-ownership.sh && touch /app/.ownership-test-passed
+
 # Production image
 FROM base AS runner
 WORKDIR /app
@@ -29,6 +39,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # pg_dump pour la sauvegarde automatique avant migration (entrypoint.sh).
 # Version = celle du serveur PostgreSQL (postgres:16 dans docker-compose.yml).
 RUN apk add --no-cache postgresql16-client
+
+# Oblige BuildKit à exécuter le stage « test » (sinon ignoré car non référencé).
+COPY --from=test /app/.ownership-test-passed /app/.ownership-test-passed
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
