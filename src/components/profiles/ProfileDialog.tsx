@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import { Check } from "lucide-react";
 import { EVENT_COLORS } from "@/lib/recurrence";
 import { cn } from "@/lib/utils";
-import { ProfileAvatar, type FamilyProfile } from "./ProfileAvatar";
+import { ProfileAvatar, type FamilyProfile, textOn } from "./ProfileAvatar";
 
 const EMOJI_SUGGESTIONS = ["🦊", "🐻", "🐼", "🦁", "🐯", "🐸", "🦄", "🐙", "🚀", "⚽", "🌸", "⭐"];
 
@@ -104,11 +104,13 @@ export function ProfileDialog({
                   key={c.value}
                   type="button"
                   title={c.label}
+                  aria-label={c.label}
+                  aria-pressed={draft.color === c.value}
                   onClick={() => setDraft({ ...draft, color: c.value })}
-                  className="w-7 h-7 rounded-full flex items-center justify-center ring-offset-2 ring-offset-background transition-shadow"
+                  className="w-7 h-7 touch:w-9 touch:h-9 rounded-full flex items-center justify-center ring-offset-2 ring-offset-background transition-shadow"
                   style={{ backgroundColor: c.value, boxShadow: draft.color === c.value ? `0 0 0 2px ${c.value}` : undefined }}
                 >
-                  {draft.color === c.value && <Check className="h-3.5 w-3.5 text-white" />}
+                  {draft.color === c.value && <Check className="h-3.5 w-3.5" style={{ color: textOn(c.value) }} />}
                 </button>
               ))}
             </div>

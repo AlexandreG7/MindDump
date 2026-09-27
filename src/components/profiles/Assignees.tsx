@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { ProfileAvatar, type FamilyProfile } from "./ProfileAvatar";
+import { ProfileAvatar, textOn, type FamilyProfile } from "./ProfileAvatar";
 
 /**
  * Personnes du foyer de l'utilisateur (tous ses groupes). Avec un groupe
@@ -38,7 +38,7 @@ export function AssigneePicker({
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1.5 touch:gap-2">
       {profiles.map((p) => {
         const on = value.includes(p.id);
         return (
@@ -49,10 +49,10 @@ export function AssigneePicker({
             aria-checked={on}
             onClick={() => toggle(p.id)}
             className={cn(
-              "flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 rounded-full border text-sm transition-colors",
-              on ? "border-transparent text-white font-medium" : "border-border text-muted-foreground hover:bg-secondary"
+              "flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 touch:py-1.5 touch:pl-1 touch:pr-3 rounded-full border text-sm transition-colors",
+              on ? "border-transparent font-medium" : "border-border text-muted-foreground hover:bg-secondary"
             )}
-            style={on ? { backgroundColor: p.color } : undefined}
+            style={on ? { backgroundColor: p.color, color: textOn(p.color) } : undefined}
           >
             <ProfileAvatar profile={p} size="sm" className={on ? "ring-2 ring-white/70" : undefined} />
             {p.name}
@@ -76,12 +76,17 @@ export function AssigneeAvatars({
   const people = (ids ?? []).map((id) => byId.get(id)).filter((p): p is FamilyProfile => !!p);
   if (people.length === 0) return null;
   return (
-    <span className={cn("flex -space-x-1.5 shrink-0", className)} title={people.map((p) => p.name).join(", ")}>
+    <span
+      className={cn("flex -space-x-1.5 shrink-0", className)}
+      title={people.map((p) => p.name).join(", ")}
+      role="img"
+      aria-label={`Pour ${people.map((p) => p.name).join(", ")}`}
+    >
       {people.slice(0, 4).map((p) => (
-        <ProfileAvatar key={p.id} profile={p} size="sm" className="ring-2 ring-background w-5 h-5 text-[10px]" />
+        <ProfileAvatar key={p.id} profile={p} size="sm" className="ring-2 ring-background w-5 h-5 text-[11px]" />
       ))}
       {people.length > 4 && (
-        <span className="w-5 h-5 rounded-full bg-secondary text-[10px] flex items-center justify-center ring-2 ring-background">
+        <span className="w-5 h-5 rounded-full bg-secondary text-[11px] flex items-center justify-center ring-2 ring-background">
           +{people.length - 4}
         </span>
       )}
@@ -104,12 +109,13 @@ export function PeopleFilter({
 }) {
   if (profiles.length < 2) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrer par personne">
+    <div className="flex flex-wrap items-center gap-1.5 touch:gap-2" role="group" aria-label="Filtrer par personne">
       <button
         type="button"
         onClick={() => onChange([])}
+        aria-pressed={value.length === 0}
         className={cn(
-          "px-2.5 py-1 rounded-full border text-xs transition-colors",
+          "px-2.5 py-1 touch:px-3 touch:py-2 rounded-full border text-xs transition-colors",
           value.length === 0 ? "border-primary bg-primary/10 text-primary font-medium" : "border-border text-muted-foreground hover:bg-secondary"
         )}
       >
@@ -124,12 +130,12 @@ export function PeopleFilter({
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((v) => v !== p.id) : [...value, p.id])}
             className={cn(
-              "flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full border text-xs transition-colors",
-              on ? "border-transparent text-white font-medium" : "border-border text-muted-foreground hover:bg-secondary"
+              "flex items-center gap-1 pl-0.5 pr-2 py-0.5 touch:py-1.5 touch:pl-1 touch:pr-3 rounded-full border text-xs transition-colors",
+              on ? "border-transparent font-medium" : "border-border text-muted-foreground hover:bg-secondary"
             )}
-            style={on ? { backgroundColor: p.color } : undefined}
+            style={on ? { backgroundColor: p.color, color: textOn(p.color) } : undefined}
           >
-            <ProfileAvatar profile={p} size="sm" className="w-5 h-5 text-[10px]" />
+            <ProfileAvatar profile={p} size="sm" className="w-5 h-5 text-[11px]" />
             {p.name}
           </button>
         );
