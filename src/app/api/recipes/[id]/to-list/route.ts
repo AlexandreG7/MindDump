@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
-import { buildItemAccessWhere } from "@/lib/groupAuth";
+import { buildItemAccessWhere, resolveGroupId } from "@/lib/groupAuth";
 
 export async function POST(
   req: NextRequest,
@@ -22,12 +22,26 @@ export async function POST(
   const body = await req.json();
   let listId = body.listId;
 
-  if (!listId) {
+  if (listId) {
+    // La liste doit être accessible (la sienne ou celle d'un de ses groupes).
+    const list = await prisma.shoppingList.findFirst({
+      where: { id: listId, ...(await buildItemAccessWhere(user.id)) },
+      select: { id: true },
+    });
+    if (!list) {
+      return NextResponse.json({ error: "Liste non trouvee" }, { status: 404 });
+    }
+  } else {
+    // Même groupe que la recette : la liste est partagée avec ses membres.
+    const member = recipe.groupId
+      ? await prisma.groupMember.findFirst({ where: { groupId: recipe.groupId, userId: user.id } })
+      : null;
     const list = await prisma.shoppingList.create({
       data: {
         name: `Courses - ${recipe.title}`,
         type: "GROCERY",
         userId: user.id,
+        groupId: member ? recipe.groupId : await resolveGroupId(user.id, null),
       },
     });
     listId = list.id;

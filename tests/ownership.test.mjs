@@ -141,6 +141,19 @@ async function main() {
   await expectVisible(alice, bobInAlice, alice.defaultGroupId, "départ (partage au foyer)");
   await expectHidden(carol, aliceItems, "départ");
 
+  console.log("1b. Listes de courses partagées avec le foyer");
+  // « Recette → liste » sans liste choisie : la nouvelle liste suit le groupe de la recette.
+  const toList = await api(bob, "POST", `/api/recipes/${bobInAlice.recipe}/to-list`, {});
+  check(!!toList.json?.listId, `recette de Bob → nouvelle liste (${toList.status})`);
+  check((await listIds(alice, "list", alice.defaultGroupId)).has(toList.json?.listId), "alice voit la liste créée depuis la recette de Bob");
+  check(!(await listIds(carol, "list", null)).has(toList.json?.listId), "carol ne voit pas cette liste");
+  // Ajouter à une liste inaccessible : refusé.
+  const carolList = await api(carol, "POST", "/api/lists", { name: `Liste carol ${run}` });
+  const intrusion = await api(bob, "POST", `/api/recipes/${bobInAlice.recipe}/to-list`, { listId: carolList.json.id });
+  check(intrusion.status === 404, `bob ne peut pas remplir la liste de carol (${intrusion.status})`);
+  const carolItems = await prisma.shoppingItem.count({ where: { listId: carolList.json.id } });
+  check(carolItems === 0, "la liste de carol est restée vide");
+
   console.log("2. Synchronisation des profils du foyer (lecture de /profiles)");
   const profiles = await api(alice, "GET", `/api/groups/${alice.defaultGroupId}/profiles`);
   check(profiles.status === 200, `profils du foyer lus (${profiles.status})`);

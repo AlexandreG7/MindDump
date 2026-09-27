@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/useAuth";
+import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -105,6 +106,7 @@ function groupItems(items: ShoppingItem[]): GroupedItem[] {
 
 export default function ListsPage() {
   const { isReady } = useAuth();
+  const { currentGroupId } = useGroupContext();
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -130,7 +132,8 @@ export default function ListsPage() {
     await fetch("/api/lists", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newList),
+      // Rattachée au groupe courant : partagée avec tous ses membres.
+      body: JSON.stringify({ ...newList, groupId: currentGroupId }),
     });
     setNewList({ name: "", type: "GROCERY" });
     setDialogOpen(false);
