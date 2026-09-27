@@ -11,8 +11,7 @@ import {
   ChefHat,
   LayoutDashboard,
   LogOut,
-  Menu,
-  X,
+  MoreHorizontal,
   Users,
   ChevronDown,
   Settings,
@@ -23,15 +22,21 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useState, useEffect } from "react";
 import { useGroupContext } from "./GroupContext";
 import { useFeaturesContext, type FeatureKey } from "./FeaturesContext";
 import { ThemeToggle } from "./ThemeToggle";
 
-const ALL_NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, feature: null },
+type NavItem = { href: string; label: string; shortLabel?: string; icon: typeof LayoutDashboard; feature: FeatureKey | null };
+
+// Barre d'onglets mobile : 5 emplacements au plus, le dernier étant « Plus ».
+const MOBILE_TABS = 4;
+
+const ALL_NAV_ITEMS: NavItem[] = [
+  { href: "/", label: "Dashboard", shortLabel: "Accueil", icon: LayoutDashboard, feature: null },
   { href: "/todos", label: "Todos", icon: CheckSquare, feature: "todos" as FeatureKey },
-  { href: "/calendar", label: "Calendrier", icon: Calendar, feature: "calendar" as FeatureKey },
+  { href: "/calendar", label: "Calendrier", shortLabel: "Agenda", icon: Calendar, feature: "calendar" as FeatureKey },
   { href: "/lists", label: "Courses", icon: ShoppingCart, feature: "lists" as FeatureKey },
   { href: "/recipes", label: "Recettes", icon: ChefHat, feature: "recipes" as FeatureKey },
   { href: "/kids", label: "Semainier", icon: Baby, feature: "kids" as FeatureKey },
@@ -65,6 +70,14 @@ export function Navbar() {
   const navItems = ALL_NAV_ITEMS.filter(
     (item) => item.feature === null || flags[item.feature]
   );
+
+  const tabItems = navItems.slice(0, MOBILE_TABS);
+  const moreItems = navItems.slice(MOBILE_TABS);
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
+  const moreActive = moreItems.some((i) => isActive(i.href)) || isActive("/profile") || isActive("/groups") || isActive("/admin");
+
+  // Fermer la feuille « Plus » quand on change de page (bouton retour compris).
+  useEffect(() => setMobileOpen(false), [pathname]);
 
   const isLoggedIn = skipAuth || !!session;
   const userName = skipAuth ? "Dev User" : session?.user?.name;
@@ -261,60 +274,119 @@ export function Navbar() {
       </nav>
 
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] flex items-center justify-between">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] flex items-center justify-between">
         <h1 className="text-lg font-bold">MindDump</h1>
         <div className="flex items-center gap-1">
-          <ThemeToggle className="p-2" />
-          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(!mobileOpen)}>
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+          {currentGroup && groups.length > 1 && (
+            <span className="max-w-[9rem] truncate rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              {currentGroup.name}
+            </span>
+          )}
+          <ThemeToggle className="p-2.5" />
         </div>
       </div>
 
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-background overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))]">
-          <div className="space-y-1">
-            {navItems.map((item) => (
+      {/* Mobile tab bar : les 4 premières rubriques, le reste dans « Plus » */}
+      <nav
+        aria-label="Navigation principale"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur border-t pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+      >
+        <ul className="flex">
+          {tabItems.map((item) => (
+            <li key={item.href} className="flex-1">
               <Link
-                key={item.href}
                 href={item.href}
-                onClick={() => setMobileOpen(false)}
+                aria-current={isActive(item.href) ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-3 text-sm transition-colors",
-                  pathname === item.href
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent"
+                  "flex h-16 flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors",
+                  isActive(item.href) ? "text-primary" : "text-muted-foreground"
                 )}
               >
-                <item.icon className="h-5 w-5" />
-                {item.label}
+                <item.icon className="h-6 w-6" strokeWidth={isActive(item.href) ? 2.25 : 1.75} />
+                {item.shortLabel ?? item.label}
               </Link>
-            ))}
-            <Link
-              href="/profile"
-              onClick={() => setMobileOpen(false)}
+            </li>
+          ))}
+          <li className="flex-1">
+            <button
+              onClick={() => setMobileOpen(true)}
+              aria-expanded={mobileOpen}
+              aria-haspopup="dialog"
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-3 text-sm transition-colors",
-                pathname === "/profile"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent"
+                "flex h-16 w-full flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors",
+                moreActive ? "text-primary" : "text-muted-foreground"
               )}
             >
-              <Settings className="h-5 w-5" />
-              Profil & Groupes
-            </Link>
-          </div>
-          {!skipAuth && (
-            <div className="border-t mt-4 pt-4">
-              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => signOutAndClear()}>
-                <LogOut className="h-4 w-4" />
-                Déconnexion
-              </Button>
+              <MoreHorizontal className="h-6 w-6" strokeWidth={moreActive ? 2.25 : 1.75} />
+              Plus
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      {/* Feuille « Plus » */}
+      <DialogPrimitive.Root open={mobileOpen} onOpenChange={setMobileOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="md:hidden fixed inset-0 z-50 bg-black/40 animate-[fade-in_150ms_ease-out]" />
+          <DialogPrimitive.Content className="md:hidden fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t bg-card pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] shadow-xl animate-[sheet-in_200ms_ease-out]">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" aria-hidden />
+            <DialogPrimitive.Title className="sr-only">Plus</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="sr-only">Autres rubriques et réglages</DialogPrimitive.Description>
+
+            {groups.length > 1 && (
+              <div className="mb-3">
+                <p className="px-3 pb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Groupe actif</p>
+                <div className="flex flex-wrap gap-2 px-1">
+                  {groups.map((g) => (
+                    <button
+                      key={g.id}
+                      onClick={() => setCurrentGroupId(g.id)}
+                      aria-pressed={currentGroupId === g.id}
+                      className={cn(
+                        "rounded-full border px-3.5 py-2 text-sm transition-colors",
+                        currentGroupId === g.id
+                          ? "border-primary bg-primary/10 font-medium text-primary"
+                          : "border-border text-foreground hover:bg-accent"
+                      )}
+                    >
+                      {g.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              {[...moreItems, { href: "/profile", label: "Profil & Groupes", icon: Settings }, ...(isAdmin ? [{ href: "/admin", label: "Administration", icon: Shield }] : [])].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-3.5 text-[0.9375rem] transition-colors",
+                    isActive(item.href) ? "bg-primary/10 font-medium text-primary" : "text-foreground hover:bg-accent"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              ))}
             </div>
-          )}
-        </div>
-      )}
+            {!skipAuth && (
+              <div className="mt-3 border-t pt-3">
+                <button
+                  onClick={() => signOutAndClear()}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-accent"
+                >
+                  <LogOut className="h-5 w-5" />
+                  Déconnexion
+                </button>
+              </div>
+            )}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </>
   );
 }

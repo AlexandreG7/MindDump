@@ -90,7 +90,7 @@ export default function RootLayout({
         <Providers>
           <div className="flex h-dvh overflow-hidden">
             <Navbar />
-            <main className="flex-1 md:p-8 p-4 pt-[calc(5rem+env(safe-area-inset-top))] md:pt-8 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(2rem+env(safe-area-inset-bottom))] overflow-y-auto">
+            <main className="flex-1 md:p-8 p-4 pt-[calc(5rem+env(safe-area-inset-top))] md:pt-8 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-[calc(2rem+env(safe-area-inset-bottom))] overflow-y-auto">
               {children}
             </main>
           </div>

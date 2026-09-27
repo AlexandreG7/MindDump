@@ -258,8 +258,8 @@ export default function GroupsPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-lg leading-tight truncate">{group.name}</h2>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <h2 className="font-semibold text-lg leading-tight truncate max-w-full">{group.name}</h2>
                     {group.isOwner && (
                       <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/15 px-2 py-0.5 rounded-full shrink-0">
                         <Crown className="h-3 w-3" />
