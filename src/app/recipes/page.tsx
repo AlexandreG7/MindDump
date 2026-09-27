@@ -41,6 +41,7 @@ import {
   ArrowUpDown,
   Heart,
 } from "lucide-react";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface Ingredient {
   id?: string;
@@ -76,6 +77,7 @@ type ViewMode = "grid" | "list" | "compact";
 type SortOption = "recent" | "oldest" | "alpha-asc" | "alpha-desc" | "fastest" | "slowest";
 
 export default function RecipesPage() {
+  const { confirm, toast } = useFeedback();
   const { isReady } = useAuth();
   const router = useRouter();
   const { currentGroupId } = useGroupContext();
@@ -236,7 +238,7 @@ export default function RecipesPage() {
       });
       if (!imgRes.ok) {
         const { error } = await imgRes.json().catch(() => ({ error: null }));
-        alert(error || "Recette créée, mais impossible d'enregistrer l'image");
+        toast(error || "Recette créée, mais impossible d'enregistrer l'image", "error");
       }
     }
 
@@ -286,10 +288,21 @@ export default function RecipesPage() {
         await fetch(`/api/recipes/${id}`, { method: "DELETE" });
       }
     } else {
-      const message = recipe.planned
-        ? `Retirer « ${recipe.title} » du catalogue ? Elle restera dans les recettes prévues.`
-        : `Supprimer « ${recipe.title} » ? Cette action est irréversible.`;
-      if (!confirm(message)) return;
+      const ok = await confirm(
+        recipe.planned
+          ? {
+              title: `Retirer « ${recipe.title} » du catalogue ?`,
+              description: "Elle restera dans les recettes prévues.",
+              confirmLabel: "Retirer",
+            }
+          : {
+              title: `Supprimer « ${recipe.title} » ?`,
+              description: "Cette action est irréversible.",
+              confirmLabel: "Supprimer",
+              destructive: true,
+            }
+      );
+      if (!ok) return;
       if (recipe.planned) {
         await fetch(`/api/recipes/${id}`, {
           method: "PATCH",
@@ -312,7 +325,7 @@ export default function RecipesPage() {
     });
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: null }));
-      alert(error || "Impossible d'enregistrer l'image");
+      toast(error || "Impossible d'enregistrer l'image", "error");
     }
     fetchRecipes();
   };
@@ -488,7 +501,7 @@ export default function RecipesPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[10rem]">
           <h1 className="text-2xl font-semibold tracking-tight">Recettes</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {catalogCount} recette{catalogCount !== 1 ? "s" : ""} au catalogue
@@ -496,9 +509,9 @@ export default function RecipesPage() {
         </div>
         <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) { setImportUrl(""); setImportError(""); } }}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="shrink-0">
-              <Download className="h-4 w-4 mr-2" />
-              Importer
+            <Button variant="outline" className="shrink-0 px-3 sm:px-4" aria-label="Importer une recette">
+              <Download className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Importer</span>
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -537,9 +550,9 @@ export default function RecipesPage() {
         </Dialog>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="shrink-0">
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle recette
+            <Button className="shrink-0 px-3 sm:px-4" aria-label="Nouvelle recette">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Nouvelle recette</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -559,7 +572,7 @@ export default function RecipesPage() {
                         alt="Aperçu"
                         className="w-full h-44 object-cover rounded-xl"
                       />
-                      <button
+                      <button aria-label="Retirer la photo"
                         onClick={() => {
                           setPendingImage(null);
                           if (imageInputRef.current) imageInputRef.current.value = "";
@@ -597,7 +610,7 @@ export default function RecipesPage() {
                 <Input
                   value={newRecipe.title}
                   onChange={(e) => setNewRecipe({ ...newRecipe, title: e.target.value })}
-                  placeholder="Ex: Poulet roti, Tarte aux pommes..."
+                  placeholder="Ex: Poulet rôti, Tarte aux pommes..."
                 />
               </div>
               <div>
@@ -623,37 +636,37 @@ export default function RecipesPage() {
                 </div>
               </div>
               <div>
-                <Label>Ingredients</Label>
+                <Label>Ingrédients</Label>
                 <div className="space-y-2 mt-1">
                   {newRecipe.ingredients.map((ing, i) => (
                     <div key={i} className="flex gap-2 items-center">
                       <Input placeholder="Nom" value={ing.name} onChange={(e) => updateIngredient(i, "name", e.target.value)} className="flex-1" />
-                      <Input placeholder="Qte" value={ing.quantity} onChange={(e) => updateIngredient(i, "quantity", e.target.value)} className="w-20" />
-                      <Input placeholder="Unite" value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} className="w-20" />
+                      <Input placeholder="Qté" value={ing.quantity} onChange={(e) => updateIngredient(i, "quantity", e.target.value)} className="w-20" />
+                      <Input placeholder="Unité" value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} className="w-20" />
                       {newRecipe.ingredients.length > 1 && (
-                        <Button variant="ghost" size="icon" onClick={() => removeIngredientField(i)}><X className="h-4 w-4" /></Button>
+                        <Button aria-label="Retirer l'ingrédient" variant="ghost" size="icon" onClick={() => removeIngredientField(i)}><X className="h-4 w-4" /></Button>
                       )}
                     </div>
                   ))}
                   <Button variant="outline" size="sm" onClick={addIngredientField}>
-                    <Plus className="h-3 w-3 mr-1" />Ingredient
+                    <Plus className="h-3 w-3 mr-1" />Ingrédient
                   </Button>
                 </div>
               </div>
               <div>
-                <Label>Etapes</Label>
+                <Label>Étapes</Label>
                 <div className="space-y-2 mt-1">
                   {newRecipe.steps.map((step, i) => (
                     <div key={i} className="flex gap-2 items-start">
                       <span className="text-sm text-muted-foreground mt-2 w-6 shrink-0">{i + 1}.</span>
-                      <Textarea placeholder={`Etape ${i + 1}`} value={step} onChange={(e) => updateStep(i, e.target.value)} className="flex-1" rows={2} />
+                      <Textarea placeholder={`Étape ${i + 1}`} value={step} onChange={(e) => updateStep(i, e.target.value)} className="flex-1" rows={2} />
                       {newRecipe.steps.length > 1 && (
-                        <Button variant="ghost" size="icon" onClick={() => removeStepField(i)}><X className="h-4 w-4" /></Button>
+                        <Button aria-label="Retirer l'étape" variant="ghost" size="icon" onClick={() => removeStepField(i)}><X className="h-4 w-4" /></Button>
                       )}
                     </div>
                   ))}
                   <Button variant="outline" size="sm" onClick={addStepField}>
-                    <Plus className="h-3 w-3 mr-1" />Etape
+                    <Plus className="h-3 w-3 mr-1" />Étape
                   </Button>
                 </div>
               </div>
@@ -711,9 +724,9 @@ export default function RecipesPage() {
                 className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium pl-2.5 pr-1.5 py-1 rounded-full"
               >
                 {f}
-                <button
+                <button aria-label={`Retirer le filtre ${f}`}
                   onClick={() => removeFilter(f)}
-                  className="p-0.5 rounded-full hover:bg-primary/20"
+                  className="p-0.5 touch:p-1 rounded-full hover:bg-primary/20"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -740,9 +753,9 @@ export default function RecipesPage() {
               />
             </div>
             {(searchQuery || filters.length > 0) && (
-              <button
+              <button aria-label="Effacer la recherche"
                 onClick={() => { setSearchQuery(""); setFilters([]); }}
-                className="p-0.5 text-muted-foreground hover:text-foreground"
+                className="p-1.5 -m-1 rounded-md text-muted-foreground hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -928,7 +941,7 @@ export default function RecipesPage() {
                 )}
                 <button
                   onClick={(e) => pickTileImage(e, recipe.id)}
-                  className="absolute bottom-1 right-1 p-1 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/list:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-black/50"
+                  className="absolute bottom-1 right-1 p-1 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/list:opacity-100 touch:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/50"
                   title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
                 >
                   <Camera className="h-3 w-3" />
@@ -987,7 +1000,7 @@ export default function RecipesPage() {
                 )}
                 <button
                   onClick={(e) => pickTileImage(e, recipe.id)}
-                  className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/compact:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-black/50"
+                  className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/compact:opacity-100 touch:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/50"
                   title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
                 >
                   <Camera className="h-3.5 w-3.5" />
@@ -1282,7 +1295,7 @@ function RecipeCard({
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={URL.createObjectURL(pendingEditImage)} alt="Aperçu" className="w-full h-44 object-cover" />
-              <button
+              <button aria-label="Retirer la photo"
                 onClick={() => { setPendingEditImage(null); if (editImageRef.current) editImageRef.current.value = ""; }}
                 className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white hover:bg-black/70"
               >
@@ -1293,14 +1306,14 @@ function RecipeCard({
             <div className="relative group/img">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={recipe.image} alt={recipe.title} className="w-full h-44 object-cover" />
-              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover/img:opacity-100">
-                <button
+              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover/img:opacity-100 touch:opacity-100 touch:items-end touch:justify-end touch:p-2">
+                <button aria-label="Changer la photo"
                   onClick={() => editImageRef.current?.click()}
                   className="p-2 bg-card/90 rounded-full text-foreground hover:bg-card"
                 >
                   <Camera className="h-4 w-4" />
                 </button>
-                <button
+                <button aria-label="Supprimer la photo"
                   onClick={() => onRemoveImage(recipe.id)}
                   className="p-2 bg-card/90 rounded-full text-destructive hover:bg-card"
                 >
@@ -1352,38 +1365,38 @@ function RecipeCard({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Ingredients</Label>
+            <Label className="text-xs text-muted-foreground">Ingrédients</Label>
             <div className="space-y-1.5 mt-2">
               {editIngredients.map((ing, i) => (
                 <div key={i} className="flex gap-2 items-center">
                   <Input value={ing.name} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], name: e.target.value }; setEditIngredients(u); }} placeholder="Nom" className="flex-1 h-8 text-sm" />
-                  <Input value={ing.quantity} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], quantity: e.target.value }; setEditIngredients(u); }} placeholder="Qte" className="w-16 h-8 text-sm" />
-                  <Input value={ing.unit} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], unit: e.target.value }; setEditIngredients(u); }} placeholder="Unite" className="w-16 h-8 text-sm" />
-                  <button onClick={() => setEditIngredients(editIngredients.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10">
+                  <Input value={ing.quantity} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], quantity: e.target.value }; setEditIngredients(u); }} placeholder="Qté" className="w-16 h-8 text-sm" />
+                  <Input value={ing.unit} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], unit: e.target.value }; setEditIngredients(u); }} placeholder="Unité" className="w-16 h-8 text-sm" />
+                  <button aria-label="Retirer l'ingrédient" onClick={() => setEditIngredients(editIngredients.filter((_, j) => j !== i))} className="p-1.5 rounded-md hover:bg-destructive/10">
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 </div>
               ))}
               <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditIngredients([...editIngredients, { name: "", quantity: "", unit: "" }])}>
-                <Plus className="h-3 w-3 mr-1" />Ingredient
+                <Plus className="h-3 w-3 mr-1" />Ingrédient
               </Button>
             </div>
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Etapes</Label>
+            <Label className="text-xs text-muted-foreground">Étapes</Label>
             <div className="space-y-1.5 mt-2">
               {editSteps.map((step, i) => (
                 <div key={i} className="flex gap-2 items-start">
                   <span className="text-xs text-muted-foreground mt-2 w-5 shrink-0">{i + 1}.</span>
                   <Textarea value={step} onChange={(e) => { const u = [...editSteps]; u[i] = e.target.value; setEditSteps(u); }} rows={2} className="flex-1 text-sm" />
-                  <button onClick={() => setEditSteps(editSteps.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10 mt-1">
+                  <button aria-label="Retirer l'étape" onClick={() => setEditSteps(editSteps.filter((_, j) => j !== i))} className="p-1.5 rounded-md hover:bg-destructive/10 mt-1">
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 </div>
               ))}
               <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditSteps([...editSteps, ""])}>
-                <Plus className="h-3 w-3 mr-1" />Etape
+                <Plus className="h-3 w-3 mr-1" />Étape
               </Button>
             </div>
           </div>
@@ -1426,7 +1439,7 @@ function RecipeCard({
         )}
         <button
           onClick={(e) => { e.stopPropagation(); cardImageRef.current?.click(); }}
-          className="absolute bottom-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:bg-black/50 z-10"
+          className="absolute bottom-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/card:opacity-100 touch:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/50 z-10"
           title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
         >
           <Camera className="h-3.5 w-3.5" />
@@ -1475,7 +1488,7 @@ function RecipeCard({
             <Dialog open={enrichOpen} onOpenChange={(open) => { setEnrichOpen(open); if (!open) { setEnrichUrl(""); setEnrichError(""); setEnrichResult(null); } }}>
               <DialogTrigger asChild>
                 <button
-                  className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 transition-opacity"
+                  className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 touch:opacity-100 transition-opacity"
                   title="Enrichir depuis HelloFresh"
                 >
                   <Download className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1512,12 +1525,12 @@ function RecipeCard({
                     <div className="text-sm text-green-600 dark:text-green-400 space-y-1">
                       <p className="font-medium">Recette enrichie !</p>
                       <ul className="text-xs space-y-0.5 text-muted-foreground">
-                        {enrichResult.image && <li>Image ajoutee</li>}
+                        {enrichResult.image && <li>Image ajoutée</li>}
                         {enrichResult.steps && <li>{enrichResult.stepsCount} etapes importees ({enrichResult.stepImages} avec photo)</li>}
                         {enrichResult.ingredients && enrichResult.ingredients > 0 && <li>{enrichResult.ingredients} ingredients ajoutes</li>}
-                        {enrichResult.description && <li>Description ajoutee</li>}
-                        {enrichResult.prepTime && <li>Temps de preparation ajoute</li>}
-                        {enrichResult.cookTime && <li>Temps de cuisson ajoute</li>}
+                        {enrichResult.description && <li>Description ajoutée</li>}
+                        {enrichResult.prepTime && <li>Temps de préparation ajouté</li>}
+                        {enrichResult.cookTime && <li>Temps de cuisson ajouté</li>}
                       </ul>
                     </div>
                   )}
@@ -1537,15 +1550,15 @@ function RecipeCard({
                 </div>
               </DialogContent>
             </Dialog>
-            <button
+            <button aria-label="Modifier la recette"
               onClick={startEditing}
-              className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 transition-opacity"
+              className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 touch:opacity-100 transition-opacity"
             >
               <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
-            <button
+            <button aria-label="Supprimer la recette"
               onClick={() => onDelete(recipe.id)}
-              className="p-1.5 rounded-lg hover:bg-destructive/10 opacity-0 group-hover/card:opacity-100 transition-opacity"
+              className="p-1.5 rounded-lg hover:bg-destructive/10 opacity-0 group-hover/card:opacity-100 touch:opacity-100 transition-opacity"
             >
               <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
@@ -1573,21 +1586,21 @@ function RecipeCard({
               onKeyDown={(e) => { if (e.key === "Enter") quickAddIngredient(); }}
               className="flex-1 h-8 text-sm" autoFocus
             />
-            <Input placeholder="Qte" value={newIng.quantity} onChange={(e) => setNewIng({ ...newIng, quantity: e.target.value })} className="w-16 h-8 text-sm" />
-            <Input placeholder="Unite" value={newIng.unit} onChange={(e) => setNewIng({ ...newIng, unit: e.target.value })} className="w-16 h-8 text-sm" />
-            <button onClick={quickAddIngredient} className="p-1 rounded hover:bg-secondary">
+            <Input placeholder="Qté" value={newIng.quantity} onChange={(e) => setNewIng({ ...newIng, quantity: e.target.value })} className="w-16 h-8 text-sm" />
+            <Input placeholder="Unité" value={newIng.unit} onChange={(e) => setNewIng({ ...newIng, unit: e.target.value })} className="w-16 h-8 text-sm" />
+            <button aria-label="Ajouter l'ingrédient" onClick={quickAddIngredient} className="p-1.5 rounded-md hover:bg-secondary">
               <Check className="h-4 w-4 text-primary" />
             </button>
-            <button onClick={() => { setAddingIngredient(false); setNewIng({ name: "", quantity: "", unit: "" }); }} className="p-1 rounded hover:bg-secondary">
+            <button aria-label="Annuler" onClick={() => { setAddingIngredient(false); setNewIng({ name: "", quantity: "", unit: "" }); }} className="p-1.5 rounded-md hover:bg-secondary">
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
         ) : (
           <button
             onClick={() => setAddingIngredient(true)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2 opacity-0 group-hover/card:opacity-100"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2 opacity-0 group-hover/card:opacity-100 touch:opacity-100"
           >
-            <Plus className="h-3 w-3" />Ajouter un ingredient
+            <Plus className="h-3 w-3" />Ajouter un ingrédient
           </button>
         )}
       </div>
@@ -1621,7 +1634,7 @@ function RecipeCard({
             onClick={togglePlanned}
             className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
               recipe.planned
-                ? "bg-primary text-white"
+                ? "bg-primary text-primary-foreground"
                 : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
           >

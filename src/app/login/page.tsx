@@ -99,10 +99,10 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   className="pr-10"
                 />
-                <button
+                <button aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { RecipeView, type RecipeViewData } from "@/components/recipes/RecipeView";
 import { ShareRecipeDialog } from "@/components/recipes/ShareRecipeDialog";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface Recipe extends RecipeViewData {
   id: string;
@@ -23,6 +24,7 @@ interface Recipe extends RecipeViewData {
 }
 
 export default function RecipeDetailPage() {
+  const { toast } = useFeedback();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { isReady } = useAuth();
@@ -117,7 +119,7 @@ export default function RecipeDetailPage() {
     setUploadingImage(false);
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: null }));
-      alert(error || "Impossible d'enregistrer l'image");
+      toast(error || "Impossible d'enregistrer l'image", "error");
       return;
     }
     fetchRecipe();
@@ -133,8 +135,8 @@ export default function RecipeDetailPage() {
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={uploadingImage}
-              className={`absolute bottom-4 right-4 z-20 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-opacity [@media(hover:none)]:opacity-100 ${
-                uploadingImage ? "opacity-100 animate-pulse" : "opacity-0 group-hover/hero:opacity-100"
+              className={`absolute bottom-4 right-4 z-20 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-opacity touch:opacity-100 ${
+                uploadingImage ? "opacity-100 animate-pulse" : "opacity-0 group-hover/hero:opacity-100 touch:opacity-100"
               }`}
               title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
             >

@@ -28,6 +28,7 @@ import {
   Star,
 } from "lucide-react";
 import { FamilyProfiles } from "@/components/profiles/FamilyProfiles";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface Member {
   id: string;
@@ -48,6 +49,7 @@ interface Group {
 }
 
 export default function GroupsPage() {
+  const { confirm } = useFeedback();
   const { isReady, session } = useAuth();
   const currentUserId = session?.user?.id ?? "dev-user";
 
@@ -86,13 +88,21 @@ export default function GroupsPage() {
   };
 
   const deleteGroup = async (id: string) => {
-    if (!confirm("Supprimer ce groupe ? Les enfants du foyer et leur semainier seront supprimés. Cette action est irréversible.")) return;
+    if (
+      !(await confirm({
+        title: "Supprimer ce groupe ?",
+        description: "Les enfants du foyer et leur semainier seront supprimés. Cette action est irréversible.",
+        confirmLabel: "Supprimer",
+        destructive: true,
+      }))
+    )
+      return;
     await fetch(`/api/groups/${id}`, { method: "DELETE" });
     fetchGroups();
   };
 
   const leaveGroup = async (groupId: string) => {
-    if (!confirm("Quitter ce groupe ?")) return;
+    if (!(await confirm({ title: "Quitter ce groupe ?", confirmLabel: "Quitter", destructive: true }))) return;
     await fetch(`/api/groups/${groupId}/members/${currentUserId}`, { method: "DELETE" });
     fetchGroups();
   };
@@ -240,16 +250,16 @@ export default function GroupsPage() {
                       className="h-8 text-sm"
                       autoFocus
                     />
-                    <button onClick={() => renameGroup(group.id)} className="p-1.5 rounded-lg hover:bg-secondary">
+                    <button aria-label="Valider le nom" onClick={() => renameGroup(group.id)} className="p-1.5 rounded-lg hover:bg-secondary">
                       <Check className="h-4 w-4 text-primary" />
                     </button>
-                    <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg hover:bg-secondary">
+                    <button aria-label="Annuler" onClick={() => setEditingId(null)} className="p-1.5 rounded-lg hover:bg-secondary">
                       <X className="h-4 w-4 text-muted-foreground" />
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-lg leading-tight truncate">{group.name}</h2>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <h2 className="font-semibold text-lg leading-tight truncate max-w-full">{group.name}</h2>
                     {group.isOwner && (
                       <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/15 px-2 py-0.5 rounded-full shrink-0">
                         <Crown className="h-3 w-3" />
@@ -282,7 +292,7 @@ export default function GroupsPage() {
                   </button>
                 )}
                 {group.isOwner && editingId !== group.id && (
-                  <button
+                  <button aria-label="Renommer le groupe"
                     onClick={() => { setEditingId(group.id); setEditName(group.name); }}
                     className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -290,14 +300,14 @@ export default function GroupsPage() {
                   </button>
                 )}
                 {group.isOwner ? (
-                  <button
+                  <button aria-label="Supprimer le groupe"
                     onClick={() => deleteGroup(group.id)}
                     className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 ) : (
-                  <button
+                  <button aria-label="Quitter le groupe"
                     onClick={() => leaveGroup(group.id)}
                     className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                   >
@@ -351,14 +361,14 @@ export default function GroupsPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => toggleRole(group.id, member.user.id, member.role)}
-                        className="p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
                         title={member.role === "admin" ? "Rétrograder en membre" : "Promouvoir admin"}
                       >
                         <Shield className="h-3.5 w-3.5" />
                       </button>
-                      <button
+                      <button aria-label="Retirer du groupe"
                         onClick={() => removeMember(group.id, member.user.id)}
-                        className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>

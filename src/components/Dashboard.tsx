@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useFeaturesContext } from "@/components/FeaturesContext";
 import { InstallPrompt } from "./InstallPrompt";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const WMO_LABELS: Record<number, { label: string; icon: typeof Sun }> = {
   0: { label: "Dégagé", icon: Sun },
@@ -138,8 +139,17 @@ export function Dashboard() {
 
   if (status === "loading" || flagsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-muted-foreground">Chargement...</p>
+      <div className="space-y-6" aria-busy="true" aria-label="Chargement du tableau de bord">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-64 max-w-full" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-[6.5rem] rounded-lg" />
+          ))}
+        </div>
+        <Skeleton className="h-40 rounded-lg" />
       </div>
     );
   }
@@ -209,15 +219,15 @@ export function Dashboard() {
 
       {/* Summary cards */}
       {summaryCards.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {summaryCards.map((card) => (
             <Link key={card.feature} href={card.href}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-1 sm:p-6 sm:pb-2">
                   <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
                   <card.icon className={`h-4 w-4 ${card.iconClass}`} />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
                   <div className="text-2xl font-bold">
                     {card.value !== null ? (
                       card.value

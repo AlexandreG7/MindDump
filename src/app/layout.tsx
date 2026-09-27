@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Caveat, Inter } from "next/font/google";
+import { Caveat, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
@@ -8,7 +8,7 @@ import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 
 // next/font télécharge les polices au build et les sert depuis minddump.fr :
 // aucun appel à Google Fonts depuis le navigateur (IP des visiteurs, RGPD).
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const sans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const caveat = Caveat({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-caveat" });
 
 export const metadata: Metadata = {
@@ -86,11 +86,11 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={`${inter.className} ${inter.variable} ${caveat.variable}`}>
+      <body className={`${sans.className} ${sans.variable} ${caveat.variable}`}>
         <Providers>
           <div className="flex h-dvh overflow-hidden">
             <Navbar />
-            <main className="flex-1 md:p-8 p-4 pt-[calc(5rem+env(safe-area-inset-top))] md:pt-8 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(2rem+env(safe-area-inset-bottom))] overflow-y-auto">
+            <main className="flex-1 md:p-8 p-4 pt-[calc(5rem+env(safe-area-inset-top))] md:pt-8 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-[calc(2rem+env(safe-area-inset-bottom))] overflow-y-auto">
               {children}
             </main>
           </div>

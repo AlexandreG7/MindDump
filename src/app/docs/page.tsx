@@ -78,7 +78,7 @@ Crée le fichier de config s'il n'existe pas, redémarre-toi si besoin, puis con
         <pre className="bg-secondary/50 border border-border rounded-lg p-3 pr-12 text-xs whitespace-pre-wrap">
           {prompt}
         </pre>
-        <Button
+        <Button aria-label={copied ? "Copié" : "Copier le prompt"}
           size="sm"
           variant={copied ? "default" : "outline"}
           onClick={copyPrompt}

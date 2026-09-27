@@ -286,7 +286,7 @@ export default function ListsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Creer une liste</DialogTitle>
+              <DialogTitle>Créer une liste</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -321,7 +321,7 @@ export default function ListsPage() {
                 </div>
               </div>
               <Button className="w-full" onClick={createList}>
-                Creer
+                Créer
               </Button>
             </div>
           </DialogContent>
@@ -461,7 +461,7 @@ function ListGroup({
   if (lists.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-8">
-        Aucune liste. Cree-en une !
+        Aucune liste. Crée-en une !
       </p>
     );
   }
@@ -516,7 +516,7 @@ function ListGroup({
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Ajouter les ingredients d&apos;une recette</DialogTitle>
+                        <DialogTitle>Ajouter les ingrédients d&apos;une recette</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-2">
                         {recipes.map((recipe) => (
@@ -590,7 +590,7 @@ function ListGroup({
                       className="text-base"
                     />
                     <Input
-                      placeholder="Qte"
+                      placeholder="Qté"
                       value={itemQuantity}
                       onChange={(e) => setItemQuantity(e.target.value)}
                       onKeyDown={(e) => {
@@ -699,15 +699,15 @@ function GroceryRow({
           href={group.items.find((i) => i.url)!.url!}
           target="_blank"
           rel="noopener noreferrer"
-          className="grocery-icon-btn opacity-0 group-hover:opacity-100 group-active:opacity-100 shrink-0"
+          className="grocery-icon-btn opacity-0 group-hover:opacity-100 group-active:opacity-100 touch:opacity-100 shrink-0"
           title="Ouvrir le lien"
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
       )}
 
-      <button
-        className="grocery-icon-btn opacity-0 group-hover:opacity-100 group-active:opacity-100 shrink-0"
+      <button aria-label="Supprimer l'article"
+        className="grocery-icon-btn opacity-0 group-hover:opacity-100 group-active:opacity-100 touch:opacity-100 shrink-0"
         onClick={() => onDelete(listId, group.items)}
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -751,7 +751,7 @@ function CheckedSection({
         <div className="divide-y divide-border/30">
           {groups.map((group) => (
             <div key={group.key} className="grocery-checked-item group">
-              <button
+              <button aria-label="Décocher l'article"
                 className="grocery-checkbox-zone"
                 onClick={() => onToggle(listId, group.items)}
               >
@@ -774,8 +774,8 @@ function CheckedSection({
                   ))}
                 </div>
               )}
-              <button
-                className="grocery-icon-btn opacity-0 group-hover:opacity-100 shrink-0"
+              <button aria-label="Supprimer l'article"
+                className="grocery-icon-btn opacity-0 group-hover:opacity-100 touch:opacity-100 shrink-0"
                 onClick={() => onDelete(listId, group.items)}
               >
                 <Trash2 className="h-3 w-3" />
