@@ -29,7 +29,7 @@ function Contact({ email }: { email: string }) {
 
 // Texte de départ à relire. Toute modification substantielle doit
 // s'accompagner d'une nouvelle CONSENT_VERSION (src/lib/consent.ts).
-const UPDATED_AT = "22 septembre 2026";
+const UPDATED_AT = "27 septembre 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -106,7 +106,8 @@ export default function PrivacyPolicyPage() {
               <Row label="Personnes du foyer">
                 Les personnes que tu ajoutes à un groupe sans qu&apos;elles aient de compte (un enfant,
                 par exemple) : prénom, couleur, emoji et, si tu la renseignes, date de naissance. Elles
-                sont visibles par les membres du groupe.
+                sont visibles par les membres du groupe. Un enfant n&apos;a pas de compte : il ne peut
+                pas se connecter à MindDump, seuls les membres du groupe gèrent son profil.
               </Row>
               <Row label="Semainier">
                 Si tu utilises le semainier enfant : les informations que tu notes sur la journée
@@ -225,7 +226,8 @@ export default function PrivacyPolicyPage() {
               </Row>
               <Row label="Stockage local">
                 <code>theme</code> (clair ou sombre), <code>sidebarCollapsed</code> (menu replié),{" "}
-                <code>currentGroupId</code> (groupe actif), <code>nextauth.message</code>
+                <code>currentGroupId</code> (groupe actif), <code>kids:selectedProfile</code> (enfant
+                affiché dans le semainier), <code>nextauth.message</code>
                 (synchronise la connexion et la déconnexion entre onglets). Restent sur ton appareil,
                 ne sont pas envoyés au serveur.
               </Row>

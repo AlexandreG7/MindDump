@@ -75,8 +75,10 @@ export function FamilyProfiles({
           >
             <ProfileAvatar profile={p} size="sm" />
             <span className="text-sm">{p.name}</span>
-            {p.kind === "child" && (
-              <span className="text-[10px] text-muted-foreground">enfant</span>
+            {!p.userId && (
+              <span className="text-[10px] text-muted-foreground" title="Sans compte : ne peut pas se connecter">
+                {p.kind === "child" ? "enfant" : "sans compte"}
+              </span>
             )}
             {canEdit(p) && (
               <button

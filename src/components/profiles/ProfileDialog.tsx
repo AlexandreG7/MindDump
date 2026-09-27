@@ -143,6 +143,13 @@ export function ProfileDialog({
             </div>
           </div>
 
+          {!isMember && (
+            <p className="text-xs text-muted-foreground">
+              {draft.kind === "child" ? "Un enfant" : "Cette personne"} n&apos;a pas de compte : elle
+              apparaît dans le foyer mais ne peut pas se connecter. Les membres du groupe gèrent son profil.
+            </p>
+          )}
+
           {draft.kind === "child" && !isMember && (
             <div className="space-y-1.5">
               <Label>Date de naissance <span className="text-muted-foreground font-normal">(facultatif)</span></Label>

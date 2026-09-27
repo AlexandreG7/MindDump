@@ -13,8 +13,12 @@
   GitHub est public : `PRIVACY_CONTROLLER`, `PRIVACY_CONTACT_EMAIL`, `PRIVACY_MAIL_PROVIDER`
   (voir `src/lib/privacy.ts`). Tant qu'elles ne sont pas définies, la page affiche « [à compléter…] » :
   à renseigner **avant** la mise en production, puisque tout le monde doit accepter ce texte.
+- **Personnes du foyer** (`FamilyProfile`) : un enfant (ou un adulte sans compte) est un profil
+  du groupe, **pas un compte** : il ne peut pas se connecter, seuls les membres du groupe gèrent son
+  profil et son semainier. Données : prénom, couleur, emoji, date de naissance facultative. Le
+  profil disparaît avec le groupe ou quand un membre le retire (avec son semainier).
 - **Cookies** : uniquement des cookies strictement nécessaires (session NextAuth) et des préférences
-  d'interface en localStorage (`theme`, `sidebarCollapsed`, `currentGroupId`), plus
+  d'interface en localStorage (`theme`, `sidebarCollapsed`, `currentGroupId`, `kids:selectedProfile`), plus
   `nextauth.message` posé par NextAuth pour synchroniser la session entre onglets. Pas de bandeau
   (exemption CNIL), mais une mention dans la politique. Les polices sont servies localement
   (`next/font`) : plus d'appel à Google Fonts.
