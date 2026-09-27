@@ -83,7 +83,11 @@ export async function POST(req: NextRequest) {
       dueDate: { not: null },
       notifyBefore: { not: null },
     },
-    include: { user: true, group: { select: { name: true } } },
+    include: {
+      user: true,
+      group: { select: { name: true } },
+      assignees: { select: { profile: { select: { userId: true } } } },
+    },
   });
 
   for (const todo of todos) {
@@ -93,7 +97,12 @@ export async function POST(req: NextRequest) {
     );
     if (now < notifyAt) continue;
 
-    const recipients = await recipientsFor(todo.user, todo.groupId, groupMembers);
+    const recipients = await recipientsFor(
+      todo.user,
+      todo.groupId,
+      groupMembers,
+      todo.assignees.map((a) => a.profile.userId)
+    );
     const date = formatDate(todo.dueDate);
     const time = formatTime(todo.dueDate);
     const { attempted, delivered } = await sendReminder(recipients, {
@@ -130,7 +139,11 @@ export async function POST(req: NextRequest) {
       notifyBefore: { not: null },
       OR: [{ notified: false }, { recurrence: { not: null } }],
     },
-    include: { user: true, group: { select: { name: true } } },
+    include: {
+      user: true,
+      group: { select: { name: true } },
+      assignees: { select: { profile: { select: { userId: true } } } },
+    },
   });
 
   for (const event of events) {
@@ -150,7 +163,12 @@ export async function POST(req: NextRequest) {
     const notifyAt = new Date(occurrence.getTime() - event.notifyBefore * 60 * 1000);
     if (now < notifyAt) continue;
 
-    const recipients = await recipientsFor(event.user, event.groupId, groupMembers);
+    const recipients = await recipientsFor(
+      event.user,
+      event.groupId,
+      groupMembers,
+      event.assignees.map((a) => a.profile.userId)
+    );
     // Ouvre le calendrier sur le jour de l'occurrence.
     const dayLink = `/calendar?view=day&date=${dayParam(occurrence)}`;
     const when = event.allDay
