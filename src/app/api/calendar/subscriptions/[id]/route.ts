@@ -25,8 +25,20 @@ async function findAccessibleSubscription(id: string, userId: string) {
   });
 }
 
+/** Intervalle facultatif ?from=&to= (ISO), 400 jours au plus ; sinon un an autour d'aujourd'hui. */
+function parseRange(req: NextRequest): { from?: Date; to?: Date } | null {
+  const fromParam = req.nextUrl.searchParams.get("from");
+  const toParam = req.nextUrl.searchParams.get("to");
+  if (!fromParam && !toParam) return {};
+  const from = new Date(fromParam ?? "");
+  const to = new Date(toParam ?? "");
+  if (isNaN(from.getTime()) || isNaN(to.getTime()) || to < from) return null;
+  if (to.getTime() - from.getTime() > 400 * 86400000) return null;
+  return { from, to };
+}
+
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const user = await getSessionUser();
@@ -38,8 +50,13 @@ export async function GET(
     return NextResponse.json({ error: "Non trouvé" }, { status: 404 });
   }
 
+  const range = parseRange(req);
+  if (!range) {
+    return NextResponse.json({ error: "Intervalle invalide (400 jours au plus)" }, { status: 400 });
+  }
+
   try {
-    const events = await fetchICSEvents(sub.url);
+    const events = await fetchICSEvents(sub.url, range.from, range.to);
     return NextResponse.json({
       subscription: {
         id: sub.id,

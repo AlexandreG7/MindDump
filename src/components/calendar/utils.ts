@@ -94,8 +94,26 @@ export function eventEnd(e: CalendarEvent): Date {
   return e.allDay ? endOfDay(eventStart(e)) : new Date(eventStart(e).getTime() + DEFAULT_DURATION_MS);
 }
 
+/** Jour calendaire d'une date de journée entière (minuit UTC par convention). */
+function utcDayKey(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function localDayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /** L'événement touche-t-il ce jour (y compris un événement sur plusieurs jours) ? */
 export function occursOn(e: CalendarEvent, day: Date): boolean {
+  if (e.allDay) {
+    // Journée entière : dates au sens du calendrier, fin exclusive (norme ICS),
+    // quel que soit le fuseau du navigateur.
+    const start = eventStart(e);
+    const end = e.endDate ? new Date(e.endDate) : null;
+    const last = end && end > start ? new Date(end.getTime() - 1) : start;
+    const key = localDayKey(day);
+    return key >= utcDayKey(start) && key <= utcDayKey(last);
+  }
   const start = eventStart(e);
   const dayStart = startOfDay(day);
   const dayEnd = endOfDay(day);

@@ -42,12 +42,12 @@ function initialAnchor(): Date {
 }
 
 /**
- * Date envoyée à l'API. Journée entière : minuit sans fuseau, comme le serveur
- * MCP (le flux ICS lit ces dates en UTC). Horaire : instant ISO complet, pour
- * ne pas dépendre du fuseau du serveur.
+ * Date envoyée à l'API, toujours avec fuseau pour ne pas dépendre de celui du
+ * serveur. Journée entière : minuit UTC (convention partagée avec le MCP et le
+ * flux ICS). Horaire : l'instant saisi dans le fuseau du navigateur.
  */
 function toApiDate(date: string, time: string): string {
-  return time ? new Date(`${date}T${time}`).toISOString() : `${date}T00:00:00`;
+  return time ? new Date(`${date}T${time}`).toISOString() : `${date}T00:00:00.000Z`;
 }
 
 export default function CalendarPage() {
@@ -112,27 +112,12 @@ export default function CalendarPage() {
     }
   };
 
-  // Abonnements (calendriers externes)
+  // Abonnements (calendriers externes) : la liste, puis leurs événements de l'intervalle affiché.
   const fetchSubscriptions = useCallback(() => {
     fetch("/api/calendar/subscriptions")
       .then((r) => r.json())
-      .then((subs: Subscription[]) => {
-        setSubscriptions(subs);
-        // Purge les événements d'abonnements auxquels on n'a plus accès.
-        const ids = new Set(subs.map((s) => s.id));
-        setExternalEvents((prev) => prev.filter((e) => e.subscriptionId && ids.has(e.subscriptionId)));
-        subs.forEach((sub) => {
-          if (!sub.enabled) return;
-          fetch(`/api/calendar/subscriptions/${sub.id}`)
-            .then((r) => r.json())
-            .then((data) => {
-              if (data.events) {
-                setExternalEvents((prev) => [...prev.filter((e) => e.subscriptionId !== sub.id), ...data.events]);
-              }
-            })
-            .catch(() => {});
-        });
-      });
+      .then((subs: Subscription[]) => setSubscriptions(subs))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -173,6 +158,28 @@ export default function CalendarPage() {
   useEffect(() => {
     if (isReady) fetchEvents();
   }, [isReady, fetchEvents]);
+
+  // Séries des calendriers externes développées côté serveur sur l'intervalle affiché.
+  useEffect(() => {
+    if (!range) return;
+    const active = subscriptions.filter((s) => s.enabled);
+    const ids = new Set(active.map((s) => s.id));
+    setExternalEvents((prev) => prev.filter((e) => e.subscriptionId && ids.has(e.subscriptionId)));
+    const params = new URLSearchParams({ from: range.from.toISOString(), to: range.to.toISOString() });
+    let cancelled = false;
+    for (const sub of active) {
+      fetch(`/api/calendar/subscriptions/${sub.id}?${params}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled || !data.events) return;
+          setExternalEvents((prev) => [...prev.filter((e) => e.subscriptionId !== sub.id), ...data.events]);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [subscriptions, range]);
 
   const openNewEvent = (day?: Date, hour?: number) => {
     const date = format(day ?? selectedDate ?? new Date(), "yyyy-MM-dd");

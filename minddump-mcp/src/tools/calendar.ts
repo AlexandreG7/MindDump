@@ -32,12 +32,12 @@ type CalendarEvent = {
 };
 
 /**
- * Une journée entière se transmet comme le fait l'app web (minuit, heure du
- * serveur) ; une date ISO complète est transmise telle quelle.
+ * Une journée entière se transmet comme le fait l'app web (minuit UTC) ; une
+ * date ISO complète est transmise telle quelle.
  */
 function toApiDate(value: string, allDay: boolean): string {
-  if (DATE_ONLY.test(value)) return `${value}T00:00:00`;
-  return allDay ? `${value.slice(0, 10)}T00:00:00` : value;
+  if (DATE_ONLY.test(value)) return `${value}T00:00:00Z`;
+  return allDay ? `${value.slice(0, 10)}T00:00:00Z` : value;
 }
 
 function formatEvent(e: CalendarEvent, names: Map<string, string> = new Map()): string {
@@ -172,8 +172,10 @@ export function registerCalendarTools(server: McpServer) {
           );
           for (const sub of subs.filter((s) => s.enabled)) {
             try {
+              // Séries récurrentes développées par le serveur sur ce mois.
               const data = await client.get<{ events: CalendarEvent[] }>(
-                `/api/calendar/subscriptions/${sub.id}`
+                `/api/calendar/subscriptions/${sub.id}`,
+                { from: new Date(rangeStart).toISOString(), to: new Date(rangeEnd).toISOString() }
               );
               for (const e of data.events) {
                 const t = new Date(e.date).getTime();
