@@ -15,6 +15,10 @@ import {
   ACTIVITY_OPTIONS,
 } from "@/components/kids/icons";
 import { KidsStats } from "./KidsStats";
+import Link from "next/link";
+import { ProfileAvatar, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
+
+const SELECTED_KEY = "kids:selectedProfile";
 
 interface DayEntry {
   date: string;
@@ -40,6 +44,8 @@ export function KidsWeekly() {
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
   const [entries, setEntries] = useState<Record<string, DayEntry>>({});
+  const [children, setChildren] = useState<FamilyProfile[] | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [editingDay, setEditingDay] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -61,11 +67,34 @@ export function KidsWeekly() {
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
+  useEffect(() => {
+    fetch("/api/profiles?kind=child")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: FamilyProfile[]) => {
+        setChildren(list);
+        let saved: string | null = null;
+        try {
+          saved = localStorage.getItem(SELECTED_KEY);
+        } catch {}
+        setProfileId(list.find((c) => c.id === saved)?.id ?? list[0]?.id ?? null);
+      })
+      .catch(() => setChildren([]));
+  }, []);
+
+  const selectChild = (id: string) => {
+    setProfileId(id);
+    try {
+      localStorage.setItem(SELECTED_KEY, id);
+    } catch {}
+  };
+
   const fetchWeek = useCallback(async () => {
+    setEntries({});
+    if (!profileId) return;
     const from = format(weekStart, "yyyy-MM-dd");
     const to = format(addDays(weekStart, 6), "yyyy-MM-dd");
     try {
-      const res = await fetch(`/api/kids?from=${from}&to=${to}`);
+      const res = await fetch(`/api/kids?from=${from}&to=${to}&profileId=${profileId}`);
       if (res.ok) {
         const data = await res.json();
         const mapped: Record<string, DayEntry> = {};
@@ -73,13 +102,14 @@ export function KidsWeekly() {
         setEntries(mapped);
       }
     } catch {}
-  }, [weekStart]);
+  }, [weekStart, profileId]);
 
   useEffect(() => {
     fetchWeek();
   }, [fetchWeek]);
 
   const updateEntry = async (date: string, updates: Partial<DayEntry>) => {
+    if (!profileId) return;
     setEntries((prev) => {
       const existing = prev[date] || {
         date,
@@ -95,7 +125,7 @@ export function KidsWeekly() {
     await fetch("/api/kids", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, ...updates }),
+      body: JSON.stringify({ date, profileId, ...updates }),
     });
   };
 
@@ -112,6 +142,28 @@ export function KidsWeekly() {
     : -1;
   const editingTheme = editingIndex >= 0 ? DAY_THEMES[editingIndex] : null;
   const editingEntry = editingDay ? entries[editingDay] || null : null;
+
+  const child = children?.find((c) => c.id === profileId) ?? null;
+  const sameNames = new Set(
+    (children ?? []).filter((c, i, all) => all.findIndex((o) => o.name === c.name) !== i).map((c) => c.name)
+  );
+
+  if (children && children.length === 0) {
+    return (
+      <div className="kids-page">
+        <div className="text-center py-16 space-y-3 max-w-sm mx-auto">
+          <h1 className="kids-title">Semainier</h1>
+          <p className="text-sm text-muted-foreground">
+            Ajoute d&apos;abord ton enfant aux personnes de ton foyer. Les membres du groupe
+            pourront remplir son semainier avec toi.
+          </p>
+          <Link href="/groups" className="inline-block text-sm font-medium text-primary hover:underline">
+            Ajouter un enfant dans Groupes
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("kids-page", fullscreen && "kids-fullscreen")}>
@@ -134,7 +186,9 @@ export function KidsWeekly() {
           <ChevronLeft size={24} />
         </button>
         <div className="text-center">
-          <h1 className="kids-title">Mon Semainier</h1>
+          <h1 className="kids-title">
+            {child ? `Semainier de ${child.name}` : "Semainier"}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {format(days[0], "d MMM", { locale: fr })} —{" "}
             {format(days[6], "d MMM yyyy", { locale: fr })}
@@ -167,6 +221,28 @@ export function KidsWeekly() {
           </button>
         </div>
       </div>
+
+      {!fullscreen && children && children.length > 1 && (
+        <div className="flex flex-wrap justify-center gap-2 -mt-2 mb-5">
+          {children.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => selectChild(c.id)}
+              className={cn(
+                "flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border text-sm transition-colors",
+                c.id === profileId
+                  ? "border-transparent text-white font-medium"
+                  : "border-border text-muted-foreground hover:bg-secondary"
+              )}
+              style={c.id === profileId ? { backgroundColor: c.color } : undefined}
+            >
+              <ProfileAvatar profile={c} size="sm" className={c.id === profileId ? "ring-2 ring-white/70" : undefined} />
+              {c.name}
+              {sameNames.has(c.name) && <span className="opacity-70">· {c.groupName}</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Week grid */}
       <div className="kids-week-grid">

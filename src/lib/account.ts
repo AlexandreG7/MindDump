@@ -78,10 +78,14 @@ export async function exportUserData(userId: string) {
           ingredients: { select: { name: true, quantity: true, unit: true } },
         },
       },
+      familyProfiles: {
+        select: { id: true, groupId: true, name: true, kind: true, color: true, emoji: true, birthDate: true },
+      },
       kidDayEntries: {
         select: {
           date: true, weather: true, mood: true, nap: true, accident: true,
           activities: true, createdAt: true, updatedAt: true,
+          profile: { select: { id: true, name: true, groupId: true } },
         },
       },
     },
@@ -126,10 +130,12 @@ function parseJson(value: string): unknown {
  *     true  -> ces éléments passent au propriétaire du groupe, rien ne disparaît
  *              pour les autres membres ;
  *     false -> ils sont supprimés avec le reste.
- *   Les abonnements calendrier (URL ICS, souvent porteuses d'un jeton privé) et
- *   le semainier sont toujours supprimés.
- * - Tout le reste part en cascade depuis User (éléments personnels, adhésions,
- *   clés API, préférences, semainier, historique de connexion, comptes OAuth).
+ *   Le semainier d'un enfant du groupe suit la même règle. Les abonnements
+ *   calendrier (URL ICS, souvent porteuses d'un jeton privé) sont toujours
+ *   supprimés.
+ * - Tout le reste part en cascade depuis User (éléments personnels, adhésions
+ *   et profils de membre, clés API, préférences, historique de connexion,
+ *   comptes OAuth).
  * - Les jetons de vérification liés à l'email et les photos de recettes
  *   supprimées sont effacés à part (pas de relation en base), et les jetons
  *   Apple sont révoqués auprès d'Apple.
@@ -189,6 +195,12 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
       collect(await tx.calendarEvent.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
       collect(await tx.shoppingList.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
       collect(await tx.recipe.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
+      const kidProfiles = await tx.kidDayEntry.findMany({
+        where: { userId, profileId: { not: null } },
+        select: { profile: { select: { groupId: true } } },
+        distinct: ["profileId"],
+      });
+      collect(kidProfiles.map((e) => ({ groupId: e.profile?.groupId ?? null })));
 
       const groups = await tx.group.findMany({
         where: { id: { in: Array.from(groupIds) } },
@@ -201,6 +213,7 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
         await tx.calendarEvent.updateMany({ where, data });
         await tx.shoppingList.updateMany({ where, data });
         await tx.recipe.updateMany({ where, data });
+        await tx.kidDayEntry.updateMany({ where: { userId, profile: { groupId: g.id } }, data });
       }
     }
 

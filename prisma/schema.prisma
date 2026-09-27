@@ -80,6 +80,7 @@ model User {
   apiKeys               ApiKey[]
   kidDayEntries         KidDayEntry[]
   loginEvents           LoginEvent[]
+  familyProfiles        FamilyProfile[]
 
   @@index([createdAt])
 }
@@ -149,6 +150,7 @@ model Group {
   calendarSubscriptions CalendarSubscription[]
   shoppingLists  ShoppingList[]
   recipes        Recipe[]
+  profiles       FamilyProfile[]
 
   @@index([ownerId])
 }
@@ -347,9 +349,41 @@ model KidDayEntry {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  // Auteur de la saisie.
   userId String
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Enfant concerné. Nul seulement pour les saisies antérieures aux profils,
+  // rattachées au démarrage par prisma/backfill-kid-profiles.js.
+  profileId String?
+  profile   FamilyProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, date])
+  @@unique([profileId, date])
+  @@index([userId])
+}
+
+// Personne du foyer, avec ou sans compte (un enfant n'a pas de compte). Brique
+// commune pour la couleur par personne, l'assignation, le semainier, etc.
+// Le profil d'un membre (userId non nul) est créé et retiré avec son adhésion
+// (src/lib/profiles.ts).
+model FamilyProfile {
+  id        String   @id @default(cuid())
+  name      String
+  kind      String   @default("adult") // "adult" | "child"
+  color     String   @default("#3b82f6")
+  emoji     String?
+  birthDate String?  // "yyyy-MM-dd"
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  groupId String
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId  String?
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kidDayEntries KidDayEntry[]
+
+  @@unique([groupId, userId])
+  @@index([groupId])
   @@index([userId])
 }

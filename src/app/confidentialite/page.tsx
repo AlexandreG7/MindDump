@@ -103,10 +103,16 @@ export default function PrivacyPolicyPage() {
                 (adresse du calendrier), listes de courses, recettes et leurs photos, groupes et
                 invitations (dont l&apos;e-mail de la personne invitée, si tu l&apos;indiques).
               </Row>
+              <Row label="Personnes du foyer">
+                Les personnes que tu ajoutes à un groupe sans qu&apos;elles aient de compte (un enfant,
+                par exemple) : prénom, couleur, emoji et, si tu la renseignes, date de naissance. Elles
+                sont visibles par les membres du groupe.
+              </Row>
               <Row label="Semainier">
                 Si tu utilises le semainier enfant : les informations que tu notes sur la journée
-                d&apos;un enfant (météo, humeur, sieste, « accidents », activités). Ne saisis que ce qui
-                est utile au suivi familial.
+                d&apos;un enfant (météo, humeur, sieste, « accidents », activités). Elles sont partagées
+                avec les membres du groupe de l&apos;enfant. Ne saisis que ce qui est utile au suivi
+                familial.
               </Row>
               <Row label="Localisation">
                 Seulement si tu règles la météo : la ville choisie et ses coordonnées, ou ta position

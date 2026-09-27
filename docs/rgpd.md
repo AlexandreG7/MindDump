@@ -27,8 +27,10 @@
     qu'elle a rangé dans ces groupes : le laisser aux autres membres (rattaché au propriétaire du
     groupe) ou le supprimer. Dans l'app, tout élément appartient à un groupe (le groupe par défaut
     si rien n'est précisé) ;
-  - supprime toujours le semainier et les abonnements calendrier (URL ICS souvent porteuses d'un
-    jeton privé : les transférer continuerait d'importer l'agenda de la personne partie) ;
+  - applique ce même choix au semainier qu'elle a rempli pour un enfant du groupe (le semainier
+    appartient au profil de l'enfant, pas au parent) ;
+  - supprime toujours les abonnements calendrier (URL ICS souvent porteuses d'un jeton privé : les
+    transférer continuerait d'importer l'agenda de la personne partie) ;
   - ne touche jamais aux éléments des autres membres, puis efface du disque les photos des
     recettes supprimées.
 

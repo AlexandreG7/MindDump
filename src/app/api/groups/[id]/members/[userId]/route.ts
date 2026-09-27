@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
+import { removeMemberProfile } from "@/lib/profiles";
 
 // DELETE — retirer un membre
 export async function DELETE(
@@ -29,6 +30,7 @@ export async function DELETE(
   await prisma.groupMember.deleteMany({
     where: { groupId: params.id, userId: params.userId },
   });
+  await removeMemberProfile(params.id, params.userId);
 
   return NextResponse.json({ ok: true });
 }

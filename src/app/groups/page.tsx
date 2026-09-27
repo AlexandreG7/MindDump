@@ -27,6 +27,7 @@ import {
   User,
   Star,
 } from "lucide-react";
+import { FamilyProfiles } from "@/components/profiles/FamilyProfiles";
 
 interface Member {
   id: string;
@@ -85,7 +86,7 @@ export default function GroupsPage() {
   };
 
   const deleteGroup = async (id: string) => {
-    if (!confirm("Supprimer ce groupe ? Cette action est irréversible.")) return;
+    if (!confirm("Supprimer ce groupe ? Les enfants du foyer et leur semainier seront supprimés. Cette action est irréversible.")) return;
     await fetch(`/api/groups/${id}`, { method: "DELETE" });
     fetchGroups();
   };
@@ -366,6 +367,12 @@ export default function GroupsPage() {
                 </div>
               ))}
             </div>
+
+            <FamilyProfiles
+              groupId={group.id}
+              currentUserId={currentUserId}
+              isAdmin={group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin"}
+            />
 
             {/* Invite section (owner / admin) */}
             {(group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin") && (

@@ -91,6 +91,9 @@ node prisma/backfill-in-catalog.js
 echo "Attaching synced calendars to their group..."
 node prisma/backfill-subscription-groups.js
 
+echo "Attaching kid diaries to a child profile..."
+node prisma/backfill-kid-profiles.js
+
 echo "Cleaning up phantom todos..."
 node prisma/cleanup-phantom-todos.js
 
