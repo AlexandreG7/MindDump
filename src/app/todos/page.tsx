@@ -337,7 +337,7 @@ export default function TodosPage() {
 
       {/* Quick add */}
       <Input
-        placeholder="Ajout rapide (Entrée pour ajouter en urgent)…"
+        placeholder="Ajout rapide d’une tâche urgente…"
         value={quickAdd}
         onChange={(e) => setQuickAdd(e.target.value)}
         onKeyDown={handleQuickAdd}
