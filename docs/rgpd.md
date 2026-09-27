@@ -30,6 +30,11 @@
   2 minutes. La route répond pareil que le compte existe ou non. Le changement déconnecte l'app mobile
   (`MobileDevice` supprimés) ; les sessions web en JWT restent valides jusqu'à expiration. Supprimé
   avec le compte (même `identifier`).
+- **Panier drive** (`DriveProduct`) : produit Match retenu pour chaque article (SKU, libellé,
+  marque, format, dernier prix, compteur d'utilisation), rattaché au **groupe** et supprimé avec
+  lui ; il reste au groupe quand un membre supprime son compte. Présent dans l'export, sous chaque
+  groupe. MindDump n'envoie rien à Match et ne reçoit ni identifiants, ni panier, ni commande :
+  l'extension travaille dans le navigateur de la personne (voir `docs/drive-match.md`).
 - **Cookies** : uniquement des cookies strictement nécessaires (session NextAuth) et des préférences
   d'interface en localStorage (`theme`, `sidebarCollapsed`, `currentGroupId`, `kids:selectedProfile`), plus
   `nextauth.message` posé par NextAuth pour synchroniser la session entre onglets. Pas de bandeau

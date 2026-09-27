@@ -103,6 +103,13 @@ export default function PrivacyPolicyPage() {
                 (adresse du calendrier), listes de courses, recettes et leurs photos, repas prévus, groupes et
                 invitations (dont l&apos;e-mail de la personne invitée, si tu l&apos;indiques).
               </Row>
+              <Row label="Panier drive">
+                Si tu remplis ton panier Match depuis une liste : le produit retenu pour chaque article
+                (référence Match, libellé, marque, format, dernier prix vu, nombre d&apos;utilisations),
+                partagé avec les membres du groupe pour les courses suivantes. MindDump ne reçoit ni
+                tes identifiants Match, ni ton panier, ni ta commande : la recherche et l&apos;ajout au
+                panier se font dans ton navigateur, directement sur le site Match.
+              </Row>
               <Row label="Personnes du foyer">
                 Les personnes que tu ajoutes à un groupe sans qu&apos;elles aient de compte (un enfant,
                 par exemple) : prénom, couleur, emoji et, si tu la renseignes, date de naissance. Elles
