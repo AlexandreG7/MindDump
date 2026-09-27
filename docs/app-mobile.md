@@ -23,7 +23,7 @@ Web Push                 WebView                    finitions natives          f
 | 1.4 | Notifications Web Push | L | ☑ (reste : clés VAPID dans Coolify, test sur appareils réels) |
 | 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☑ (reste : test sur Android réel) |
 | 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☑ (reste : aller-retour Google / Apple réel, avec l'app) |
-| 2.2 | Appareils connectés (liste, révocation) | S | ☐ |
+| 2.2 | Appareils connectés (liste, révocation) | S | ☑ |
 | 3.1 | Projet Capacitor (iOS + Android) | M | ☐ |
 | 3.2 | Branchement de la connexion mobile | S | ☐ |
 | 3.3 | Push natif (APNs / FCM) | L | ☐ |
@@ -239,11 +239,22 @@ faux schéma ; code réutilisé, expiré ou avec un mauvais verifier → refusé
 
 ### 2.2 Appareils connectés
 
-- [ ] Prisma : `MobileDevice` (`userId`, `name`, `platform`, `createdAt`,
-      `lastSeenAt`, `revokedAt`) créé à l'échange ; l'id est porté dans le JWT.
-- [ ] `/profile` : liste des appareils, révocation (le callback `jwt` refuse un
-      appareil révoqué).
-- [ ] La suppression de compte et l'export RGPD les incluent.
+- [x] Prisma : `MobileDevice` (`userId`, `name`, `platform`, `createdAt`,
+      `lastSeenAt`), migration `20260927190000_mobile_devices`, sans relation
+      vers `User` (comme `MobileAuthCode`). Créé à l'échange du code, avec
+      `device: { name, platform }` envoyé par l'app ; son id est porté par le
+      jeton (`deviceId`).
+- [x] Callback `jwt` : un jeton d'appareil n'est valable que si l'appareil
+      existe (une requête par clé primaire, pour les seules sessions de l'app ;
+      `lastSeenAt` rafraîchi au plus une fois par heure). Sinon jeton et session
+      vides : `useSession` repasse en non connecté, l'API répond 401.
+- [x] Révoquer = supprimer la ligne (`DELETE /api/users/me/devices/[id]`) ;
+      `current` désigne l'appareil de la session, révoqué par
+      `signOutAndClear` à la déconnexion dans l'app (sans effet sur le web).
+- [x] Profil : section « Appareils connectés » (`ConnectedDevices`), absente
+      tant qu'aucun appareil n'est connecté.
+- [x] RGPD : suppression avec le compte (explicite, faute de relation), export,
+      `/confidentialite` (données et durée).
 
 ---
 

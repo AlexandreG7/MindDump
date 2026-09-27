@@ -141,6 +141,22 @@ model MobileAuthCode {
   @@index([expiresAt])
 }
 
+// Appareil connecté par l'app mobile (étape 2.2) : son id est porté par le jeton
+// de session, et le callback jwt refuse un appareil qui n'existe plus (révoquer =
+// supprimer la ligne). Comme
+// MobileAuthCode, pas de relation vers User ; suppression explicite avec le
+// compte (src/lib/account.ts).
+model MobileDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  platform   String
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
 model ApiKey {
   id        String   @id @default(cuid())
   key       String   @unique

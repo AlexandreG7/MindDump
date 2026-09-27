@@ -10,8 +10,10 @@ import { unsubscribeFromPush } from "./pushClient";
  * service worker, qui ne doit pas embarquer next-auth.)
  */
 export async function signOutAndClear(options?: SignOutParams<true>) {
-  // Tant que la session existe encore : le serveur doit oublier cet appareil.
+  // Tant que la session existe encore : le serveur doit oublier cet appareil
+  // (abonnement push, et appareil de l'app mobile le cas échéant).
   await unsubscribeFromPush();
+  await fetch("/api/users/me/devices/current", { method: "DELETE" }).catch(() => {});
   clearPendingOps();
   await clearOfflineCaches();
   return signOut(options);

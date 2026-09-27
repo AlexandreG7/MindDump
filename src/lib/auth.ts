@@ -7,6 +7,7 @@ import { ensureDefaultGroup } from "./defaultGroup";
 import { generateUniquePublicId } from "./publicId";
 import { oauthCookies, oauthProviders } from "./authProviders";
 import { useSecureCookies } from "./secureCookies";
+import { isMobileDeviceActive } from "./mobileAuth";
 
 const LOGIN_HISTORY_MONTHS = 12;
 
@@ -51,6 +52,11 @@ export const authOptions: NextAuthOptions = {
   cookies: oauthCookies(useSecureCookies),
   callbacks: {
     async jwt({ token, user }) {
+      // Session de l'app mobile : appareil révoqué → plus de session (un jeton
+      // sans `sub` ne donne pas d'utilisateur, voir session.ts).
+      if (typeof token.deviceId === "string" && !(await isMobileDeviceActive(token.deviceId))) {
+        return {};
+      }
       if (user) {
         token.role = (user as { role?: string }).role ?? "user";
       }
@@ -67,6 +73,9 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      // Jeton vidé par le callback jwt (appareil révoqué) : session vide, que
+      // useSession traite comme une déconnexion.
+      if (!token.sub) return {} as typeof session;
       if (session.user && token.sub) {
         (session.user as { id?: string; role?: string }).id = token.sub;
         (session.user as { id?: string; role?: string }).role =

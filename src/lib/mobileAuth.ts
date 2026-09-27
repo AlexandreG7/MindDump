@@ -20,6 +20,29 @@ import { useSecureCookies } from "./secureCookies";
 
 export const MOBILE_REDIRECT = "minddump://auth";
 
+// lastSeenAt n'est rafraîchi qu'une fois par heure, pas à chaque requête.
+const LAST_SEEN_THROTTLE_MS = 60 * 60 * 1000;
+
+/**
+ * Un jeton émis pour l'app porte l'id de son appareil : tant que l'appareil
+ * existe (révoquer le supprime), la session reste valable (callback jwt de
+ * src/lib/auth.ts). Une requête indexée par clé primaire, pour les seules
+ * sessions de l'app.
+ */
+export async function isMobileDeviceActive(deviceId: string): Promise<boolean> {
+  const device = await prisma.mobileDevice.findUnique({
+    where: { id: deviceId },
+    select: { lastSeenAt: true },
+  });
+  if (!device) return false;
+  if (Date.now() - device.lastSeenAt.getTime() > LAST_SEEN_THROTTLE_MS) {
+    await prisma.mobileDevice
+      .update({ where: { id: deviceId }, data: { lastSeenAt: new Date() } })
+      .catch(() => {});
+  }
+  return true;
+}
+
 const CODE_TTL_MS = 60 * 1000;
 const PURGE_AFTER_MS = 10 * 60 * 1000;
 // Même durée que la session NextAuth par défaut (30 jours).
@@ -75,7 +98,24 @@ export async function createMobileAuthCode(
  * Vérifie et consomme le code. Toute tentative le brûle, même ratée : un code
  * intercepté ne laisse qu'un essai. Renvoie le cookie de session à poser, ou null.
  */
-export async function exchangeMobileAuthCode(code: unknown, verifier: unknown) {
+const PLATFORMS = new Set(["ios", "android"]);
+
+/** Nom lisible de l'appareil, envoyé par l'app (ex. « iPhone de Camille »). */
+function deviceInfo(device: unknown) {
+  const d = (device ?? {}) as { name?: unknown; platform?: unknown };
+  const platform = typeof d.platform === "string" && PLATFORMS.has(d.platform) ? d.platform : "unknown";
+  const name =
+    typeof d.name === "string" && d.name.trim()
+      ? d.name.trim().slice(0, 80)
+      : platform === "ios"
+        ? "iPhone ou iPad"
+        : platform === "android"
+          ? "Appareil Android"
+          : "Appareil mobile";
+  return { name, platform };
+}
+
+export async function exchangeMobileAuthCode(code: unknown, verifier: unknown, device?: unknown) {
   if (typeof code !== "string" || !isVerifier(verifier)) return null;
 
   const record = await prisma.mobileAuthCode.findUnique({ where: { codeHash: sha256(code) } });
@@ -94,6 +134,11 @@ export async function exchangeMobileAuthCode(code: unknown, verifier: unknown) {
   });
   if (!user) return null;
 
+  // Chaque connexion depuis l'app est un appareil, révocable depuis le profil.
+  const mobileDevice = await prisma.mobileDevice.create({
+    data: { userId: user.id, ...deviceInfo(device) },
+  });
+
   // Même contenu que le jeton posé par NextAuth (callbacks jwt de src/lib/auth.ts).
   const token = await encode({
     token: {
@@ -103,6 +148,7 @@ export async function exchangeMobileAuthCode(code: unknown, verifier: unknown) {
       picture: user.image,
       role: user.role,
       consented: !!user.consentedAt,
+      deviceId: mobileDevice.id,
     },
     secret: process.env.NEXTAUTH_SECRET as string,
     maxAge: SESSION_MAX_AGE_S,

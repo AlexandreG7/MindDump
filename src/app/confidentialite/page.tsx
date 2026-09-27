@@ -128,6 +128,11 @@ export default function PrivacyPolicyPage() {
               <Row label="Intégrations">
                 Les clés API que tu crées pour connecter un assistant IA (nom et date de création).
               </Row>
+              <Row label="App mobile">
+                Si tu te connectes depuis l&apos;app : le nom et le type de chaque appareil connecté
+                (iPhone, Android), la date de connexion et celle de la dernière utilisation. Tu peux
+                déconnecter un appareil à distance depuis ton profil.
+              </Row>
               <Row label="Notifications">
                 Ton choix de recevoir ou non les rappels par e-mail. Si tu actives les notifications
                 sur un appareil : l&apos;adresse d&apos;envoi fournie par le service de notification
@@ -171,6 +176,10 @@ export default function PrivacyPolicyPage() {
             ton compte.
           </li>
           <li>Historique de connexion : 12 mois, puis supprimé automatiquement.</li>
+          <li>
+            Appareils connectés à l&apos;app : jusqu&apos;à ce que tu te déconnectes de
+            l&apos;appareil ou que tu le déconnectes depuis ton profil.
+          </li>
           <li>
             Notifications sur un appareil : jusqu&apos;à ce que tu les désactives ou que tu te
             déconnectes de cet appareil, ou que le service de notification les déclare expirées.
