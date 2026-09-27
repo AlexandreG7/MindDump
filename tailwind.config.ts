@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   darkMode: "class",
@@ -47,7 +48,13 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // `touch:` cible les écrans sans survol (téléphones, tablettes) : les
+    // actions révélées au survol y restent visibles.
+    plugin(({ addVariant }) => {
+      addVariant("touch", "@media (hover: none)");
+    }),
+  ],
 };
 
 export default config;

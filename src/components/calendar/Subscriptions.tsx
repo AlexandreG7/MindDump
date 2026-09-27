@@ -48,12 +48,12 @@ export function SubscriptionDialog({
           <p className="text-sm text-muted-foreground">
             {groupName ? (
               <>
-                Les evenements seront synchronises pour{" "}
+                Les événements seront synchronisés pour{" "}
                 <span className="text-foreground font-medium">{groupName}</span> : tous les membres du groupe les
                 verront dans leur calendrier.
               </>
             ) : (
-              "Les evenements seront synchronises pour ton groupe : tous ses membres les verront dans leur calendrier."
+              "Les événements seront synchronisés pour ton groupe : tous ses membres les verront dans leur calendrier."
             )}
           </p>
           <div>
@@ -97,7 +97,7 @@ export function SubscriptionChips({
           className="group flex items-center gap-1.5 text-xs bg-secondary/50 rounded-full px-2.5 py-1"
           title={
             sub.groupName
-              ? `Synchronise pour ${sub.groupName}${sub.isOwner ? "" : " (ajoute par un autre membre)"}`
+              ? `Synchronisé pour ${sub.groupName}${sub.isOwner ? "" : " (ajouté par un autre membre)"}`
               : undefined
           }
         >
@@ -113,7 +113,7 @@ export function SubscriptionChips({
             <button
               onClick={() => onDelete(sub.id)}
               title="Retirer ce calendrier"
-              className="p-0.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+              className="p-0.5 touch:p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
             >
               <X className="h-3 w-3" />
             </button>

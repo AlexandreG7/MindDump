@@ -72,7 +72,7 @@ export function EventList({
                     onClick={() => setColorMenuFor(colorMenuFor === event.id ? null : event.id)}
                     title="Couleur"
                     className={`p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
-                      colorMenuFor === event.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      colorMenuFor === event.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
                     }`}
                   >
                     <Palette className="h-3.5 w-3.5" />
@@ -83,7 +83,7 @@ export function EventList({
                       <div className="absolute right-0 bottom-full mb-1 z-50 w-max bg-popover border border-border rounded-xl shadow-lg p-2 grid grid-cols-5 gap-1.5">
                         <button
                           onClick={() => { setColorMenuFor(null); onSetColor(event.id, null); }}
-                          title="Par defaut"
+                          title="Par défaut"
                           className="w-5 h-5 rounded-full border border-border bg-primary/10 hover:scale-110 transition-transform"
                         />
                         {EVENT_COLORS.map((c) => (
@@ -104,7 +104,7 @@ export function EventList({
                 <button
                   onClick={() => onDelete(event.id)}
                   title="Supprimer"
-                  className="p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  className="p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

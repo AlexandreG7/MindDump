@@ -244,7 +244,7 @@ export default function CalendarPage() {
           <FeedExportButton />
           <Button onClick={() => openNewEvent()}>
             <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Nouvel evenement</span>
+            <span className="hidden sm:inline">Nouvel événement</span>
           </Button>
         </div>
       </div>
@@ -262,10 +262,10 @@ export default function CalendarPage() {
       {/* Navigation et choix de la vue */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1 min-w-0">
-          <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Précédent">
+          <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Période précédente">
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Suivant">
+          <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Période suivante">
             <ChevronRight className="h-5 w-5" />
           </Button>
           <Button variant="outline" size="sm" onClick={goToday} className="ml-1">
@@ -338,7 +338,7 @@ export default function CalendarPage() {
           </CardHeader>
           <CardContent>
             {selectedEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun evenement ce jour</p>
+              <p className="text-sm text-muted-foreground">Aucun événement ce jour</p>
             ) : (
               <EventList events={selectedEvents} day={selectedDate} onSetColor={setEventColor} onDelete={deleteEvent} />
             )}

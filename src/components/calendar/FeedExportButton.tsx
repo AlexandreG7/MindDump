@@ -78,6 +78,7 @@ export function FeedExportButton() {
                 className="flex-1 text-xs bg-secondary/50 border border-border rounded-lg px-2 py-1.5 font-mono truncate"
               />
               <button
+                aria-label={feedCopied ? "Lien copié" : "Copier le lien"}
                 onClick={copyFeedUrl}
                 className={`shrink-0 p-1.5 rounded-lg transition-colors ${
                   feedCopied ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground"

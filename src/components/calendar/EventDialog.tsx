@@ -61,7 +61,7 @@ export function EventDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Ajouter un evenement</DialogTitle>
+          <DialogTitle>Ajouter un événement</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
@@ -110,7 +110,7 @@ export function EventDialog({
                   : "\u00a0"}
           </p>
           <div>
-            <Label>Recurrence</Label>
+            <Label>Récurrence</Label>
             <Select value={draft.recurrence} onValueChange={(v) => setDraft({ ...draft, recurrence: v })}>
               <SelectTrigger>
                 <SelectValue placeholder="Aucune" />
@@ -131,7 +131,7 @@ export function EventDialog({
               <button
                 type="button"
                 onClick={() => setDraft({ ...draft, color: "" })}
-                title="Par defaut"
+                title="Par défaut"
                 className={`w-6 h-6 rounded-full border border-border bg-primary/10 transition-transform ${
                   !draft.color ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110" : "hover:scale-110"
                 }`}
