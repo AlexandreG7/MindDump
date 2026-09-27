@@ -29,6 +29,7 @@ Web Push                 WebView                    finitions natives          f
 | 3.3 | Push natif (APNs / FCM) | L | ☐ |
 | 3.4 | Extension de partage iOS + intent Android | M | ☐ |
 | 3.5 | Finitions natives | M | ☐ |
+| 3.6 | Remplir le panier drive Match (WebView dédiée) | M | ☐ |
 | 4.1 | Publication App Store | M | ☐ |
 | 4.2 | Publication Google Play | M | ☐ |
 
@@ -255,6 +256,12 @@ faux schéma ; code réutilisé, expiré ou avec un mauvais verifier → refusé
 - [ ] iOS : `WKAppBoundDomains` (minddump.fr) et
       `limitsNavigationsToAppBoundDomains`, **nécessaires pour que le service
       worker fonctionne dans WKWebView**.
+      ⚠️ Dès que cette clé existe, iOS n'autorise l'injection de script
+      (`evaluateJavaScript`, user scripts, message handlers) que sur les
+      domaines listés, dans **toutes** les WebViews de l'app, et échoue sans
+      erreur ailleurs. Y ajouter `supermarchesmatch.fr` et
+      `api-drive.drive.supermarchesmatch.fr` pour l'étape 3.6 (10 domaines
+      maximum).
 - [ ] Côté web : `src/lib/native.ts` (`isNativeApp()`), pour masquer
       l'invitation à installer, le bouton Web Push, etc.
 - [ ] Icônes et écran de lancement générés depuis l'icône existante.
@@ -301,6 +308,23 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
       plugin Camera) dans `RecipeView.tsx`.
 - [ ] Clavier : pas de zoom sur les champs (police ≥ 16 px), champs non masqués.
 - [ ] Plus tard, si besoin : widget « liste de courses ».
+
+### 3.6 Remplir le panier drive Match
+
+Partie serveur sur la branche `feat/drive-match` (autre session) :
+correspondances article → produit Match, `GET /api/drive/match/plan?listId=…`
+(format à confirmer). L'API interne de Match est derrière Cloudflare et ne
+répond qu'à un vrai navigateur, jamais au serveur : l'ajout au panier doit
+partir de l'appareil. Rien de possible en PWA.
+
+- [ ] Deuxième WebView dédiée à `supermarchesmatch.fr` (plugin type
+      `@capgo/inappbrowser` ou petit plugin maison), avec injection de script
+      et retour de messages vers l'app. La WebView principale reste limitée à
+      minddump.fr.
+- [ ] L'utilisateur se connecte à son compte Match dans cette WebView ; l'app
+      injecte l'ajout groupé du plan au panier, puis le laisse valider et payer
+      lui-même.
+- [ ] Domaines Match dans `WKAppBoundDomains` (voir 3.1).
 
 ---
 
