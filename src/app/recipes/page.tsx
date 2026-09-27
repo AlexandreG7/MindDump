@@ -961,7 +961,7 @@ export default function RecipesPage() {
                 onClick={(e) => toggleFavorite(e, recipe.id, !recipe.favorite)}
                 className={`shrink-0 p-1.5 rounded-lg hover:bg-secondary ${
                   (activeTab === "catalogue" ? recipe.planned : recipe.inCatalog) ? "" : "mr-3"
-                } ${recipe.favorite ? "" : "opacity-0 group-hover/list:opacity-100 [@media(hover:none)]:opacity-100"}`}
+                } ${recipe.favorite ? "" : "opacity-0 group-hover/list:opacity-100 touch:opacity-100"}`}
                 iconClassName="h-4 w-4"
                 idleIconClassName="text-muted-foreground"
               />
@@ -1009,7 +1009,7 @@ export default function RecipesPage() {
                   favorite={recipe.favorite}
                   onClick={(e) => toggleFavorite(e, recipe.id, !recipe.favorite)}
                   className={`absolute top-1.5 right-1.5 p-1.5 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-opacity ${
-                    recipe.favorite ? "" : "opacity-0 group-hover/compact:opacity-100 [@media(hover:none)]:opacity-100"
+                    recipe.favorite ? "" : "opacity-0 group-hover/compact:opacity-100 touch:opacity-100"
                   }`}
                   iconClassName="h-3.5 w-3.5"
                 />
@@ -1448,7 +1448,7 @@ function RecipeCard({
           favorite={recipe.favorite}
           onClick={onToggleFavorite}
           className={`absolute top-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-opacity z-10 ${
-            recipe.favorite ? "" : "opacity-0 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100"
+            recipe.favorite ? "" : "opacity-0 group-hover/card:opacity-100 touch:opacity-100"
           }`}
           iconClassName="h-3.5 w-3.5"
         />
