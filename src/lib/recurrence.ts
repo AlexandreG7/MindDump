@@ -45,6 +45,74 @@ export function nextOccurrence(date: Date, recurrence: string): Date | null {
   }
 }
 
+const DAY_STEPS: Record<string, number> = { daily: 1, weekly: 7, biweekly: 14 };
+const MONTH_STEPS: Record<string, number> = { monthly: 1, yearly: 12 };
+
+/**
+ * k-ième occurrence, calculée depuis la date d'origine et non de proche en
+ * proche : un 31 janvier mensuel tombe le 28 ou 29 février puis revient au
+ * 31 mars, au lieu de glisser au 3 mars puis au 3 de chaque mois.
+ */
+function nthOccurrence(date: Date, recurrence: string, k: number): Date {
+  const next = new Date(date);
+  const days = DAY_STEPS[recurrence];
+  if (days) {
+    next.setDate(next.getDate() + k * days);
+    return next;
+  }
+  next.setDate(1);
+  next.setMonth(next.getMonth() + k * MONTH_STEPS[recurrence]);
+  const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+  next.setDate(Math.min(date.getDate(), lastDay));
+  return next;
+}
+
+/**
+ * Occurrences d'un événement qui touchent l'intervalle [from, to] : celles qui
+ * commencent dedans, et celles commencées avant mais encore en cours (événement
+ * sur plusieurs jours). Sans récurrence, l'événement lui-même s'il le touche.
+ */
+export function occurrencesBetween(
+  date: Date,
+  endDate: Date | null,
+  recurrence: string | null,
+  from: Date,
+  to: Date
+): Array<{ date: Date; endDate: Date | null }> {
+  const duration = endDate ? Math.max(0, endDate.getTime() - date.getTime()) : 0;
+  const touches = (start: Date) =>
+    start <= to && start.getTime() + duration >= from.getTime();
+
+  if (!recurrence || !(recurrence in DAY_STEPS || recurrence in MONTH_STEPS)) {
+    return touches(date) ? [{ date, endDate }] : [];
+  }
+
+  // Premier rang utile, un peu avant l'intervalle : un événement quotidien
+  // ancien ne doit pas épuiser la limite d'itérations avant d'y arriver.
+  const lead = new Date(from.getTime() - duration);
+  let k: number;
+  if (DAY_STEPS[recurrence]) {
+    k = Math.floor((lead.getTime() - date.getTime()) / (DAY_STEPS[recurrence] * 86400000)) - 1;
+  } else {
+    const months = (lead.getFullYear() - date.getFullYear()) * 12 + lead.getMonth() - date.getMonth();
+    k = Math.floor(months / MONTH_STEPS[recurrence]) - 1;
+  }
+  k = Math.max(0, k);
+
+  const result: Array<{ date: Date; endDate: Date | null }> = [];
+  for (let guard = 0; guard < 1000; guard++, k++) {
+    const current = nthOccurrence(date, recurrence, k);
+    if (current > to) break;
+    if (touches(current)) {
+      result.push({
+        date: current,
+        endDate: endDate ? new Date(current.getTime() + duration) : null,
+      });
+    }
+  }
+  return result;
+}
+
 /** RRULE iCalendar correspondante (sans le prefixe "RRULE:"). */
 export const RRULE_BY_RECURRENCE: Record<string, string> = {
   daily: "FREQ=DAILY",

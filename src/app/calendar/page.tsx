@@ -1,174 +1,100 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  Trash2,
-  Rss,
-  Check,
-  Copy,
-  RefreshCw,
-  Link2Off,
-  Link2,
-  CalendarDays,
-  Grid3X3,
-  X,
-  HelpCircle,
-  Palette,
-  Repeat,
-  Users,
-} from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Link2, HelpCircle } from "lucide-react";
 import Link from "next/link";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  addDays,
-  addMonths,
-  subMonths,
-  isSameMonth,
-  isSameDay,
-  isToday,
-  startOfYear,
-  eachMonthOfInterval,
-} from "date-fns";
+import { addDays, format, isValid, parseISO, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
-import {
-  EVENT_COLORS,
-  RECURRENCE_LABELS,
-  RECURRENCE_OPTIONS,
-} from "@/lib/recurrence";
+import { type CalendarEvent, type Subscription, type ViewMode, VIEW_LABELS, isViewMode } from "@/components/calendar/types";
+import { occursOn, rangeForView, shiftAnchor, sortEvents, titleForView } from "@/components/calendar/utils";
+import { EventList } from "@/components/calendar/EventList";
+import { TimeGrid } from "@/components/calendar/TimeGrid";
+import { MonthGrid, YearGrid } from "@/components/calendar/MonthGrid";
+import { AgendaList } from "@/components/calendar/AgendaList";
+import { EventDialog, emptyDraft, type EventDraft } from "@/components/calendar/EventDialog";
+import { FeedExportButton } from "@/components/calendar/FeedExportButton";
+import { SubscriptionChips, SubscriptionDialog } from "@/components/calendar/Subscriptions";
 
-interface CalendarEvent {
-  id: string;
-  title: string;
-  description: string | null;
-  date: string;
-  endDate?: string | null;
-  allDay: boolean;
-  recurrence: string | null;
-  color?: string | null;
-  notifyBefore: number | null;
-  subscriptionId?: string;
-  subscriptionName?: string;
+const VIEW_KEY = "calendar:view";
+const VIEW_ORDER: ViewMode[] = ["day", "week", "month", "agenda", "year"];
+
+/** Vue au premier affichage : ?view=, sinon la dernière utilisée, sinon liste sur téléphone et mois ailleurs. */
+function initialView(): ViewMode {
+  const fromUrl = new URLSearchParams(window.location.search).get("view");
+  if (isViewMode(fromUrl)) return fromUrl;
+  try {
+    const saved = localStorage.getItem(VIEW_KEY);
+    if (isViewMode(saved)) return saved;
+  } catch {}
+  return window.matchMedia("(max-width: 640px)").matches ? "agenda" : "month";
 }
 
-interface Subscription {
-  id: string;
-  name: string;
-  url: string | null;
-  color: string;
-  enabled: boolean;
-  groupId: string | null;
-  groupName: string | null;
-  isOwner: boolean;
+function initialAnchor(): Date {
+  const fromUrl = new URLSearchParams(window.location.search).get("date");
+  const parsed = fromUrl ? parseISO(fromUrl) : null;
+  return parsed && isValid(parsed) ? parsed : new Date();
 }
 
-type ViewMode = "month" | "year";
+/**
+ * Date envoyée à l'API. Journée entière : minuit sans fuseau, comme le serveur
+ * MCP (le flux ICS lit ces dates en UTC). Horaire : instant ISO complet, pour
+ * ne pas dépendre du fuseau du serveur.
+ */
+function toApiDate(date: string, time: string): string {
+  return time ? new Date(`${date}T${time}`).toISOString() : `${date}T00:00:00`;
+}
 
 export default function CalendarPage() {
   const { isReady } = useAuth();
   const { currentGroupId, currentGroup } = useGroupContext();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [view, setView] = useState<ViewMode | null>(null);
+  const [anchor, setAnchor] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("month");
-  const [newEvent, setNewEvent] = useState({
-    title: "",
-    description: "",
-    date: "",
-    time: "",
-    allDay: false,
-    recurrence: "",
-    color: "",
-    notifyBefore: "",
-  });
-  const [colorMenuFor, setColorMenuFor] = useState<string | null>(null);
-
-  // Feed export state
-  const [feedToken, setFeedToken] = useState<string | null>(null);
-  const [feedLoading, setFeedLoading] = useState(false);
-  const [feedCopied, setFeedCopied] = useState(false);
-  const [feedMenuOpen, setFeedMenuOpen] = useState(false);
-
-  // Subscriptions state
+  const [draft, setDraft] = useState<EventDraft>(() => emptyDraft());
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [subDialogOpen, setSubDialogOpen] = useState(false);
-  const [newSub, setNewSub] = useState({ name: "", url: "" });
-  const [subLoading, setSubLoading] = useState(false);
+  const requestId = useRef(0);
 
-  // Feed export functions
+  // Vue et date lues côté client seulement (URL, préférence, taille d'écran).
   useEffect(() => {
-    if (isReady) {
-      fetch("/api/calendar/feed")
-        .then((r) => r.json())
-        .then((data) => {
-          if (data?.token) setFeedToken(data.token);
-        });
+    const v = initialView();
+    const a = initialAnchor();
+    setView(v);
+    setAnchor(a);
+    if (v === "day") setSelectedDate(a);
+  }, []);
+
+  // L'URL reflète la vue affichée : un lien (ou une notification) peut ouvrir un jour précis.
+  useEffect(() => {
+    if (!view) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", view);
+    url.searchParams.set("date", format(anchor, "yyyy-MM-dd"));
+    window.history.replaceState(null, "", url);
+  }, [view, anchor]);
+
+  const changeView = (next: ViewMode) => {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {}
+    if (next === "day") {
+      const day = selectedDate ?? anchor;
+      setAnchor(day);
+      setSelectedDate(day);
+    } else if (selectedDate) {
+      setAnchor(selectedDate);
     }
-  }, [isReady]);
-
-  const generateFeedToken = async () => {
-    setFeedLoading(true);
-    const res = await fetch("/api/calendar/feed", { method: "POST" });
-    const data = await res.json();
-    setFeedToken(data.token);
-    setFeedLoading(false);
   };
 
-  const revokeFeedToken = async () => {
-    await fetch("/api/calendar/feed", { method: "DELETE" });
-    setFeedToken(null);
-    setFeedMenuOpen(false);
-  };
-
-  const getFeedUrl = () => {
-    if (!feedToken) return "";
-    const base = typeof window !== "undefined" ? window.location.origin : "";
-    return `${base}/api/calendar/feed/${feedToken}`;
-  };
-
-  const getWebcalUrl = () =>
-    getFeedUrl().replace(/^https?:\/\//, "webcal://");
-
-  const copyFeedUrl = () => {
-    navigator.clipboard.writeText(getFeedUrl());
-    setFeedCopied(true);
-    setTimeout(() => setFeedCopied(false), 2000);
-  };
-
-  const openInAppleCalendar = () => {
-    window.open(getWebcalUrl(), "_self");
-  };
-
-  // Subscriptions functions
+  // Abonnements (calendriers externes)
   const fetchSubscriptions = useCallback(() => {
     fetch("/api/calendar/subscriptions")
       .then((r) => r.json())
@@ -176,23 +102,17 @@ export default function CalendarPage() {
         setSubscriptions(subs);
         // Purge les événements d'abonnements auxquels on n'a plus accès.
         const ids = new Set(subs.map((s) => s.id));
-        setExternalEvents((prev) =>
-          prev.filter((e) => e.subscriptionId && ids.has(e.subscriptionId))
-        );
+        setExternalEvents((prev) => prev.filter((e) => e.subscriptionId && ids.has(e.subscriptionId)));
         subs.forEach((sub) => {
-          if (sub.enabled) {
-            fetch(`/api/calendar/subscriptions/${sub.id}`)
-              .then((r) => r.json())
-              .then((data) => {
-                if (data.events) {
-                  setExternalEvents((prev) => [
-                    ...prev.filter((e) => e.subscriptionId !== sub.id),
-                    ...data.events,
-                  ]);
-                }
-              })
-              .catch(() => {});
-          }
+          if (!sub.enabled) return;
+          fetch(`/api/calendar/subscriptions/${sub.id}`)
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.events) {
+                setExternalEvents((prev) => [...prev.filter((e) => e.subscriptionId !== sub.id), ...data.events]);
+              }
+            })
+            .catch(() => {});
         });
       });
   }, []);
@@ -201,21 +121,12 @@ export default function CalendarPage() {
     if (isReady) fetchSubscriptions();
   }, [isReady, fetchSubscriptions]);
 
-  const addSubscription = async () => {
-    if (!newSub.name.trim() || !newSub.url.trim()) return;
-    setSubLoading(true);
+  const addSubscription = async (sub: { name: string; url: string }) => {
     await fetch("/api/calendar/subscriptions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newSub.name,
-        url: newSub.url,
-        groupId: currentGroupId,
-      }),
+      body: JSON.stringify({ ...sub, groupId: currentGroupId }),
     });
-    setNewSub({ name: "", url: "" });
-    setSubDialogOpen(false);
-    setSubLoading(false);
     fetchSubscriptions();
   };
 
@@ -225,52 +136,51 @@ export default function CalendarPage() {
     setSubscriptions((prev) => prev.filter((s) => s.id !== id));
   };
 
-  // Internal events
+  // Événements MindDump de l'intervalle affiché
+  const range = useMemo(() => (view ? rangeForView(view, anchor) : null), [view, anchor]);
+
   const fetchEvents = useCallback(() => {
-    const month = currentMonth.getMonth() + 1;
-    const year = currentMonth.getFullYear();
-    fetch(`/api/calendar?month=${month}&year=${year}`)
-      .then((r) => r.json())
-      .then(setEvents);
-  }, [currentMonth]);
+    if (!range) return;
+    const id = ++requestId.current;
+    const params = new URLSearchParams({ from: range.from.toISOString(), to: range.to.toISOString() });
+    fetch(`/api/calendar?${params}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: CalendarEvent[]) => {
+        // Une réponse lente d'une vue précédente ne remplace pas la vue courante.
+        if (id === requestId.current) setEvents(data);
+      })
+      .catch(() => {});
+  }, [range]);
 
   useEffect(() => {
     if (isReady) fetchEvents();
   }, [isReady, fetchEvents]);
 
-  const addEvent = async () => {
-    if (!newEvent.title.trim() || !newEvent.date) return;
-    const dateStr = newEvent.time
-      ? `${newEvent.date}T${newEvent.time}`
-      : `${newEvent.date}T00:00:00`;
+  const openNewEvent = (day?: Date, hour?: number) => {
+    const date = format(day ?? selectedDate ?? new Date(), "yyyy-MM-dd");
+    const time = hour !== undefined ? `${String(hour).padStart(2, "0")}:00` : "";
+    const next = emptyDraft(date, time);
+    if (hour !== undefined) next.endTime = `${String(Math.min(hour + 1, 23)).padStart(2, "0")}:${hour === 23 ? "59" : "00"}`;
+    setDraft(next);
+    setDialogOpen(true);
+  };
 
+  const addEvent = async (d: EventDraft) => {
     await fetch("/api/calendar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: newEvent.title,
-        description: newEvent.description || null,
-        date: dateStr,
-        allDay: !newEvent.time,
-        recurrence: newEvent.recurrence || null,
-        color: newEvent.color || null,
+        title: d.title,
+        description: d.description || null,
+        date: toApiDate(d.date, d.time),
+        endDate: d.time && d.endTime ? toApiDate(d.date, d.endTime) : null,
+        allDay: !d.time,
+        recurrence: d.recurrence || null,
+        color: d.color || null,
         groupId: currentGroupId,
-        notifyBefore: newEvent.notifyBefore
-          ? Number(newEvent.notifyBefore)
-          : null,
+        notifyBefore: d.notifyBefore ? Number(d.notifyBefore) : null,
       }),
     });
-    setNewEvent({
-      title: "",
-      description: "",
-      date: "",
-      time: "",
-      allDay: false,
-      recurrence: "",
-      color: "",
-      notifyBefore: "",
-    });
-    setDialogOpen(false);
     fetchEvents();
   };
 
@@ -284,7 +194,6 @@ export default function CalendarPage() {
   };
 
   const setEventColor = async (id: string, color: string | null) => {
-    setColorMenuFor(null);
     await fetch(`/api/calendar/${baseEventId(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -293,74 +202,31 @@ export default function CalendarPage() {
     fetchEvents();
   };
 
-  // All events merged
-  const allEvents = useMemo(
-    () => [...events, ...externalEvents],
-    [events, externalEvents]
-  );
+  const allEvents = useMemo(() => [...events, ...externalEvents], [events, externalEvents]);
 
-  const getEventsForDate = useCallback(
-    (date: Date) => allEvents.filter((e) => isSameDay(new Date(e.date), date)),
-    [allEvents]
-  );
+  if (!isReady || !view || !range) return null;
 
-  if (!isReady) return null;
+  const selectedEvents = selectedDate ? sortEvents(allEvents.filter((e) => occursOn(e, selectedDate))) : [];
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor, { weekStartsOn: 1 }), i));
 
-  // Month view grid
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const goToday = () => {
+    const today = new Date();
+    setAnchor(today);
+    setSelectedDate(view === "agenda" || view === "year" ? null : today);
+  };
 
-  const days: Date[] = [];
-  let day = calStart;
-  while (day <= calEnd) {
-    days.push(day);
-    day = addDays(day, 1);
-  }
-
-  const selectedEvents = selectedDate ? getEventsForDate(selectedDate) : [];
-
-  // Year view data
-  const yearStart = startOfYear(currentMonth);
-  const months = eachMonthOfInterval({
-    start: yearStart,
-    end: new Date(currentMonth.getFullYear(), 11, 31),
-  });
+  const shift = (direction: 1 | -1) => {
+    const next = shiftAnchor(view, anchor, direction);
+    setAnchor(next);
+    if (view === "day") setSelectedDate(next);
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Calendrier</h1>
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex items-center bg-secondary rounded-lg p-0.5">
-            <button
-              onClick={() => setViewMode("month")}
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === "month"
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              title="Vue mois"
-            >
-              <CalendarDays className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("year")}
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === "year"
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              title="Vue année"
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Subscribe external calendar */}
+        <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={() => setSubDialogOpen(true)}
             className="p-2 rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
@@ -368,8 +234,6 @@ export default function CalendarPage() {
           >
             <Link2 className="h-4 w-4" />
           </button>
-
-          {/* Help */}
           <Link
             href="/docs#calendrier"
             className="p-2 rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
@@ -377,596 +241,109 @@ export default function CalendarPage() {
           >
             <HelpCircle className="h-4 w-4" />
           </Link>
-
-          {/* Feed export */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                if (!feedToken) {
-                  generateFeedToken();
-                } else {
-                  setFeedMenuOpen((v) => !v);
-                }
-              }}
-              disabled={feedLoading}
-              className={`p-2 rounded-lg transition-colors ${
-                feedToken
-                  ? "text-primary hover:bg-primary/10"
-                  : "text-muted-foreground hover:bg-secondary"
-              }`}
-              title={
-                feedToken
-                  ? "Exporter vers Apple Calendar"
-                  : "Exporter vers Apple Calendar"
-              }
-            >
-              <Rss className="h-4 w-4" />
-            </button>
-            {feedMenuOpen && feedToken && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setFeedMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-full mt-2 z-50 w-72 bg-popover border border-border rounded-xl shadow-lg p-4 space-y-3">
-                  <p className="text-sm font-medium">Exporter le calendrier</p>
-                  <p className="text-xs text-muted-foreground">
-                    Exporte tes events MindDump vers Apple Calendar, Google
-                    Calendar ou Outlook.
-                  </p>
-                  <button
-                    onClick={() => {
-                      openInAppleCalendar();
-                      setFeedMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                  >
-                    <Rss className="h-3.5 w-3.5" />
-                    Ouvrir dans Apple Calendar
-                  </button>
-                  <div className="flex gap-2">
-                    <input
-                      readOnly
-                      value={getFeedUrl()}
-                      className="flex-1 text-xs bg-secondary/50 border border-border rounded-lg px-2 py-1.5 font-mono truncate"
-                    />
-                    <button
-                      onClick={copyFeedUrl}
-                      className={`shrink-0 p-1.5 rounded-lg transition-colors ${
-                        feedCopied
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-secondary text-muted-foreground"
-                      }`}
-                    >
-                      {feedCopied ? (
-                        <Check className="h-3.5 w-3.5" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                  </div>
-                  <div className="flex gap-2 pt-1 border-t border-border">
-                    <button
-                      onClick={() => generateFeedToken()}
-                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      Régénérer
-                    </button>
-                    <button
-                      onClick={revokeFeedToken}
-                      className="flex items-center gap-1.5 text-xs text-destructive hover:text-destructive/80 transition-colors"
-                    >
-                      <Link2Off className="h-3 w-3" />
-                      Révoquer
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* New event */}
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nouvel evenement
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Ajouter un evenement</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Titre</Label>
-                  <Input
-                    value={newEvent.title}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, title: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Description (optionnel)</Label>
-                  <Textarea
-                    value={newEvent.description}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, description: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Date</Label>
-                    <Input
-                      type="date"
-                      value={newEvent.date}
-                      onChange={(e) =>
-                        setNewEvent({ ...newEvent, date: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Heure (optionnel)</Label>
-                    <Input
-                      type="time"
-                      value={newEvent.time}
-                      onChange={(e) =>
-                        setNewEvent({ ...newEvent, time: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label>Recurrence</Label>
-                  <Select
-                    value={newEvent.recurrence}
-                    onValueChange={(v) =>
-                      setNewEvent({ ...newEvent, recurrence: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Aucune" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Aucune</SelectItem>
-                      {RECURRENCE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Couleur</Label>
-                  <div className="flex items-center gap-2 flex-wrap mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewEvent({ ...newEvent, color: "" })}
-                      title="Par defaut"
-                      className={`w-6 h-6 rounded-full border border-border bg-primary/10 transition-transform ${
-                        !newEvent.color
-                          ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110"
-                          : "hover:scale-110"
-                      }`}
-                    />
-                    {EVENT_COLORS.map((c) => (
-                      <button
-                        key={c.value}
-                        type="button"
-                        onClick={() =>
-                          setNewEvent({ ...newEvent, color: c.value })
-                        }
-                        title={c.label}
-                        style={{ backgroundColor: c.value }}
-                        className={`w-6 h-6 rounded-full transition-transform ${
-                          newEvent.color === c.value
-                            ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110"
-                            : "hover:scale-110"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>Rappel email (minutes avant)</Label>
-                  <Input
-                    type="number"
-                    value={newEvent.notifyBefore}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, notifyBefore: e.target.value })
-                    }
-                    placeholder="30"
-                  />
-                </div>
-                <Button className="w-full" onClick={addEvent}>
-                  Ajouter
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <FeedExportButton />
+          <Button onClick={() => openNewEvent()}>
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Nouvel evenement</span>
+          </Button>
         </div>
       </div>
 
-      {/* Subscription dialog */}
-      <Dialog open={subDialogOpen} onOpenChange={setSubDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Importer un calendrier</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Dans Apple Calendar : clic droit sur un calendrier → Partager le
-              calendrier → Calendrier public → copie l&apos;URL webcal://
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {currentGroup ? (
-                <>
-                  Les evenements seront synchronises pour{" "}
-                  <span className="text-foreground font-medium">
-                    {currentGroup.name}
-                  </span>{" "}
-                  : tous les membres du groupe les verront dans leur
-                  calendrier.
-                </>
-              ) : (
-                "Les evenements seront synchronises pour ton groupe : tous ses membres les verront dans leur calendrier."
-              )}
-            </p>
-            <div>
-              <Label>Nom</Label>
-              <Input
-                placeholder="Ex: Personnel, Boulot…"
-                value={newSub.name}
-                onChange={(e) =>
-                  setNewSub({ ...newSub, name: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>URL du calendrier</Label>
-              <Input
-                placeholder="webcal://p12-caldav.icloud.com/…"
-                value={newSub.url}
-                onChange={(e) =>
-                  setNewSub({ ...newSub, url: e.target.value })
-                }
-              />
-            </div>
-            <Button
-              className="w-full"
-              onClick={addSubscription}
-              disabled={subLoading}
-            >
-              {subLoading ? "Importation…" : "Importer"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SubscriptionDialog
+        open={subDialogOpen}
+        onOpenChange={setSubDialogOpen}
+        groupName={currentGroup?.name ?? null}
+        onSubmit={addSubscription}
+      />
+      <EventDialog open={dialogOpen} onOpenChange={setDialogOpen} initial={draft} onSubmit={addEvent} />
 
-      {/* Subscriptions list */}
-      {subscriptions.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          {subscriptions.map((sub) => (
-            <div
-              key={sub.id}
-              className="group flex items-center gap-1.5 text-xs bg-secondary/50 rounded-full px-2.5 py-1"
-              title={
-                sub.groupName
-                  ? `Synchronise pour ${sub.groupName}${
-                      sub.isOwner ? "" : " (ajoute par un autre membre)"
-                    }`
-                  : undefined
-              }
+      <SubscriptionChips subscriptions={subscriptions} onDelete={deleteSubscription} />
+
+      {/* Navigation et choix de la vue */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1 min-w-0">
+          <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Précédent">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Suivant">
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={goToday} className="ml-1">
+            Aujourd&apos;hui
+          </Button>
+          <h2 className="basis-full sm:basis-auto order-last sm:order-none text-base sm:text-lg font-semibold first-letter:uppercase sm:ml-2 mt-1 sm:mt-0">
+            {titleForView(view, anchor)}
+          </h2>
+        </div>
+        <div className="flex items-center bg-secondary rounded-lg p-0.5" role="tablist" aria-label="Vue">
+          {VIEW_ORDER.map((v) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => changeView(v)}
+              className={`px-2.5 py-1 text-xs sm:text-sm rounded-md transition-colors ${
+                view === v ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: sub.color }}
-              />
-              <span>{sub.name}</span>
-              {sub.groupName && (
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {sub.groupName}
-                </span>
-              )}
-              {sub.isOwner && (
-                <button
-                  onClick={() => deleteSubscription(sub.id)}
-                  title="Retirer ce calendrier"
-                  className="p-0.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
+              {VIEW_LABELS[v]}
+            </button>
           ))}
         </div>
-      )}
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() =>
-            setCurrentMonth(
-              viewMode === "year"
-                ? new Date(currentMonth.getFullYear() - 1, 0, 1)
-                : subMonths(currentMonth, 1)
-            )
-          }
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-        <h2 className="text-lg font-semibold capitalize">
-          {viewMode === "year"
-            ? currentMonth.getFullYear().toString()
-            : format(currentMonth, "MMMM yyyy", { locale: fr })}
-        </h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() =>
-            setCurrentMonth(
-              viewMode === "year"
-                ? new Date(currentMonth.getFullYear() + 1, 0, 1)
-                : addMonths(currentMonth, 1)
-            )
-          }
-        >
-          <ChevronRight className="h-5 w-5" />
-        </Button>
       </div>
 
-      {/* Month view */}
-      {viewMode === "month" && (
-        <>
-          <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-            {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((d) => (
-              <div
-                key={d}
-                className="bg-muted p-2 text-center text-xs font-medium text-muted-foreground"
-              >
-                {d}
-              </div>
-            ))}
-            {days.map((d, i) => {
-              const dayEvents = getEventsForDate(d);
-              const isSelected = selectedDate && isSameDay(d, selectedDate);
-              return (
-                <div
-                  key={i}
-                  className={`bg-background p-2 min-h-[80px] cursor-pointer transition-colors hover:bg-accent ${
-                    !isSameMonth(d, currentMonth) ? "opacity-30" : ""
-                  } ${isSelected ? "ring-2 ring-primary" : ""}`}
-                  onClick={() => setSelectedDate(d)}
-                >
-                  <span
-                    className={`text-sm ${
-                      isToday(d)
-                        ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center"
-                        : ""
-                    }`}
-                  >
-                    {format(d, "d")}
-                  </span>
-                  {dayEvents.slice(0, 2).map((e) => (
-                    <div
-                      key={e.id}
-                      className={`text-xs rounded px-1 mt-1 truncate ${
-                        !e.color ? "bg-primary/10 text-primary" : ""
-                      }`}
-                      style={
-                        e.color
-                          ? {
-                              backgroundColor: `${e.color}20`,
-                              color: e.color,
-                            }
-                          : undefined
-                      }
-                    >
-                      {e.title}
-                    </div>
-                  ))}
-                  {dayEvents.length > 2 && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      +{dayEvents.length - 2}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Selected date events */}
-          {selectedDate && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  {format(selectedDate, "EEEE d MMMM", { locale: fr })}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {selectedEvents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Aucun evenement ce jour
-                  </p>
-                ) : (
-                  <ul className="space-y-3">
-                    {selectedEvents.map((event) => (
-                      <li
-                        key={event.id}
-                        className="group flex items-start justify-between gap-2"
-                      >
-                        <div className="flex items-start gap-2 min-w-0">
-                          {event.color && (
-                            <div
-                              className="w-1 self-stretch min-h-[20px] rounded-full mt-0.5 shrink-0"
-                              style={{ backgroundColor: event.color }}
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium flex items-center gap-1.5">
-                              {event.title}
-                              {event.recurrence &&
-                                RECURRENCE_LABELS[event.recurrence] && (
-                                  <span
-                                    className="text-muted-foreground"
-                                    title={RECURRENCE_LABELS[event.recurrence]}
-                                  >
-                                    <Repeat className="h-3 w-3" />
-                                  </span>
-                                )}
-                            </p>
-                            {event.subscriptionName && (
-                              <p className="text-xs text-muted-foreground">
-                                {event.subscriptionName}
-                              </p>
-                            )}
-                            {event.description && (
-                              <p className="text-xs text-muted-foreground">
-                                {event.description}
-                              </p>
-                            )}
-                            {!event.allDay && (
-                              <p className="text-xs text-muted-foreground">
-                                {format(new Date(event.date), "HH:mm")}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        {!event.subscriptionId && (
-                          <div className="flex items-center gap-0.5 shrink-0">
-                            <div className="relative">
-                              <button
-                                onClick={() =>
-                                  setColorMenuFor(
-                                    colorMenuFor === event.id ? null : event.id
-                                  )
-                                }
-                                title="Couleur"
-                                className={`p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
-                                  colorMenuFor === event.id
-                                    ? "opacity-100"
-                                    : "opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                }`}
-                              >
-                                <Palette className="h-3.5 w-3.5" />
-                              </button>
-                              {colorMenuFor === event.id && (
-                                <>
-                                  <div
-                                    className="fixed inset-0 z-40"
-                                    onClick={() => setColorMenuFor(null)}
-                                  />
-                                  <div className="absolute right-0 bottom-full mb-1 z-50 w-max bg-popover border border-border rounded-xl shadow-lg p-2 grid grid-cols-5 gap-1.5">
-                                    <button
-                                      onClick={() =>
-                                        setEventColor(event.id, null)
-                                      }
-                                      title="Par defaut"
-                                      className="w-5 h-5 rounded-full border border-border bg-primary/10 hover:scale-110 transition-transform"
-                                    />
-                                    {EVENT_COLORS.map((c) => (
-                                      <button
-                                        key={c.value}
-                                        onClick={() =>
-                                          setEventColor(event.id, c.value)
-                                        }
-                                        title={c.label}
-                                        style={{ backgroundColor: c.value }}
-                                        className={`w-5 h-5 rounded-full hover:scale-110 transition-transform ${
-                                          event.color === c.value
-                                            ? "ring-2 ring-offset-1 ring-offset-popover ring-foreground"
-                                            : ""
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => deleteEvent(event.id)}
-                              title="Supprimer"
-                              className="p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </>
+      {view === "month" && (
+        <MonthGrid month={anchor} events={allEvents} selectedDate={selectedDate} onSelectDay={setSelectedDate} />
       )}
 
-      {/* Year view */}
-      {viewMode === "year" && (
-        <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
-          {months.map((month) => {
-            const mStart = startOfMonth(month);
-            const mEnd = endOfMonth(month);
-            const wStart = startOfWeek(mStart, { weekStartsOn: 1 });
-            const wEnd = endOfWeek(mEnd, { weekStartsOn: 1 });
-            const mDays: Date[] = [];
-            let d = wStart;
-            while (d <= wEnd) {
-              mDays.push(d);
-              d = addDays(d, 1);
-            }
+      {(view === "week" || view === "day") && (
+        <TimeGrid
+          days={view === "day" ? [anchor] : weekDays}
+          events={allEvents}
+          selectedDate={selectedDate}
+          onSelectDay={setSelectedDate}
+          onCreateAt={openNewEvent}
+        />
+      )}
 
-            return (
-              <div
-                key={month.toISOString()}
-                className="bg-card border border-border rounded-xl p-3 cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => {
-                  setCurrentMonth(month);
-                  setViewMode("month");
-                }}
-              >
-                <p className="text-sm font-semibold capitalize mb-2">
-                  {format(month, "MMMM", { locale: fr })}
-                </p>
-                <div className="grid grid-cols-7 gap-px">
-                  {["L", "M", "M", "J", "V", "S", "D"].map((dl, i) => (
-                    <div
-                      key={i}
-                      className="text-center text-[9px] text-muted-foreground font-medium"
-                    >
-                      {dl}
-                    </div>
-                  ))}
-                  {mDays.map((dd, i) => {
-                    const hasEvents = getEventsForDate(dd).length > 0;
-                    const inMonth = isSameMonth(dd, month);
-                    return (
-                      <div
-                        key={i}
-                        className={`text-center text-[10px] py-0.5 relative ${
-                          !inMonth ? "text-transparent" : ""
-                        } ${isToday(dd) ? "font-bold text-primary" : ""}`}
-                      >
-                        {format(dd, "d")}
-                        {hasEvents && inMonth && (
-                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {view === "agenda" && (
+        <AgendaList from={anchor} events={allEvents} onSetColor={setEventColor} onDelete={deleteEvent} />
+      )}
+
+      {view === "year" && (
+        <YearGrid
+          year={anchor.getFullYear()}
+          events={allEvents}
+          onSelectMonth={(month) => {
+            setAnchor(month);
+            changeView("month");
+          }}
+        />
+      )}
+
+      {/* Détail du jour sélectionné */}
+      {selectedDate && (view === "month" || view === "week" || view === "day") && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-lg first-letter:uppercase">
+              {format(selectedDate, "EEEE d MMMM", { locale: fr })}
+            </CardTitle>
+            <button
+              onClick={() => openNewEvent(selectedDate)}
+              className="p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              title="Ajouter ce jour-là"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            {selectedEvents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucun evenement ce jour</p>
+            ) : (
+              <EventList events={selectedEvents} day={selectedDate} onSetColor={setEventColor} onDelete={deleteEvent} />
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

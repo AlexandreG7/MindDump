@@ -2,69 +2,56 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
-import { isEventColor, isRecurrence, nextOccurrence } from "@/lib/recurrence";
+import { isEventColor, isRecurrence, occurrencesBetween } from "@/lib/recurrence";
 
-function expandRecurrences(
-  events: Array<{
-    id: string;
-    title: string;
-    description: string | null;
-    date: Date;
-    endDate: Date | null;
-    allDay: boolean;
-    recurrence: string | null;
-    color: string | null;
-    notifyBefore: number | null;
-    notified: boolean;
-    notifiedOccurrence: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-    userId: string;
-    groupId: string | null;
-  }>,
-  rangeStart: Date,
-  rangeEnd: Date
-) {
-  const result: typeof events = [];
+type EventRow = Awaited<ReturnType<typeof prisma.calendarEvent.findMany>>[number];
 
+/**
+ * Événements qui touchent [from, to], récurrences développées. Une occurrence
+ * autre que la première porte l'id `<id>_<date iso>` (l'interface agit toujours
+ * sur l'événement source).
+ */
+function expandRecurrences(events: EventRow[], from: Date, to: Date) {
+  const result: EventRow[] = [];
   for (const event of events) {
-    if (!event.recurrence || event.recurrence === "none") {
-      if (event.date >= rangeStart && event.date <= rangeEnd) {
-        result.push(event);
-      }
-      continue;
-    }
-
-    let current = new Date(event.date);
-    let safetyLimit = 400;
-
-    while (current <= rangeEnd && safetyLimit-- > 0) {
-      if (current >= rangeStart) {
-        const duration =
-          event.endDate
-            ? event.endDate.getTime() - event.date.getTime()
-            : 0;
-        result.push({
-          ...event,
-          id:
-            current.getTime() === event.date.getTime()
-              ? event.id
-              : `${event.id}_${current.toISOString()}`,
-          date: new Date(current),
-          endDate: duration ? new Date(current.getTime() + duration) : null,
-        });
-      }
-
-      const next = nextOccurrence(current, event.recurrence);
-      if (!next) {
-        safetyLimit = 0;
-      } else {
-        current = next;
-      }
+    const recurrence = event.recurrence && event.recurrence !== "none" ? event.recurrence : null;
+    for (const occ of occurrencesBetween(event.date, event.endDate, recurrence, from, to)) {
+      result.push({
+        ...event,
+        id: occ.date.getTime() === event.date.getTime() ? event.id : `${event.id}_${occ.date.toISOString()}`,
+        date: occ.date,
+        endDate: occ.endDate,
+      });
     }
   }
+  return result.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
 
-  return result;
+const MAX_RANGE_MS = 400 * 86400000;
+
+/**
+ * Intervalle demandé : from/to (dates ISO, calculées par le client dans son
+ * fuseau), ou month/year (compatibilité : serveur MCP, anciens clients).
+ */
+function parseRange(searchParams: URLSearchParams): { from: Date; to: Date } | null {
+  const fromParam = searchParams.get("from");
+  const toParam = searchParams.get("to");
+  if (fromParam && toParam) {
+    const from = new Date(fromParam);
+    const to = new Date(toParam);
+    if (isNaN(from.getTime()) || isNaN(to.getTime()) || to < from) return null;
+    if (to.getTime() - from.getTime() > MAX_RANGE_MS) return null;
+    return { from, to };
+  }
+  const month = searchParams.get("month");
+  const year = searchParams.get("year");
+  if (month && year) {
+    return {
+      from: new Date(Number(year), Number(month) - 1, 1),
+      to: new Date(Number(year), Number(month), 0, 23, 59, 59),
+    };
+  }
+  return null;
 }
 
 export async function GET(req: NextRequest) {
@@ -72,8 +59,6 @@ export async function GET(req: NextRequest) {
   if (!user) return unauthorized();
 
   const { searchParams } = new URL(req.url);
-  const month = searchParams.get("month");
-  const year = searchParams.get("year");
   const groupId = searchParams.get("groupId");
 
   if (groupId) {
@@ -83,19 +68,24 @@ export async function GET(req: NextRequest) {
 
   const baseWhere = await buildResourceWhere(user.id, groupId);
 
-  if (month && year) {
-    const rangeStart = new Date(Number(year), Number(month) - 1, 1);
-    const rangeEnd = new Date(Number(year), Number(month), 0, 23, 59, 59);
+  if (searchParams.has("from") || searchParams.has("month")) {
+    const range = parseRange(searchParams);
+    if (!range) {
+      return NextResponse.json({ error: "Intervalle invalide (400 jours au plus)" }, { status: 400 });
+    }
+    const { from, to } = range;
 
-    const allEvents = await prisma.calendarEvent.findMany({
+    const candidates = await prisma.calendarEvent.findMany({
       where: {
         // AND, pas de spread : un second OR écraserait le filtre d'accès.
         AND: [
           ...baseWhere.AND,
           {
+            date: { lte: to },
             OR: [
-              { date: { lte: rangeEnd }, recurrence: { not: null, notIn: ["none", ""] } },
-              { date: { gte: rangeStart, lte: rangeEnd } },
+              { recurrence: { not: null, notIn: ["none", ""] } },
+              { date: { gte: from } },
+              { endDate: { gte: from } },
             ],
           },
         ],
@@ -103,9 +93,7 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "asc" },
     });
 
-    const expanded = expandRecurrences(allEvents, rangeStart, rangeEnd);
-    expanded.sort((a, b) => a.date.getTime() - b.date.getTime());
-    return NextResponse.json(expanded);
+    return NextResponse.json(expandRecurrences(candidates, from, to));
   }
 
   const events = await prisma.calendarEvent.findMany({
