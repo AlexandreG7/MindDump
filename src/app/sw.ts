@@ -100,3 +100,49 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// ─── Notifications push (étape 1.4, src/lib/push.ts) ───────────
+
+type PushPayload = { title: string; body: string; url: string; tag?: string };
+
+self.addEventListener("push", (event) => {
+  let payload: PushPayload;
+  try {
+    payload = event.data?.json() as PushPayload;
+  } catch {
+    return;
+  }
+  if (!payload?.title) return;
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      tag: payload.tag,
+      icon: "/icons/icon-192.png",
+      data: { url: payload.url },
+    })
+  );
+});
+
+// Clic : on ramène au premier plan une fenêtre de l'app déjà ouverte (sur la
+// bonne page), sinon on en ouvre une.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const path = (event.notification.data as { url?: string } | null)?.url ?? "/";
+  // Seulement un chemin de l'app, jamais une URL externe (« //site » en est une).
+  const isAppPath = path.startsWith("/") && !path.startsWith("//");
+  const target = new URL(isAppPath ? path : "/", self.location.origin).href;
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const client = windows.find((c) => new URL(c.url).origin === self.location.origin);
+      if (client) {
+        await client.focus();
+        if (client.url !== target) await client.navigate(target).catch(() => {});
+        return;
+      }
+      await self.clients.openWindow(target);
+    })()
+  );
+});

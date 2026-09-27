@@ -20,7 +20,7 @@ Web Push                 WebView                    finitions natives          f
 | 1.1 | Manifest, viewport, safe-area | S | ☑ (reste : test sur iPhone réel) |
 | 1.2 | Service worker et page hors ligne | M | ☑ |
 | 1.3 | Listes de courses hors ligne | M | ☑ |
-| 1.4 | Notifications Web Push | L | ☐ |
+| 1.4 | Notifications Web Push | L | ☑ (reste : clés VAPID dans Coolify, test sur appareils réels) |
 | 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☐ |
 | 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☐ |
 | 2.2 | Appareils connectés (liste, révocation) | S | ☐ |
@@ -130,30 +130,39 @@ ligne → tout est en base et visible sur un autre appareil du groupe.
 **Objectif** : les rappels du cron arrivent en notification, en plus (ou à la
 place) de l'e-mail.
 
-- [ ] Prisma : modèle `PushSubscription` (`userId`, `endpoint` unique, `p256dh`,
-      `auth`, `userAgent`, `createdAt`, `lastUsedAt`), suppression en cascade
-      avec `User`.
-- [ ] Clés VAPID dans l'env (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
-      `VAPID_SUBJECT`), ajoutées à `.env.example` et à Coolify.
-- [ ] Dépendance `web-push`.
-- [ ] `POST` / `DELETE /api/push/subscriptions`.
-- [ ] Extraire l'envoi de `src/app/api/cron/notify/route.ts` dans
-      `src/lib/notify.ts`, avec un canal par type : e-mail, puis Web Push.
-      Même liste de destinataires (membres du groupe) ; un 404 ou 410 du service
-      push supprime l'abonnement.
-- [ ] Préférences par utilisateur (champs `User` : `notifyEmail`, `notifyPush`)
-      dans `/profile`.
-- [ ] SW : `push` affiche la notification ; `notificationclick` ouvre l'élément
-      concerné (`/todos`, `/calendar`…).
-- [ ] UI `/profile` : bouton d'activation. Sur iOS hors mode standalone,
-      expliquer qu'il faut d'abord installer l'app (Web Push iOS 16.4+ uniquement
-      en PWA installée).
-- [ ] RGPD : `/confidentialite` (abonnements push, finalité, durée),
-      export `/api/users/me/export`, `docs/rgpd.md`.
-- [ ] ⚠️ Branche `feat/profils-foyer` (migration `20260927120000_family_profiles`,
-      mêmes fichiers RGPD : `src/lib/account.ts`, `/confidentialite`,
-      `docs/rgpd.md`) : rebaser dessus si elle est mergée avant, et dater la
-      migration `PushSubscription` après la sienne.
+- [x] Prisma : modèle `PushSubscription` (`endpoint` unique, `p256dh`, `auth`,
+      `userAgent`, `createdAt`, `lastUsedAt`, cascade avec `User`) et
+      `User.notifyEmail` (défaut `true`). Migration
+      `20260927160000_push_notifications`, datée après celle de
+      `feat/profils-foyer` (`20260927120000_family_profiles`).
+      Pas de `notifyPush` : le push est actif là où un appareil est abonné.
+- [ ] **Clés VAPID dans Coolify** (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+      `VAPID_SUBJECT`, voir `.env.example`). Sans elles, le push est désactivé
+      et la ligne « Sur cet appareil » n'apparaît pas dans le profil.
+- [x] `web-push` ; envoi dans `src/lib/push.ts` (TTL 12 h, abonnement supprimé
+      sur 404 / 410).
+- [x] `POST` / `DELETE /api/push/subscriptions` : endpoint limité aux services
+      push des navigateurs (`src/lib/pushEndpoint.ts`, anti-SSRF), clés
+      vérifiées (65 et 16 octets), un appareil qui change de compte est
+      réattribué. `POST /api/push/test` pour une notification d'essai.
+      `GET` / `PATCH /api/users/me/notifications` (préférence e-mail, clé
+      publique).
+- [x] `src/lib/notify.ts` : destinataires (membres du groupe) et envoi par
+      canal. Le cron retente un rappel seulement si des envois ont été tentés et
+      qu'aucun n'a abouti ; un rappel sans aucun canal est marqué traité.
+- [x] SW : `push` affiche la notification (icône, `tag` pour ne pas empiler) ;
+      `notificationclick` ramène une fenêtre ouverte sur la bonne page ou en
+      ouvre une (chemins de l'app uniquement).
+- [x] Section « Rappels » du profil (`src/components/NotificationSettings.tsx`) :
+      e-mail on/off, notifications sur cet appareil, essai. Messages dédiés pour
+      iPhone hors écran d'accueil, navigateur sans push, permission refusée.
+- [x] Déconnexion : l'appareil est désabonné (serveur puis navigateur).
+- [x] RGPD : `/confidentialite` (données, durée, services push, stockage hors
+      ligne), `CONSENT_VERSION` → `2026-09-v2`, export (appareils sans endpoint
+      ni clés), `docs/rgpd.md`.
+- [ ] ⚠️ `feat/profils-foyer` touche aussi `src/lib/account.ts`,
+      `/confidentialite` et `docs/rgpd.md` : conflits simples à prévoir au merge
+      (ajouts de part et d'autre).
 
 **Validation** : un todo avec rappel dans 5 minutes déclenche une notification
 sur Android (Chrome) et sur iPhone (PWA installée) ; le clic ouvre le todo ;

@@ -32,12 +32,16 @@ export async function exportUserData(userId: string) {
       lastLoginAt: true,
       consentedAt: true,
       consentVersion: true,
+      notifyEmail: true,
       password: true,
       calendarToken: true,
       accounts: { select: { provider: true, type: true } },
       featureFlags: { select: { feature: true, enabled: true } },
       apiKeys: { select: { name: true, createdAt: true } },
       loginEvents: { select: { createdAt: true, provider: true }, orderBy: { createdAt: "asc" } },
+      // Appareils abonnés aux notifications. L'endpoint et les clés sont des
+      // secrets d'envoi, pas des informations sur l'utilisateur : non exportés.
+      pushSubscriptions: { select: { userAgent: true, createdAt: true, lastUsedAt: true } },
       groupMemberships: {
         select: {
           role: true,
