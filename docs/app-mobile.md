@@ -22,7 +22,7 @@ Web Push                 WebView                    finitions natives          f
 | 1.3 | Listes de courses hors ligne | M | ☑ |
 | 1.4 | Notifications Web Push | L | ☑ (reste : clés VAPID dans Coolify, test sur appareils réels) |
 | 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☑ (reste : test sur Android réel) |
-| 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☐ |
+| 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☑ (reste : aller-retour Google / Apple réel, avec l'app) |
 | 2.2 | Appareils connectés (liste, révocation) | S | ☐ |
 | 3.1 | Projet Capacitor (iOS + Android) | M | ☐ |
 | 3.2 | Branchement de la connexion mobile | S | ☐ |
@@ -207,27 +207,32 @@ Flux (type PKCE) :
 ```
 App                      Navigateur système             minddump.fr
  │ verifier aléatoire                                       │
- │ ── ouvre /auth/mobile/start?provider=google&challenge=… ─▶│
+ │ ── ouvre /api/mobile-auth/start?provider=google&challenge=… ─▶│
  │                         │ connexion Google / Apple ──────▶│
  │                         │◀── redirection minddump://auth?code=… (60 s, usage unique)
  │◀── lien profond ────────┘                                 │
- │ WebView : POST /api/auth/mobile/exchange {code, verifier} ▶│ vérifie, pose le cookie
+ │ WebView : POST /api/mobile-auth/exchange {code, verifier} ▶│ vérifie, pose le cookie
  │◀─────────────────────────────────── session NextAuth ──────│
 ```
 
-- [ ] Prisma : modèle `MobileAuthCode` (`codeHash`, `challenge`, `userId`,
-      `expiresAt`, `usedAt`).
-- [ ] `GET /auth/mobile/start` : garde `challenge` en cookie court, redirige vers
-      `/api/auth/signin/<provider>` avec `callbackUrl=/auth/mobile/complete`.
-- [ ] `/auth/mobile/complete` : utilisateur connecté (cookie du navigateur) →
-      crée le code → redirige vers `minddump://auth?code=…`.
-- [ ] `POST /api/auth/mobile/exchange` : vérifie code, expiration, usage unique
-      et `sha256(verifier) == challenge` ; encode un JWT NextAuth
-      (`encode` de `next-auth/jwt`, même secret, même nom de cookie que
-      `src/lib/secureCookies.ts`) et le pose en cookie.
-- [ ] Même règle de consentement que le middleware (redirection `/consentement`).
-- [ ] `LoginEvent` avec `provider: "google-mobile"` / `"apple-mobile"`.
-- [ ] Doc dans `docs/oauth.md`.
+- [x] Prisma : `MobileAuthCode` (`codeHash`, `challenge`, `userId`, `provider`,
+      `expiresAt`, `usedAt`), migration `20260927180000_mobile_auth_codes`. Pas
+      de relation vers `User` (codes de 60 s, purgés à chaque émission ; l'échange
+      vérifie que le compte existe) : un conflit de moins dans `schema.prisma`
+      avec les autres branches.
+- [x] `GET /api/mobile-auth/start` (hors de `/api/auth/*`, capturé par
+      NextAuth) : fournisseur OAuth actif et défi S256 valides, défi gardé en
+      cookie, puis `/auth/mobile` qui appelle `signIn(provider)`.
+- [x] `GET /api/mobile-auth/complete` : session du navigateur requise (sinon
+      `/login`), consentement requis (sinon `/consentement`), code émis puis
+      redirection `minddump://auth?code=…`.
+- [x] `POST /api/mobile-auth/exchange` : code existant, non utilisé, non expiré,
+      `sha256(verifier) == challenge` ; toute tentative brûle le code. Cookie de
+      session encodé avec `encode` de `next-auth/jwt`, même nom et mêmes
+      options que NextAuth.
+- [x] `LoginEvent` : pas de doublon, la connexion du navigateur système
+      l'enregistre déjà avec le vrai fournisseur.
+- [x] Doc dans `docs/oauth.md` (« Connexion depuis l'app mobile »).
 
 **Validation** : testable avant Capacitor avec le fournisseur `test-oidc` et un
 faux schéma ; code réutilisé, expiré ou avec un mauvais verifier → refusé.

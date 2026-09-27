@@ -123,6 +123,24 @@ model PushSubscription {
   @@index([userId])
 }
 
+// Code à usage unique de la connexion depuis l'app mobile (docs/app-mobile.md,
+// étape 2.1) : émis par le navigateur système après la connexion OAuth, échangé
+// par l'app contre une session. Valable 60 secondes. Pas de relation vers User :
+// l'échange vérifie que le compte existe encore, et les codes expirés sont purgés
+// à chaque émission.
+model MobileAuthCode {
+  id        String    @id @default(cuid())
+  codeHash  String    @unique
+  challenge String
+  userId    String
+  provider  String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
 model ApiKey {
   id        String   @id @default(cuid())
   key       String   @unique
