@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { sendNotificationEmail } from "@/lib/mail";
-import { nextOccurrence } from "@/lib/recurrence";
+import { recipientsFor, sendReminder, type Recipient } from "@/lib/notify";
+import { occurrencesBetween } from "@/lib/recurrence";
 
 // Comparaison à temps constant pour éviter les fuites temporelles sur le secret.
 function safeEqual(a: string, b: string): boolean {
@@ -26,69 +26,40 @@ function escapeHtml(text: string): string {
 // ne pas la manquer entre deux passages du cron (toutes les 5 minutes).
 const OCCURRENCE_GRACE_MS = 60 * 60 * 1000;
 
-/**
- * Destinataires d'un rappel : tous les membres du groupe auquel l'élément est
- * rattaché — ceux qui le voient sont ceux qu'il faut prévenir. Un élément sans
- * groupe ne prévient que son créateur.
- */
-async function recipientsFor(
-  creatorEmail: string | null,
-  groupId: string | null,
-  cache: Map<string, string[]>
-): Promise<string[]> {
-  if (!groupId) return creatorEmail ? [creatorEmail] : [];
-
-  let emails = cache.get(groupId);
-  if (!emails) {
-    const members = await prisma.groupMember.findMany({
-      where: { groupId },
-      select: { user: { select: { email: true } } },
-    });
-    emails = members.flatMap((m) => (m.user.email ? [m.user.email] : []));
-    cache.set(groupId, emails);
-  }
-
-  const all = creatorEmail ? [creatorEmail, ...emails] : emails;
-  return Array.from(new Set(all));
-}
-
-/** Envoie à chaque destinataire ; renvoie le nombre d'envois réussis. */
-async function sendToAll(recipients: string[], subject: string, html: string) {
-  let ok = 0;
-  for (const to of recipients) {
-    try {
-      await sendNotificationEmail(to, subject, html);
-      ok++;
-    } catch (error) {
-      console.error(`[cron/notify] Échec d'envoi à ${to}:`, error);
-    }
-  }
-  return ok;
-}
-
 function sharedLine(groupName: string | undefined, creatorName: string | null) {
   if (!groupName) return "";
   const by = creatorName ? `, ajouté par ${escapeHtml(creatorName)}` : "";
   return `<p style="color:#666">Partagé avec « ${escapeHtml(groupName)} »${by}.</p>`;
 }
 
-/** Première occurrence d'une série encore à rappeler, ou null. */
+/**
+ * Première occurrence d'une série encore à rappeler (pas déjà notifiée, pas
+ * passée depuis plus d'OCCURRENCE_GRACE_MS), si son rappel est dû d'ici
+ * `horizon` ; sinon null. Calculée depuis la date d'origine (occurrencesBetween) :
+ * un événement du 31 ne glisse pas au 3 du mois suivant, et une série ancienne
+ * est rattrapée d'un saut.
+ */
 function upcomingOccurrence(
   start: Date,
   recurrence: string,
   alreadyNotified: Date | null,
-  now: Date
+  now: Date,
+  horizon: Date
 ): Date | null {
-  const floor = now.getTime() - OCCURRENCE_GRACE_MS;
-  let current: Date | null = new Date(start);
-  let safety = 5000;
-  while (current && safety-- > 0) {
-    const afterNotified = !alreadyNotified || current > alreadyNotified;
-    if (afterNotified && current.getTime() >= floor) return current;
-    current = nextOccurrence(current, recurrence);
-  }
-  return null;
+  let from = now.getTime() - OCCURRENCE_GRACE_MS;
+  if (alreadyNotified) from = Math.max(from, alreadyNotified.getTime() + 1);
+  const [first] = occurrencesBetween(start, null, recurrence, new Date(from), horizon);
+  return first?.date ?? null;
 }
+
+// Le serveur tourne en UTC : les dates des rappels s'affichent à l'heure de
+// Paris, comme sur le site.
+const TIME_ZONE = "Europe/Paris";
+const formatDate = (d: Date) => d.toLocaleDateString("fr-FR", { timeZone: TIME_ZONE });
+const formatTime = (d: Date) =>
+  d.toLocaleTimeString("fr-FR", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
+/** AAAA-MM-JJ à l'heure de Paris, pour le lien /calendar?view=day&date=… */
+const dayParam = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: TIME_ZONE });
 
 // This endpoint is called by the cron job to send notifications.
 // Protégé par un secret dédié CRON_SECRET (retombe sur NEXTAUTH_SECRET pour
@@ -101,7 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date();
-  const groupEmails = new Map<string, string[]>();
+  const groupMembers = new Map<string, Recipient[]>();
   let sent = 0;
 
   // Check todos with notifications
@@ -122,24 +93,34 @@ export async function POST(req: NextRequest) {
     );
     if (now < notifyAt) continue;
 
-    const recipients = await recipientsFor(todo.user.email, todo.groupId, groupEmails);
-    const ok = await sendToAll(
-      recipients,
-      `Rappel: ${todo.title}`,
-      `<h2>Rappel de tache</h2>
+    const recipients = await recipientsFor(todo.user, todo.groupId, groupMembers);
+    const date = formatDate(todo.dueDate);
+    const time = formatTime(todo.dueDate);
+    const { attempted, delivered } = await sendReminder(recipients, {
+      email: {
+        subject: `Rappel: ${todo.title}`,
+        html: `<h2>Rappel de tache</h2>
         <p><strong>${escapeHtml(todo.title)}</strong></p>
         ${todo.description ? `<p>${escapeHtml(todo.description)}</p>` : ""}
-        <p>Echeance: ${todo.dueDate.toLocaleDateString("fr-FR")} a ${todo.dueDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</p>
+        <p>Echeance: ${date} a ${time}</p>
         ${recipients.length > 1 ? sharedLine(todo.group?.name, todo.user.name) : ""}
-        <p><a href="${process.env.NEXTAUTH_URL}/todos">Voir les taches</a></p>`
-    );
-    // Si tout a échoué (SMTP indisponible), on retentera au prochain passage.
-    if (ok === 0 && recipients.length > 0) continue;
+        <p><a href="${process.env.NEXTAUTH_URL}/todos">Voir les taches</a></p>`,
+      },
+      push: {
+        title: todo.title,
+        body: `Échéance le ${date} à ${time}`,
+        url: "/todos",
+        tag: `todo-${todo.id}`,
+      },
+    });
+    // Si tout a échoué (SMTP ou service push indisponible), on retentera au
+    // prochain passage.
+    if (attempted > 0 && delivered === 0) continue;
     await prisma.todo.update({
       where: { id: todo.id },
       data: { notified: true },
     });
-    sent += ok;
+    sent += delivered;
   }
 
   // Check calendar events with notifications. Un événement récurrent n'est
@@ -156,36 +137,50 @@ export async function POST(req: NextRequest) {
     if (!event.notifyBefore) continue;
 
     const occurrence = event.recurrence
-      ? upcomingOccurrence(event.date, event.recurrence, event.notifiedOccurrence, now)
+      ? upcomingOccurrence(
+          event.date,
+          event.recurrence,
+          event.notifiedOccurrence,
+          now,
+          new Date(now.getTime() + event.notifyBefore * 60 * 1000)
+        )
       : event.date;
     if (!occurrence) continue;
 
     const notifyAt = new Date(occurrence.getTime() - event.notifyBefore * 60 * 1000);
     if (now < notifyAt) continue;
 
-    const recipients = await recipientsFor(event.user.email, event.groupId, groupEmails);
-    const ok = await sendToAll(
-      recipients,
-      `Rappel: ${event.title}`,
-      `<h2>Rappel d'evenement</h2>
+    const recipients = await recipientsFor(event.user, event.groupId, groupMembers);
+    // Ouvre le calendrier sur le jour de l'occurrence.
+    const dayLink = `/calendar?view=day&date=${dayParam(occurrence)}`;
+    const when = event.allDay
+      ? `Le ${formatDate(occurrence)}`
+      : `Le ${formatDate(occurrence)} à ${formatTime(occurrence)}`;
+    const { attempted, delivered } = await sendReminder(recipients, {
+      email: {
+        subject: `Rappel: ${event.title}`,
+        html: `<h2>Rappel d'evenement</h2>
         <p><strong>${escapeHtml(event.title)}</strong></p>
         ${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}
-        <p>Date: ${occurrence.toLocaleDateString("fr-FR")}${
-          !event.allDay
-            ? ` a ${occurrence.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
-            : ""
-        }</p>
+        <p>Date: ${formatDate(occurrence)}${!event.allDay ? ` a ${formatTime(occurrence)}` : ""}</p>
         ${recipients.length > 1 ? sharedLine(event.group?.name, event.user.name) : ""}
-        <p><a href="${process.env.NEXTAUTH_URL}/calendar">Voir le calendrier</a></p>`
-    );
-    if (ok === 0 && recipients.length > 0) continue;
+        <p><a href="${process.env.NEXTAUTH_URL}${dayLink}">Voir le calendrier</a></p>`,
+      },
+      push: {
+        title: event.title,
+        body: when,
+        url: dayLink,
+        tag: `event-${event.id}-${occurrence.getTime()}`,
+      },
+    });
+    if (attempted > 0 && delivered === 0) continue;
     await prisma.calendarEvent.update({
       where: { id: event.id },
       data: event.recurrence
         ? { notifiedOccurrence: occurrence }
         : { notified: true },
     });
-    sent += ok;
+    sent += delivered;
   }
 
   return NextResponse.json({ sent, checked: todos.length + events.length });

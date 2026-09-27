@@ -8,3 +8,8 @@ next-env.d.ts
 .mcp.json
 minddump-mcp/dist/
 .env.backup*
+
+# Service worker généré au build (next.config.mjs)
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js

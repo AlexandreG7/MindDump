@@ -49,6 +49,8 @@ import {
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { LoginMethods } from "@/components/LoginMethods";
 import { useFeaturesContext, type FeatureKey } from "@/components/FeaturesContext";
+import { NotificationSettings } from "@/components/NotificationSettings";
+import { ConnectedDevices } from "@/components/ConnectedDevices";
 
 interface Member {
   id: string;
@@ -673,6 +675,10 @@ export default function ProfilePage() {
           )}
         </div>
       </section>
+
+      <NotificationSettings />
+
+      <ConnectedDevices />
 
       {/* ── Feature flags ───────────────────────────────────────── */}
       <section className="bg-card border border-border rounded-2xl p-6 space-y-4">

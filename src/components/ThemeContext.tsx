@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { THEME_STORAGE_KEY as STORAGE_KEY, type ThemePreference } from "@/lib/theme";
+import { THEME_COLORS, THEME_STORAGE_KEY as STORAGE_KEY, type ThemePreference } from "@/lib/theme";
 
 type ThemeContextValue = {
   theme: ThemePreference;
@@ -17,6 +17,15 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 function systemPrefersDark() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+// Les balises theme-color (layout.tsx) suivent le thème du système ; quand
+// l'utilisateur en force un, la barre d'état doit suivre le thème affiché.
+function applyThemeColor(dark: boolean) {
+  const color = dark ? THEME_COLORS.dark : THEME_COLORS.light;
+  document
+    .querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
+    .forEach((meta) => meta.setAttribute("content", color));
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -35,6 +44,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const apply = () => {
       const dark = theme === "dark" || (theme === "system" && systemPrefersDark());
       document.documentElement.classList.toggle("dark", dark);
+      applyThemeColor(dark);
       setResolvedTheme(dark ? "dark" : "light");
     };
     apply();

@@ -32,12 +32,16 @@ export async function exportUserData(userId: string) {
       lastLoginAt: true,
       consentedAt: true,
       consentVersion: true,
+      notifyEmail: true,
       password: true,
       calendarToken: true,
       accounts: { select: { provider: true, type: true } },
       featureFlags: { select: { feature: true, enabled: true } },
       apiKeys: { select: { name: true, createdAt: true } },
       loginEvents: { select: { createdAt: true, provider: true }, orderBy: { createdAt: "asc" } },
+      // Appareils abonnés aux notifications. L'endpoint et les clés sont des
+      // secrets d'envoi, pas des informations sur l'utilisateur : non exportés.
+      pushSubscriptions: { select: { userAgent: true, createdAt: true, lastUsedAt: true } },
       groupMemberships: {
         select: {
           role: true,
@@ -94,6 +98,11 @@ export async function exportUserData(userId: string) {
   if (!user) return null;
 
   const { password, calendarToken, recipes, ...rest } = user;
+  // Sans relation vers User (voir schema.prisma) : lus à part.
+  const mobileDevices = await prisma.mobileDevice.findMany({
+    where: { userId },
+    select: { name: true, platform: true, createdAt: true, lastSeenAt: true },
+  });
   return {
     exportedAt: new Date().toISOString(),
     format: "MindDump export v1",
@@ -101,6 +110,7 @@ export async function exportUserData(userId: string) {
       ...rest,
       hasPassword: !!password,
       hasCalendarFeed: !!calendarToken,
+      mobileDevices,
       recipes: recipes.map((r) => ({
         ...r,
         steps: parseJson(r.steps),
@@ -221,6 +231,9 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
     if (user.email) {
       await tx.verificationToken.deleteMany({ where: { identifier: user.email } });
     }
+    // Sans relation vers User (voir schema.prisma) : à effacer explicitement.
+    await tx.mobileDevice.deleteMany({ where: { userId } });
+    await tx.mobileAuthCode.deleteMany({ where: { userId } });
     await tx.user.delete({ where: { id: userId } });
   });
 

@@ -128,6 +128,17 @@ export default function PrivacyPolicyPage() {
               <Row label="Intégrations">
                 Les clés API que tu crées pour connecter un assistant IA (nom et date de création).
               </Row>
+              <Row label="App mobile">
+                Si tu te connectes depuis l&apos;app : le nom et le type de chaque appareil connecté
+                (iPhone, Android), la date de connexion et celle de la dernière utilisation. Tu peux
+                déconnecter un appareil à distance depuis ton profil.
+              </Row>
+              <Row label="Notifications">
+                Ton choix de recevoir ou non les rappels par e-mail. Si tu actives les notifications
+                sur un appareil : l&apos;adresse d&apos;envoi fournie par le service de notification
+                de ton navigateur, les clés qui chiffrent les notifications, le type de navigateur et
+                la date du dernier envoi.
+              </Row>
             </tbody>
           </table>
         </div>
@@ -166,6 +177,14 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>Historique de connexion : 12 mois, puis supprimé automatiquement.</li>
           <li>
+            Appareils connectés à l&apos;app : jusqu&apos;à ce que tu te déconnectes de
+            l&apos;appareil ou que tu le déconnectes depuis ton profil.
+          </li>
+          <li>
+            Notifications sur un appareil : jusqu&apos;à ce que tu les désactives ou que tu te
+            déconnectes de cet appareil, ou que le service de notification les déclare expirées.
+          </li>
+          <li>
             Sauvegardes de la base : une sauvegarde hebdomadaire conservée sur le serveur, et des
             sauvegardes techniques créées avant chaque mise à jour (les 3 dernières, puis une par
             semaine pendant 3 mois).
@@ -184,6 +203,12 @@ export default function PrivacyPolicyPage() {
           <li>Hetzner Online GmbH (Allemagne) : hébergement de l&apos;application, de la base et des photos.</li>
           <li>
             {mailProvider} : envoi des rappels (ton e-mail et le titre du rappel).
+          </li>
+          <li>
+            Le service de notification de ton navigateur (Google pour Chrome et Android, Apple pour
+            Safari et l&apos;iPhone, Mozilla pour Firefox, Microsoft pour Edge) : uniquement si tu
+            actives les notifications. Il achemine les rappels sans pouvoir les lire : leur contenu
+            est chiffré pour ton seul appareil.
           </li>
           <li>
             Google et Apple (États-Unis) : uniquement si tu te connectes avec l&apos;un d&apos;eux ou
@@ -228,8 +253,15 @@ export default function PrivacyPolicyPage() {
                 <code>theme</code> (clair ou sombre), <code>sidebarCollapsed</code> (menu replié),{" "}
                 <code>currentGroupId</code> (groupe actif), <code>kids:selectedProfile</code> (enfant
                 affiché dans le semainier), <code>nextauth.message</code>
-                (synchronise la connexion et la déconnexion entre onglets). Restent sur ton appareil,
-                ne sont pas envoyés au serveur.
+                (synchronise la connexion et la déconnexion entre onglets),{" "}
+                <code>minddump-offline-list-ops</code> (modifications de listes faites sans réseau, en
+                attente d&apos;envoi), <code>installPromptDismissed</code> (invitation à installer
+                l&apos;app fermée). Restent sur ton appareil.
+              </Row>
+              <Row label="Hors ligne">
+                Le service worker de MindDump garde sur ton appareil le code de l&apos;application, les
+                pages déjà consultées, ta session et tes listes de courses, pour qu&apos;elles restent
+                utilisables sans réseau. Tout ce qui concerne ton compte est effacé à la déconnexion.
               </Row>
             </tbody>
           </table>

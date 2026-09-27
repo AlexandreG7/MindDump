@@ -81,3 +81,24 @@ Un fournisseur OIDC de test (`test-oidc`) est activé par `OAUTH_TEST_ISSUER`, *
 production** (`NODE_ENV !== "production"`, même si la variable est définie). Il imite Apple (retour
 en `form_post`). Pointer `OAUTH_TEST_ISSUER` vers un serveur OIDC local (client `minddump-test` /
 `minddump-test-secret`) et lancer `next dev`.
+
+## Connexion depuis l'app mobile
+
+Google refuse l'OAuth dans une WebView embarquée (`disallowed_useragent`) et Apple le déconseille.
+L'app (Capacitor, `docs/app-mobile.md` phase 3) passe donc par le navigateur système, sur le
+modèle PKCE (`src/lib/mobileAuth.ts`) :
+
+1. L'app tire un `verifier` aléatoire et ouvre, dans `ASWebAuthenticationSession` (iOS) ou Custom
+   Tabs (Android), `/api/mobile-auth/start?provider=google|apple&challenge=<SHA-256 du verifier,
+   base64url>`. Le défi est gardé en cookie (15 min, `SameSite=None` en HTTPS pour le retour Apple).
+2. `/auth/mobile` lance `signIn(provider)` ; NextAuth revient sur `/api/mobile-auth/complete`
+   (redirection vers `/login` sans session, vers `/consentement` sans consentement).
+3. `complete` émet un code à usage unique (60 s, seul son SHA-256 est stocké dans
+   `MobileAuthCode`) et redirige vers `minddump://auth?code=…`.
+4. L'app, dans sa WebView, appelle `POST /api/mobile-auth/exchange {code, verifier}` : le cookie de
+   session NextAuth y est posé (même jeton que NextAuth, 30 jours).
+
+Toute tentative d'échange brûle le code, même avec un mauvais `verifier` : une autre app qui
+intercepterait le lien `minddump://` n'aurait qu'un essai, sans le `verifier`. L'identifiant /
+mot de passe fonctionne directement dans la WebView, sans ce détour. L'historique de connexion
+(`LoginEvent`) est alimenté par la connexion du navigateur système, avec le fournisseur réel.

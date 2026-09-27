@@ -22,6 +22,15 @@
   `nextauth.message` posé par NextAuth pour synchroniser la session entre onglets. Pas de bandeau
   (exemption CNIL), mais une mention dans la politique. Les polices sont servies localement
   (`next/font`) : plus d'appel à Google Fonts.
+- **Hors ligne et notifications (PWA, `docs/app-mobile.md`)** : le service worker garde sur
+  l'appareil les pages vues, la session et les listes de courses ; la file
+  `minddump-offline-list-ops` (localStorage) garde les modifications faites sans réseau.
+  Abonnements Web Push dans `PushSubscription` (endpoint, clés, navigateur, dernier envoi) ;
+  préférence e-mail dans `User.notifyEmail`. La déconnexion (`signOutAndClear`,
+  `src/lib/signOut.ts`) désabonne l'appareil et efface caches et file ; la suppression du compte
+  efface les abonnements en cascade. L'export contient les appareils abonnés, sans endpoint ni
+  clés (des secrets d'envoi). Les services push des navigateurs ne voient que du contenu
+  chiffré (RFC 8291). Mentionné dans `/confidentialite` (version `2026-09-v2`).
 - **Droits** : dans `/profile`, « Exporter mes données » (`GET /api/users/me/export`) et
   « Supprimer mon compte » (`DELETE /api/users/me/account`). La suppression :
   - transmet tout groupe qui a encore des membres (au plus ancien admin, sinon au plus ancien

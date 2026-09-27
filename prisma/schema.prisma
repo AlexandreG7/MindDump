@@ -66,6 +66,9 @@ model User {
   // Preuve du consentement RGPD : date et version du texte accepté (voir src/lib/consent.ts)
   consentedAt    DateTime?
   consentVersion String?
+  // Rappels (cron/notify) par e-mail ; les notifications push dépendent, elles,
+  // des appareils abonnés (PushSubscription).
+  notifyEmail    Boolean   @default(true)
 
   accounts              Account[]
   sessions              Session[]
@@ -82,6 +85,7 @@ model User {
   kidDayEntries         KidDayEntry[]
   loginEvents           LoginEvent[]
   familyProfiles        FamilyProfile[]
+  pushSubscriptions     PushSubscription[]
 
   @@index([createdAt])
 }
@@ -101,6 +105,57 @@ model LoginEvent {
 }
 
 // ─── API Keys (pour MCP et intégrations externes) ────────────
+
+// Abonnement Web Push d'un appareil (navigateur ou PWA installée). L'endpoint,
+// fourni par le service push du navigateur, identifie l'appareil : un même
+// appareil qui change de compte est réattribué au dernier abonné.
+model PushSubscription {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  @@index([userId])
+}
+
+// Code à usage unique de la connexion depuis l'app mobile (docs/app-mobile.md,
+// étape 2.1) : émis par le navigateur système après la connexion OAuth, échangé
+// par l'app contre une session. Valable 60 secondes. Pas de relation vers User :
+// l'échange vérifie que le compte existe encore, et les codes expirés sont purgés
+// à chaque émission.
+model MobileAuthCode {
+  id        String    @id @default(cuid())
+  codeHash  String    @unique
+  challenge String
+  userId    String
+  provider  String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
+// Appareil connecté par l'app mobile (étape 2.2) : son id est porté par le jeton
+// de session, et le callback jwt refuse un appareil qui n'existe plus (révoquer =
+// supprimer la ligne). Comme
+// MobileAuthCode, pas de relation vers User ; suppression explicite avec le
+// compte (src/lib/account.ts).
+model MobileDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  platform   String
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+
+  @@index([userId])
+}
 
 model ApiKey {
   id        String   @id @default(cuid())

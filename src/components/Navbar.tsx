@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { signOutAndClear } from "@/lib/signOut";
 import {
   CheckSquare,
   Calendar,
@@ -223,7 +224,7 @@ export function Navbar() {
                   variant="ghost"
                   size="sm"
                   className="flex-1 justify-start gap-2 text-muted-foreground"
-                  onClick={() => signOut()}
+                  onClick={() => signOutAndClear()}
                 >
                   <LogOut className="h-4 w-4" />
                   Déconnexion
@@ -249,7 +250,7 @@ export function Navbar() {
 
           {!skipAuth && collapsed && (
             <button
-              onClick={() => signOut()}
+              onClick={() => signOutAndClear()}
               title="Déconnexion"
               className="w-full flex justify-center p-2 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             >
@@ -260,7 +261,7 @@ export function Navbar() {
       </nav>
 
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b px-4 py-3 flex items-center justify-between">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] flex items-center justify-between">
         <h1 className="text-lg font-bold">MindDump</h1>
         <div className="flex items-center gap-1">
           <ThemeToggle className="p-2" />
@@ -272,7 +273,7 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 px-4">
+        <div className="md:hidden fixed inset-0 z-40 bg-background overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))]">
           <div className="space-y-1">
             {navItems.map((item) => (
               <Link
@@ -306,7 +307,7 @@ export function Navbar() {
           </div>
           {!skipAuth && (
             <div className="border-t mt-4 pt-4">
-              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => signOut()}>
+              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => signOutAndClear()}>
                 <LogOut className="h-4 w-4" />
                 Déconnexion
               </Button>

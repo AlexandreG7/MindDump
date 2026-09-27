@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import withSerwistInit from "@serwist/next";
+
 // En-têtes de sécurité appliqués à toutes les réponses (M1 de l'audit).
 const securityHeaders = [
   {
@@ -12,6 +15,20 @@ const securityHeaders = [
     value: "camera=(), microphone=(), geolocation=(self)",
   },
 ];
+
+// Service worker PWA (src/app/sw.ts → public/sw.js), voir docs/app-mobile.md.
+// Désactivé en dev : un SW qui met en cache pendant qu'on code sème la confusion.
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.ts",
+  swDest: "public/sw.js",
+  disable: process.env.NODE_ENV === "development",
+  // public/ contient les photos de recettes envoyées en local (uploads/) :
+  // elles n'ont rien à faire dans le précache commun.
+  globPublicPatterns: [],
+  // La page hors ligne n'est pas un asset du build : on la précache à part,
+  // avec une révision neuve à chaque build pour qu'elle suive les mises à jour.
+  additionalPrecacheEntries: [{ url: "/hors-ligne", revision: randomUUID() }],
+});
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -40,4 +57,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+export default withSerwist(nextConfig);
