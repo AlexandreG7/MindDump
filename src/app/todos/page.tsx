@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2, AlertCircle, Calendar, Repeat } from "lucide-react";
 import { RECURRENCE_LABELS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
+import { TOAST_ACTION_DURATION, useFeedback } from "@/components/ui/feedback";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Todo {
   id: string;
@@ -41,7 +43,13 @@ interface Todo {
 export default function TodosPage() {
   const { status, isReady } = useAuth();
   const { currentGroupId } = useGroupContext();
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const { toast, dismiss } = useFeedback();
+  // null tant que le premier chargement n'est pas revenu.
+  const [todos, setTodos] = useState<Todo[] | null>(null);
+  // Suppressions en attente : la tâche disparaît tout de suite, la requête part
+  // à la fin du délai d'annulation.
+  const pendingDeletes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; toastId: number }>());
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newTodo, setNewTodo] = useState({
     title: "",
@@ -54,8 +62,14 @@ export default function TodosPage() {
 
   const fetchTodos = useCallback(() => {
     const url = currentGroupId ? `/api/todos?groupId=${currentGroupId}` : "/api/todos";
-    fetch(url).then((r) => r.json()).then(setTodos);
-  }, [currentGroupId]);
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(setTodos)
+      .catch(() => {
+        setTodos((prev) => prev ?? []);
+        toast("Impossible de charger les tâches.", "error");
+      });
+  }, [currentGroupId, toast]);
 
   useEffect(() => {
     if (isReady) fetchTodos();
@@ -89,18 +103,56 @@ export default function TodosPage() {
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
-    await fetch(`/api/todos/${id}`, {
+    setTodos((all) => all?.map((t) => (t.id === id ? { ...t, completed: !completed } : t)) ?? all);
+    const res = await fetch(`/api/todos/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: !completed }),
-    });
+    }).catch(() => null);
+    if (!res?.ok) toast("La tâche n'a pas pu être mise à jour.", "error");
+    // Recharge aussi pour voir l'occurrence suivante d'une tâche récurrente.
     fetchTodos();
   };
 
-  const deleteTodo = async (id: string) => {
-    await fetch(`/api/todos/${id}`, { method: "DELETE" });
-    fetchTodos();
+  const sendDelete = (id: string) => {
+    pendingDeletes.current.delete(id);
+    return fetch(`/api/todos/${id}`, { method: "DELETE", keepalive: true }).catch(() => null);
   };
+
+  const deleteTodo = (todo: Todo) => {
+    setHidden((h) => new Set(h).add(todo.id));
+    const timer = setTimeout(async () => {
+      const res = await sendDelete(todo.id);
+      if (!res?.ok) toast("La tâche n'a pas pu être supprimée.", "error");
+      fetchTodos();
+    }, TOAST_ACTION_DURATION);
+    const toastId = toast(`« ${todo.title} » supprimée`, "info", {
+      label: "Annuler",
+      onClick: () => {
+        clearTimeout(pendingDeletes.current.get(todo.id)?.timer);
+        pendingDeletes.current.delete(todo.id);
+        setHidden((h) => {
+          const next = new Set(h);
+          next.delete(todo.id);
+          return next;
+        });
+      },
+    });
+    pendingDeletes.current.set(todo.id, { timer, toastId });
+  };
+
+  // En quittant la page, les suppressions en attente partent tout de suite.
+  useEffect(() => {
+    const pending = pendingDeletes.current;
+    return () => {
+      pending.forEach(({ timer, toastId }, id) => {
+        clearTimeout(timer);
+        dismiss(toastId);
+        sendDelete(id);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Quick add with Enter
   const [quickAdd, setQuickAdd] = useState("");
@@ -118,10 +170,26 @@ export default function TodosPage() {
 
   if (!isReady) return null;
 
-  const urgentTodos = todos.filter((t) => t.priority === "URGENT");
-  const plannedTodos = todos.filter((t) => t.priority === "PLANNED");
+  const visibleTodos = (todos ?? []).filter((t) => !hidden.has(t.id));
+  const urgentTodos = visibleTodos.filter((t) => t.priority === "URGENT");
+  const plannedTodos = visibleTodos.filter((t) => t.priority === "PLANNED");
 
   const renderTodoList = (items: Todo[]) => {
+    if (todos === null) {
+      return (
+        <div className="space-y-2" aria-busy="true" aria-label="Chargement des tâches">
+          {[0, 1, 2].map((i) => (
+            <Card key={i}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <Skeleton className="h-4 w-4 rounded-sm" />
+                <Skeleton className="h-4 flex-1 max-w-[60%]" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+
     const pending = items.filter((t) => !t.completed);
     const done = items.filter((t) => t.completed);
 
@@ -161,7 +229,7 @@ export default function TodosPage() {
               <Button aria-label="Supprimer la tâche"
                 variant="ghost"
                 size="icon"
-                onClick={() => deleteTodo(todo.id)}
+                onClick={() => deleteTodo(todo)}
                 className="shrink-0"
               >
                 <Trash2 className="h-4 w-4" />
@@ -173,7 +241,7 @@ export default function TodosPage() {
         {done.length > 0 && (
           <div className="mt-4">
             <p className="text-xs text-muted-foreground mb-2">
-              Termines ({done.length})
+              Terminées ({done.length})
             </p>
             {done.map((todo) => (
               <Card key={todo.id} className="opacity-50 mb-2">
@@ -186,7 +254,7 @@ export default function TodosPage() {
                   <Button aria-label="Supprimer la tâche"
                     variant="ghost"
                     size="icon"
-                    onClick={() => deleteTodo(todo.id)}
+                    onClick={() => deleteTodo(todo)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -341,6 +409,8 @@ export default function TodosPage() {
         value={quickAdd}
         onChange={(e) => setQuickAdd(e.target.value)}
         onKeyDown={handleQuickAdd}
+        enterKeyHint="done"
+        aria-label="Ajout rapide d’une tâche urgente"
       />
 
       <Tabs defaultValue="urgent">

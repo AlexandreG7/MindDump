@@ -20,20 +20,29 @@ interface ConfirmOptions {
 
 type ToastKind = "success" | "error" | "info";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Toast {
   id: number;
   kind: ToastKind;
   message: string;
+  action?: ToastAction;
 }
 
 interface FeedbackContextValue {
   confirm: (options: ConfirmOptions) => Promise<boolean>;
-  toast: (message: string, kind?: ToastKind) => void;
+  toast: (message: string, kind?: ToastKind, action?: ToastAction) => number;
+  dismiss: (id: number) => void;
 }
 
 const FeedbackContext = createContext<FeedbackContextValue | null>(null);
 
 const TOAST_DURATION = 4000;
+// Laisse le temps de lire et d'appuyer sur « Annuler ».
+export const TOAST_ACTION_DURATION = 6000;
 
 export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const [pending, setPending] = useState<ConfirmOptions | null>(null);
@@ -60,16 +69,17 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (message: string, kind: ToastKind = "info") => {
+    (message: string, kind: ToastKind = "info", action?: ToastAction) => {
       const id = nextId.current++;
-      setToasts((all) => [...all.slice(-2), { id, kind, message }]);
-      setTimeout(() => dismiss(id), TOAST_DURATION);
+      setToasts((all) => [...all.slice(-2), { id, kind, message, action }]);
+      setTimeout(() => dismiss(id), action ? TOAST_ACTION_DURATION : TOAST_DURATION);
+      return id;
     },
     [dismiss]
   );
 
   return (
-    <FeedbackContext.Provider value={{ confirm, toast }}>
+    <FeedbackContext.Provider value={{ confirm, toast, dismiss }}>
       {children}
 
       <DialogPrimitive.Root open={!!pending} onOpenChange={(open) => !open && settle(false)}>
@@ -124,6 +134,17 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             )}
             <p className="flex-1">{t.message}</p>
+            {t.action && (
+              <button
+                onClick={() => {
+                  t.action?.onClick();
+                  dismiss(t.id);
+                }}
+                className="-my-1 shrink-0 rounded-md px-2 py-1 font-semibold text-primary hover:bg-secondary"
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               onClick={() => dismiss(t.id)}
               aria-label="Fermer la notification"
