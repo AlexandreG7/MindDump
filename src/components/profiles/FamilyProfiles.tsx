@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { EVENT_COLORS } from "@/lib/recurrence";
 import { ProfileAvatar, type FamilyProfile } from "./ProfileAvatar";
 import { ProfileDialog, type ProfileDraft } from "./ProfileDialog";
+import { useFeedback } from "@/components/ui/feedback";
 
 /**
  * Personnes du foyer d'un groupe : les membres (profil créé avec l'adhésion)
@@ -19,6 +20,7 @@ export function FamilyProfiles({
   currentUserId: string;
   isAdmin: boolean;
 }) {
+  const { confirm } = useFeedback();
   const [profiles, setProfiles] = useState<FamilyProfile[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FamilyProfile | null>(null);
@@ -53,8 +55,13 @@ export function FamilyProfiles({
   };
 
   const remove = async (p: FamilyProfile) => {
-    const note = p.kind === "child" ? " Son semainier sera supprimé." : "";
-    if (!confirm(`Retirer ${p.name} du foyer ?${note}`)) return;
+    const ok = await confirm({
+      title: `Retirer ${p.name} du foyer ?`,
+      description: p.kind === "child" ? "Son semainier sera supprimé." : undefined,
+      confirmLabel: "Retirer",
+      destructive: true,
+    });
+    if (!ok) return;
     await fetch(`/api/profiles/${p.id}`, { method: "DELETE" });
     fetchProfiles();
   };
@@ -76,15 +83,16 @@ export function FamilyProfiles({
             <ProfileAvatar profile={p} size="sm" />
             <span className="text-sm">{p.name}</span>
             {!p.userId && (
-              <span className="text-[10px] text-muted-foreground" title="Sans compte : ne peut pas se connecter">
+              <span className="text-[11px] text-muted-foreground" title="Sans compte : ne peut pas se connecter">
                 {p.kind === "child" ? "enfant" : "sans compte"}
               </span>
             )}
             {canEdit(p) && (
               <button
                 onClick={() => { setEditing(p); setDialogOpen(true); }}
-                className="p-0.5 rounded text-muted-foreground hover:text-foreground opacity-0 group-hover/profile:opacity-100 focus:opacity-100 transition-opacity"
+                className="p-0.5 touch:p-1.5 rounded text-muted-foreground hover:text-foreground opacity-0 group-hover/profile:opacity-100 focus:opacity-100 touch:opacity-100 transition-opacity"
                 title="Modifier"
+                aria-label={`Modifier ${p.name}`}
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -92,8 +100,9 @@ export function FamilyProfiles({
             {!p.userId && (
               <button
                 onClick={() => remove(p)}
-                className="p-0.5 -ml-1 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover/profile:opacity-100 focus:opacity-100 transition-opacity"
+                className="p-0.5 touch:p-1.5 -ml-1 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover/profile:opacity-100 focus:opacity-100 touch:opacity-100 transition-opacity"
                 title="Retirer"
+                aria-label={`Retirer ${p.name}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
