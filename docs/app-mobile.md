@@ -18,7 +18,7 @@ Web Push                 WebView                    finitions natives          f
 | # | Étape | Taille | Statut |
 |---|-------|--------|--------|
 | 1.1 | Manifest, viewport, safe-area | S | ☑ (reste : test sur iPhone réel) |
-| 1.2 | Service worker et page hors ligne | M | ☐ |
+| 1.2 | Service worker et page hors ligne | M | ☑ |
 | 1.3 | Listes de courses hors ligne | M | ☐ |
 | 1.4 | Notifications Web Push | L | ☐ |
 | 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☐ |
@@ -76,14 +76,21 @@ thème sombre correct.
 **Objectif** : l'app démarre sans réseau et affiche une page claire au lieu de
 l'erreur du navigateur.
 
-- [ ] Ajouter `@serwist/next` (compatible Next 14, sortie `standalone`).
-- [ ] `src/app/sw.ts` : précache des assets du build ; `NetworkFirst` pour les
-      pages ; **jamais** de cache pour `/api/auth/*`, `/api/admin/*`,
-      `/api/users/me/*`, `/api/cron/*`.
-- [ ] Page `/hors-ligne` servie en repli de navigation.
-- [ ] À la déconnexion : `caches.delete` des caches de données (RGPD : pas de
-      données d'un compte laissées sur un appareil partagé).
-- [ ] Désactiver le SW en `next dev`.
+- [x] `@serwist/next` (compatible Next 14). `next.config.js` → `next.config.mjs`
+      (Serwist n'est publié qu'en ESM). `public/sw.js` est généré au build et
+      ignoré par git.
+- [x] `src/app/sw.ts` : précache des assets du build et de `/hors-ligne` ;
+      `NetworkFirst` (5 s) pour les pages et les navigations RSC, sans garder
+      les réponses redirigées (une page qui renvoie vers `/login` n'est pas
+      mise en cache sous son URL) ; images `/_next/image` et `/uploads/`.
+      **Aucune réponse d'API mise en cache** : les exceptions se feront route
+      par route (étape 1.3).
+- [x] Page `/hors-ligne` (statique, non indexée) servie en repli de navigation.
+- [x] Déconnexion et suppression de compte : `signOutAndClear`
+      (`src/lib/signOut.ts`) efface les caches listés dans
+      `src/lib/offlineCache.ts` avant `signOut`.
+- [x] SW désactivé en `next dev` ; configuration « prod » dans
+      `.claude/launch.json` (`npm run start`, port 3100) pour le tester.
 
 **Validation** : mode avion → l'app s'ouvre sur la dernière page vue ou sur
 `/hors-ligne` ; après déconnexion, plus aucune donnée d'API dans Cache Storage.

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { signOutAndClear } from "@/lib/signOut";
 import {
   CheckSquare,
   Calendar,
@@ -223,7 +224,7 @@ export function Navbar() {
                   variant="ghost"
                   size="sm"
                   className="flex-1 justify-start gap-2 text-muted-foreground"
-                  onClick={() => signOut()}
+                  onClick={() => signOutAndClear()}
                 >
                   <LogOut className="h-4 w-4" />
                   Déconnexion
@@ -249,7 +250,7 @@ export function Navbar() {
 
           {!skipAuth && collapsed && (
             <button
-              onClick={() => signOut()}
+              onClick={() => signOutAndClear()}
               title="Déconnexion"
               className="w-full flex justify-center p-2 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             >
@@ -306,7 +307,7 @@ export function Navbar() {
           </div>
           {!skipAuth && (
             <div className="border-t mt-4 pt-4">
-              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => signOut()}>
+              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => signOutAndClear()}>
                 <LogOut className="h-4 w-4" />
                 Déconnexion
               </Button>

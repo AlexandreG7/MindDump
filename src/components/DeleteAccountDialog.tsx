@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signOut } from "next-auth/react";
+import { signOutAndClear } from "@/lib/signOut";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,7 +47,7 @@ export function DeleteAccountDialog({ trigger }: { trigger: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    await signOut({ callbackUrl: "/" });
+    await signOutAndClear({ callbackUrl: "/" });
   };
 
   return (

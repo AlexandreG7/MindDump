@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { signOutAndClear } from "@/lib/signOut";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -111,7 +112,7 @@ export function ConsentForm({
 
         <div className="flex items-center justify-between gap-2 border-t border-border pt-4">
           <button
-            onClick={() => signOut({ callbackUrl: "/" })}
+            onClick={() => signOutAndClear({ callbackUrl: "/" })}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             Refuser et me déconnecter
