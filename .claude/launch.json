@@ -11,8 +11,8 @@
     {
       "name": "prod",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start", "--", "-p", "3100"],
-      "port": 3100
+      "runtimeArgs": ["run", "start", "--", "-p", "3110"],
+      "port": 3110
     }
   ]
 }
