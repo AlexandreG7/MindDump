@@ -386,6 +386,26 @@ partir de l'appareil. Rien de possible en PWA.
       lui-même.
 - [ ] Domaines Match dans `WKAppBoundDomains` (voir 3.1).
 
+Déroulé prévu (API stable sur `feat/drive-match`, 3f341f4 ; auth par cookie de
+session, ou `Authorization: Bearer <clé API>`) :
+
+1. `GET /api/drive/match/plan?listId=…` → articles non cochés, avec `query` (texte
+   à chercher sur Match) et `remembered` (dernier produit choisi par le groupe).
+2. Dans la WebView Match (Cloudflare et CORS l'imposent) : recherche
+   `POST https://produits.supermarchesmatch.fr/pred/simplePageContent`, en
+   gardant les slots `_type === "produit"`.
+3. `POST /api/drive/match/rank { listId, items: [{ itemId, candidates }] }` →
+   jusqu'à 5 suggestions par article (confiance, quantité, `needsReview`). Le
+   classement se fait côté serveur ; limites : 30 candidats, 100 articles.
+4. Ajout au panier dans la page Match par l'action du site lui-même :
+   `useNuxtApp().$store.dispatch("panier/addProduits", [{ sku, produitQuantite, modeAchatVente }])`
+   (pas encore testé en réel).
+5. `PUT /api/drive/match/products { listId, choices }` après un ajout réussi :
+   mémorise le choix pour le groupe.
+
+La WebView ne fait que le pont (recherche, ajout au panier) ; le script injecté
+est celui de l'extension desktop (`drive-extension/`), réutilisable tel quel.
+
 ---
 
 ## Phase 4 — Publication
