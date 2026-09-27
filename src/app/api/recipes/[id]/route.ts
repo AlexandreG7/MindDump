@@ -18,14 +18,18 @@ export async function GET(
 
   const recipe = await prisma.recipe.findFirst({
     where: { id: params.id, ...(await buildItemAccessWhere(user.id)) },
-    include: { ingredients: true },
+    include: {
+      ingredients: true,
+      favorites: { where: { userId: user.id }, select: { userId: true } },
+    },
   });
 
   if (!recipe) {
     return NextResponse.json({ error: "Non trouve" }, { status: 404 });
   }
 
-  return NextResponse.json(recipe);
+  const { favorites, ...rest } = recipe;
+  return NextResponse.json({ ...rest, favorite: favorites.length > 0 });
 }
 
 export async function PATCH(
@@ -59,6 +63,19 @@ export async function PATCH(
           recipeId: params.id,
         })
       ),
+    });
+  }
+
+  // Favori : propre à l'utilisateur connecté, pas à la recette.
+  if (body.favorite === true) {
+    await prisma.recipeFavorite.upsert({
+      where: { userId_recipeId: { userId: user.id, recipeId: params.id } },
+      create: { userId: user.id, recipeId: params.id },
+      update: {},
+    });
+  } else if (body.favorite === false) {
+    await prisma.recipeFavorite.deleteMany({
+      where: { userId: user.id, recipeId: params.id },
     });
   }
 

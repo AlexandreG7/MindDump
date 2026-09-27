@@ -39,6 +39,7 @@ import {
   List,
   Grid3X3,
   ArrowUpDown,
+  Heart,
 } from "lucide-react";
 
 interface Ingredient {
@@ -59,6 +60,7 @@ interface Recipe {
   image: string | null;
   planned: boolean;
   inCatalog: boolean;
+  favorite: boolean;
   createdAt: string;
   ingredients: Ingredient[];
 }
@@ -97,6 +99,7 @@ export default function RecipesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [sortOpen, setSortOpen] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
   const [newRecipe, setNewRecipe] = useState({
     title: "",
@@ -149,6 +152,7 @@ export default function RecipesPage() {
   };
 
   const filteredRecipes = tabRecipes.filter((recipe) => {
+    if (favoritesOnly && !recipe.favorite) return false;
     const matchesFilters = filters.every((f) =>
       recipe.ingredients.some((ing) => ing.name.toLowerCase().includes(f))
     );
@@ -258,6 +262,13 @@ export default function RecipesPage() {
       body: JSON.stringify(data),
     });
     fetchRecipes();
+  };
+
+  // Optimiste : le cœur réagit tout de suite, la liste est rechargée ensuite.
+  const toggleFavorite = (e: React.MouseEvent, id: string, favorite: boolean) => {
+    e.stopPropagation();
+    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, favorite } : r)));
+    updateRecipe(id, { favorite });
   };
 
   const deleteRecipe = async (id: string) => {
@@ -752,6 +763,17 @@ export default function RecipesPage() {
             </div>
           )}
         </div>
+        <button
+          onClick={() => setFavoritesOnly(!favoritesOnly)}
+          title={favoritesOnly ? "Afficher toutes les recettes" : "Afficher les favoris"}
+          className={`p-1.5 rounded-lg transition-all ${
+            favoritesOnly
+              ? "bg-rose-500/10 text-rose-500"
+              : "bg-secondary text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Heart className={`h-4 w-4 ${favoritesOnly ? "fill-current" : ""}`} />
+        </button>
         <div className="relative" ref={sortRef}>
           <button
             onClick={() => setSortOpen(!sortOpen)}
@@ -812,7 +834,7 @@ export default function RecipesPage() {
       </div>
 
       {/* Empty states */}
-      {activeTab === "prevues" && sortedRecipes.length === 0 && !searchQuery && (
+      {activeTab === "prevues" && sortedRecipes.length === 0 && !searchQuery && !favoritesOnly && (
         <div className="text-center py-16 space-y-3">
           <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
             <CalendarCheck className="h-7 w-7 text-muted-foreground" />
@@ -826,7 +848,7 @@ export default function RecipesPage() {
         </div>
       )}
 
-      {activeTab === "catalogue" && sortedRecipes.length === 0 && !searchQuery && (
+      {activeTab === "catalogue" && sortedRecipes.length === 0 && !searchQuery && !favoritesOnly && (
         <div className="text-center py-16 space-y-3">
           <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
             <BookOpen className="h-7 w-7 text-muted-foreground" />
@@ -834,6 +856,20 @@ export default function RecipesPage() {
           <div>
             <p className="font-medium text-foreground">Catalogue vide</p>
             <p className="text-sm text-muted-foreground mt-1">Commence par ajouter ta première recette</p>
+          </div>
+        </div>
+      )}
+
+      {favoritesOnly && sortedRecipes.length === 0 && !searchQuery && (
+        <div className="text-center py-16 space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
+            <Heart className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Aucune recette favorite</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Touche le cœur d&apos;une recette pour la retrouver ici
+            </p>
           </div>
         </div>
       )}
@@ -862,6 +898,7 @@ export default function RecipesPage() {
               onRemoveImage={removeImage}
               onOpenDetail={() => router.push(`/recipes/${recipe.id}`)}
               onEnriched={fetchRecipes}
+              onToggleFavorite={(e) => toggleFavorite(e, recipe.id, !recipe.favorite)}
             />
           ))}
         </div>
@@ -906,6 +943,15 @@ export default function RecipesPage() {
                   </span>
                 )}
               </div>
+              <FavoriteButton
+                favorite={recipe.favorite}
+                onClick={(e) => toggleFavorite(e, recipe.id, !recipe.favorite)}
+                className={`shrink-0 p-1.5 rounded-lg hover:bg-secondary ${
+                  (activeTab === "catalogue" ? recipe.planned : recipe.inCatalog) ? "" : "mr-3"
+                } ${recipe.favorite ? "" : "opacity-0 group-hover/list:opacity-100 [@media(hover:none)]:opacity-100"}`}
+                iconClassName="h-4 w-4"
+                idleIconClassName="text-muted-foreground"
+              />
               {activeTab === "catalogue" && recipe.planned && (
                 <CalendarCheck className="h-4 w-4 text-primary shrink-0 mr-4" />
               )}
@@ -946,6 +992,14 @@ export default function RecipesPage() {
                 >
                   <Camera className="h-3.5 w-3.5" />
                 </button>
+                <FavoriteButton
+                  favorite={recipe.favorite}
+                  onClick={(e) => toggleFavorite(e, recipe.id, !recipe.favorite)}
+                  className={`absolute top-1.5 right-1.5 p-1.5 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-opacity ${
+                    recipe.favorite ? "" : "opacity-0 group-hover/compact:opacity-100 [@media(hover:none)]:opacity-100"
+                  }`}
+                  iconClassName="h-3.5 w-3.5"
+                />
               </div>
               <div className="p-2.5">
                 <h3 className="handwritten text-base font-semibold leading-tight line-clamp-2">{recipe.title}</h3>
@@ -970,6 +1024,37 @@ export default function RecipesPage() {
   );
 }
 
+/* ── Favorite Button ─────────────────────────────────────── */
+
+function FavoriteButton({
+  favorite,
+  onClick,
+  className,
+  iconClassName,
+  idleIconClassName = "text-white",
+}: {
+  favorite: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  className: string;
+  iconClassName: string;
+  idleIconClassName?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={className}
+      title={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+      aria-pressed={favorite}
+    >
+      <Heart
+        className={`${iconClassName} ${
+          favorite ? "fill-rose-500 text-rose-500" : idleIconClassName
+        }`}
+      />
+    </button>
+  );
+}
+
 /* ── Recipe Card ─────────────────────────────────────────── */
 
 function RecipeCard({
@@ -985,6 +1070,7 @@ function RecipeCard({
   onRemoveImage,
   onOpenDetail,
   onEnriched,
+  onToggleFavorite,
 }: {
   recipe: Recipe;
   lists: ShoppingList[];
@@ -998,6 +1084,7 @@ function RecipeCard({
   onRemoveImage: (recipeId: string) => void;
   onOpenDetail: () => void;
   onEnriched: () => void;
+  onToggleFavorite: (e: React.MouseEvent) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(recipe.title);
@@ -1344,6 +1431,14 @@ function RecipeCard({
         >
           <Camera className="h-3.5 w-3.5" />
         </button>
+        <FavoriteButton
+          favorite={recipe.favorite}
+          onClick={onToggleFavorite}
+          className={`absolute top-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-opacity z-10 ${
+            recipe.favorite ? "" : "opacity-0 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100"
+          }`}
+          iconClassName="h-3.5 w-3.5"
+        />
       </div>
       {/* Hors de la zone cliquable : le clic programmatique sur l'input remonterait
           jusqu'à onOpenDetail et quitterait la page avant la sélection du fichier. */}

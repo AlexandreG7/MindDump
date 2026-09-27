@@ -9,6 +9,7 @@ import {
   BookMarked,
   Camera,
   Share2,
+  Heart,
 } from "lucide-react";
 import { RecipeView, type RecipeViewData } from "@/components/recipes/RecipeView";
 import { ShareRecipeDialog } from "@/components/recipes/ShareRecipeDialog";
@@ -17,6 +18,7 @@ interface Recipe extends RecipeViewData {
   id: string;
   planned: boolean;
   inCatalog: boolean;
+  favorite: boolean;
   shareToken: string | null;
 }
 
@@ -85,6 +87,16 @@ export default function RecipeDetailPage() {
     fetchRecipe();
   };
 
+  const toggleFavorite = async () => {
+    setRecipe({ ...recipe, favorite: !recipe.favorite });
+    await fetch(`/api/recipes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ favorite: !recipe.favorite }),
+    });
+    fetchRecipe();
+  };
+
   const addToShoppingList = async () => {
     await fetch(`/api/recipes/${id}/to-list`, {
       method: "POST",
@@ -143,6 +155,18 @@ export default function RecipeDetailPage() {
         }
         heroActions={
           <>
+            <button
+              onClick={toggleFavorite}
+              className={`p-2.5 rounded-full backdrop-blur-sm transition-colors ${
+                recipe.favorite
+                  ? "bg-rose-500 text-white hover:bg-rose-600"
+                  : "bg-black/30 text-white hover:bg-black/50"
+              }`}
+              title={recipe.favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+              aria-pressed={recipe.favorite}
+            >
+              <Heart className={`h-5 w-5 ${recipe.favorite ? "fill-current" : ""}`} />
+            </button>
             <button
               onClick={() => setShareOpen(true)}
               className={`p-2.5 rounded-full backdrop-blur-sm transition-colors ${

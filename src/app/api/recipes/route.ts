@@ -22,11 +22,16 @@ export async function GET(req: NextRequest) {
 
   const recipes = await prisma.recipe.findMany({
     where,
-    include: { ingredients: true },
+    include: {
+      ingredients: true,
+      favorites: { where: { userId: user.id }, select: { userId: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(recipes);
+  return NextResponse.json(
+    recipes.map(({ favorites, ...r }) => ({ ...r, favorite: favorites.length > 0 }))
+  );
 }
 
 export async function POST(req: NextRequest) {

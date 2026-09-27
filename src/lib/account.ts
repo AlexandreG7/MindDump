@@ -78,6 +78,7 @@ export async function exportUserData(userId: string) {
           ingredients: { select: { name: true, quantity: true, unit: true } },
         },
       },
+      recipeFavorites: { select: { recipeId: true, createdAt: true } },
       familyProfiles: {
         select: { id: true, groupId: true, name: true, kind: true, color: true, emoji: true, birthDate: true },
       },

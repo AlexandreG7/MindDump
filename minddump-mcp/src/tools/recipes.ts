@@ -171,7 +171,7 @@ export function registerRecipeTools(server: McpServer) {
             ]
               .filter(Boolean)
               .join(", ");
-            const tags = [r.planned && "📅 prévue", r.inCatalog && "📖 catalogue"].filter(Boolean).join(" ");
+            const tags = [r.favorite && "❤️ favori", r.planned && "📅 prévue", r.inCatalog && "📖 catalogue"].filter(Boolean).join(" ");
             return `- **${r.title}** (id: ${r.id}) — ${r.servings} portions, ${ingredients} ingrédients${time ? `, ${time}` : ""}${tags ? ` [${tags}]` : ""}`;
           })
           .join("\n");

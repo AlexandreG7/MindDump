@@ -74,6 +74,7 @@ model User {
   calendarSubscriptions CalendarSubscription[]
   shoppingLists         ShoppingList[]
   recipes               Recipe[]
+  recipeFavorites       RecipeFavorite[]
   ownedGroups           Group[]         @relation("GroupOwner")
   groupMemberships      GroupMember[]
   featureFlags          UserFeatureFlag[]
@@ -320,10 +321,24 @@ model Recipe {
   group        Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
   ingredients  RecipeIngredient[]
   shoppingItems ShoppingItem[]
+  favorites    RecipeFavorite[]
 
   @@index([userId])
   @@index([groupId])
   @@index([createdAt])
+}
+
+// Favori propre à chaque utilisateur : une recette partagée dans un groupe peut
+// être en favori pour un membre sans l'être pour les autres.
+model RecipeFavorite {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipeId  String
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, recipeId])
+  @@index([recipeId])
 }
 
 model RecipeIngredient {
