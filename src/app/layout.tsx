@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Caveat, Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
-import { themeInitScript } from "@/lib/theme";
+import { THEME_COLORS, themeInitScript } from "@/lib/theme";
 import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 
 // next/font télécharge les polices au build et les sert depuis minddump.fr :
@@ -20,6 +20,14 @@ export const metadata: Metadata = {
   },
   description: siteDescription,
   applicationName: siteName,
+  // App installée sur l'écran d'accueil iOS : plein écran, barre d'état aux
+  // couleurs du thème (theme-color ci-dessous).
+  appleWebApp: {
+    capable: true,
+    title: siteName,
+    statusBarStyle: "default",
+  },
+  formatDetection: { telephone: false },
   keywords: [
     "organisation familiale",
     "charge mentale",
@@ -54,6 +62,20 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Le contenu s'étend sous l'encoche et la barre d'accueil : les marges
+  // env(safe-area-inset-*) le gardent lisible (globals.css, Navbar).
+  viewportFit: "cover",
+  // Suit le thème du système ; ThemeContext l'ajuste si l'utilisateur force
+  // un thème.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
+  ],
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -66,9 +88,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} ${inter.variable} ${caveat.variable}`}>
         <Providers>
-          <div className="flex h-screen overflow-hidden">
+          <div className="flex h-dvh overflow-hidden">
             <Navbar />
-            <main className="flex-1 md:p-8 p-4 pt-20 md:pt-8 overflow-y-auto">
+            <main className="flex-1 md:p-8 p-4 pt-[calc(5rem+env(safe-area-inset-top))] md:pt-8 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(2rem+env(safe-area-inset-bottom))] overflow-y-auto">
               {children}
             </main>
           </div>

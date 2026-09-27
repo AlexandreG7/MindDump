@@ -96,6 +96,10 @@
     @apply bg-background text-foreground;
     font-family: var(--font-inter), sans-serif;
     -webkit-font-smoothing: antialiased;
+    /* iPhone en paysage : l'encoche est sur le côté (viewport-fit=cover dans
+       layout.tsx). Les éléments fixed gèrent leurs propres marges. */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 }
 
@@ -1235,6 +1239,7 @@
 .lp-root {
   position: fixed;
   inset: 0;
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   z-index: 50;
   overflow-y: auto;
   overflow-x: hidden;
