@@ -1634,7 +1634,7 @@ function RecipeCard({
             onClick={togglePlanned}
             className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
               recipe.planned
-                ? "bg-primary text-white"
+                ? "bg-primary text-primary-foreground"
                 : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
           >

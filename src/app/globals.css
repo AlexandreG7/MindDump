@@ -4,35 +4,41 @@
 
 @layer base {
   :root {
-    /* ── Clean modern palette ── */
-    --background: 40 20% 97%;          /* #F8F7F5 - very light warm off-white */
-    --foreground: 220 20% 14%;         /* #1C2333 - dark navy text */
-    --card: 0 0% 100%;                 /* pure white */
-    --card-foreground: 220 20% 14%;
+    /* ── Proposition « Pro » : neutres froids, orange doux ──
+       Orange adouci pour ne pas accaparer le regard, sans tirer vers le
+       rouge réservé aux suppressions ; texte des boutons en encre foncée :
+       6.6:1 (WCAG AA). Texte secondaire à 5.3:1.
+       Revenir au style précédent : git revert de ce commit. */
+    --background: 220 20% 98%;         /* #F9FAFB - gris très clair */
+    --foreground: 222 24% 12%;         /* #171C26 - encre */
+    --card: 0 0% 100%;
+    --card-foreground: 222 24% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 14%;
-    --primary: 24 85% 53%;             /* #F97316 - orange */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;          /* #F2F3F5 - light blue-gray */
-    --secondary-foreground: 220 15% 32%;
-    --muted: 220 14% 95%;
-    --muted-foreground: 220 10% 48%;   /* #717789 */
-    --accent: 150 30% 93%;
-    --accent-foreground: 150 40% 22%;
-    --destructive: 0 72% 51%;
+    --popover-foreground: 222 24% 12%;
+    --primary: 25 78% 56%;             /* #E68037 - orange doux */
+    --primary-foreground: 24 40% 8%;   /* encre sur orange */
+    --secondary: 220 16% 95%;
+    --secondary-foreground: 222 16% 28%;
+    --muted: 220 16% 95%;
+    --muted-foreground: 220 9% 42%;    /* #61666F */
+    --accent: 220 16% 94%;
+    --accent-foreground: 222 24% 12%;
+    --destructive: 0 72% 46%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;             /* #E4E6EB */
-    --input: 220 13% 91%;
-    --ring: 24 85% 53%;
-    --radius: 0.75rem;
+    --border: 220 14% 90%;
+    --input: 220 14% 86%;
+    --ring: 25 78% 56%;
+    --radius: 0.625rem;
+
+    --shadow-card: 0 1px 2px hsl(222 24% 12% / 0.04), 0 1px 3px hsl(222 24% 12% / 0.06);
 
     /* Surfaces & tints used by the custom components below */
     --surface-subtle: 220 14% 98%;
     --surface-hover: 220 14% 94%;
     --border-strong: 220 13% 83%;
-    --primary-soft: 24 80% 95%;
-    --primary-soft-hover: 24 80% 90%;
-    --primary-soft-foreground: 24 70% 35%;
+    --primary-soft: 25 75% 95%;
+    --primary-soft-hover: 25 75% 90%;
+    --primary-soft-foreground: 24 65% 33%;
   }
 
   /* ── Dark mode : gris foncé plutôt que noir ── */
@@ -44,8 +50,8 @@
     --card-foreground: 220 12% 91%;
     --popover: 225 6% 20%;
     --popover-foreground: 220 12% 91%;
-    --primary: 24 88% 56%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 25 75% 58%;
+    --primary-foreground: 24 40% 8%;   /* texte foncé sur orange : 6.8:1 */
     --secondary: 225 5% 23%;
     --secondary-foreground: 220 10% 80%;
     --muted: 225 5% 22%;
@@ -56,14 +62,14 @@
     --destructive-foreground: 0 0% 100%;
     --border: 225 5% 27%;
     --input: 225 5% 30%;
-    --ring: 24 88% 56%;
+    --ring: 25 75% 58%;
 
     --surface-subtle: 225 6% 16%;
     --surface-hover: 225 5% 26%;
     --border-strong: 225 5% 40%;
-    --primary-soft: 24 45% 22%;
-    --primary-soft-hover: 24 45% 28%;
-    --primary-soft-foreground: 28 90% 72%;
+    --primary-soft: 24 40% 22%;
+    --primary-soft-hover: 24 40% 28%;
+    --primary-soft-foreground: 27 78% 72%;
   }
 
   /* La landing page reste en clair */
@@ -75,7 +81,7 @@
     --card-foreground: 220 20% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 14%;
-    --primary: 24 85% 53%;
+    --primary: 25 78% 56%;
     --secondary: 220 14% 96%;
     --secondary-foreground: 220 15% 32%;
     --muted: 220 14% 95%;
@@ -94,7 +100,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-inter), sans-serif;
+    font-family: var(--font-sans), sans-serif;
+    font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     /* iPhone en paysage : l'encoche est sur le côté (viewport-fit=cover dans
        layout.tsx). Les éléments fixed gèrent leurs propres marges. */

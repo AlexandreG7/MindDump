@@ -122,8 +122,8 @@ export function Navbar() {
               className={cn(
                 "flex items-center rounded-md text-sm transition-colors",
                 collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2",
-                pathname === item.href
-                  ? "bg-primary text-primary-foreground"
+                isActive(item.href)
+                  ? "bg-[hsl(var(--primary-soft))] text-[hsl(var(--primary-soft-foreground))] font-semibold"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
