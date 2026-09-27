@@ -28,6 +28,13 @@ import { Plus, Trash2, AlertCircle, Calendar, Repeat } from "lucide-react";
 import { RECURRENCE_LABELS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
 import { TOAST_ACTION_DURATION, useFeedback } from "@/components/ui/feedback";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AssigneeAvatars,
+  AssigneePicker,
+  PeopleFilter,
+  matchesPeople,
+  useFamilyProfiles,
+} from "@/components/profiles/Assignees";
 
 interface Todo {
   id: string;
@@ -38,7 +45,10 @@ interface Todo {
   completed: boolean;
   recurrence: string | null;
   notifyBefore: number | null;
+  assigneeIds?: string[];
 }
+
+const PEOPLE_KEY = "todos:people";
 
 export default function TodosPage() {
   const { status, isReady } = useAuth();
@@ -59,6 +69,23 @@ export default function TodosPage() {
     recurrence: "",
     notifyBefore: "",
   });
+  const [newAssignees, setNewAssignees] = useState<string[]>([]);
+  const profiles = useFamilyProfiles(currentGroupId);
+  const [peopleFilter, setPeopleFilter] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PEOPLE_KEY) ?? "[]");
+      if (Array.isArray(saved)) setPeopleFilter(saved.filter((v) => typeof v === "string"));
+    } catch {}
+  }, []);
+
+  const changePeopleFilter = (ids: string[]) => {
+    setPeopleFilter(ids);
+    try {
+      localStorage.setItem(PEOPLE_KEY, JSON.stringify(ids));
+    } catch {}
+  };
 
   const fetchTodos = useCallback(() => {
     const url = currentGroupId ? `/api/todos?groupId=${currentGroupId}` : "/api/todos";
@@ -88,6 +115,7 @@ export default function TodosPage() {
         recurrence: newTodo.dueDate ? newTodo.recurrence || null : null,
         notifyBefore: newTodo.notifyBefore ? Number(newTodo.notifyBefore) : null,
         groupId: currentGroupId,
+        assigneeIds: newAssignees,
       }),
     });
     setNewTodo({
@@ -98,6 +126,7 @@ export default function TodosPage() {
       recurrence: "",
       notifyBefore: "",
     });
+    setNewAssignees([]);
     setDialogOpen(false);
     fetchTodos();
   };
@@ -171,8 +200,12 @@ export default function TodosPage() {
   if (!isReady) return null;
 
   const visibleTodos = (todos ?? []).filter((t) => !hidden.has(t.id));
-  const urgentTodos = visibleTodos.filter((t) => t.priority === "URGENT");
-  const plannedTodos = visibleTodos.filter((t) => t.priority === "PLANNED");
+  // Filtre « qui » : les tâches sans personne assignée restent toujours affichées.
+  const activeFilter = peopleFilter.filter((id) => profiles.assignable.some((p) => p.id === id));
+  const shown = visibleTodos.filter((t) => matchesPeople(t.assigneeIds, activeFilter));
+
+  const urgentTodos = shown.filter((t) => t.priority === "URGENT");
+  const plannedTodos = shown.filter((t) => t.priority === "PLANNED");
 
   const renderTodoList = (items: Todo[]) => {
     if (todos === null) {
@@ -203,7 +236,10 @@ export default function TodosPage() {
                 onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{todo.title}</p>
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <span className="min-w-0">{todo.title}</span>
+                  <AssigneeAvatars ids={todo.assigneeIds} byId={profiles.byId} />
+                </p>
                 {todo.description && (
                   <p className="text-xs text-muted-foreground truncate">
                     {todo.description}
@@ -309,6 +345,16 @@ export default function TodosPage() {
                   placeholder="Détails…"
                 />
               </div>
+              {profiles.assignable.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Pour qui ?</Label>
+                  <AssigneePicker
+                    profiles={profiles.assignable}
+                    value={newAssignees}
+                    onChange={setNewAssignees}
+                  />
+                </div>
+              )}
               <div>
                 <Label>Priorité</Label>
                 <div className="flex gap-2 mt-1">
@@ -402,6 +448,8 @@ export default function TodosPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <PeopleFilter profiles={profiles.assignable} value={activeFilter} onChange={changePeopleFilter} />
 
       {/* Quick add */}
       <Input

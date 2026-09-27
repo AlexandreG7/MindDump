@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { client } from "../client.js";
+import { assigneeIdsParam, forWhom, profileNames } from "./people.js";
 
 export function registerTodoTools(server: McpServer) {
   // ─── Créer un todo ─────────────────────────────────────────
@@ -30,6 +31,7 @@ export function registerTodoTools(server: McpServer) {
         .optional()
         .describe("Envoyer une notification X minutes avant la date d'échéance (1 jour = 1440, 30 jours = 43200)"),
       groupId: z.string().optional().describe("ID du groupe pour partager la tâche"),
+      assigneeIds: assigneeIdsParam,
     },
     async (params) => {
       try {
@@ -41,6 +43,7 @@ export function registerTodoTools(server: McpServer) {
           recurrence: params.recurrence,
           notifyBefore: params.notifyBefore,
           groupId: params.groupId,
+          assigneeIds: params.assigneeIds,
         });
 
         return {
@@ -79,6 +82,7 @@ export function registerTodoTools(server: McpServer) {
           };
         }
 
+        const names = await profileNames();
         const summary = todos
           .map((t: Record<string, unknown>) => {
             const status = t.completed ? "✅" : "⬜";
@@ -86,7 +90,8 @@ export function registerTodoTools(server: McpServer) {
             const due = t.dueDate
               ? ` — échéance: ${new Date(t.dueDate as string).toLocaleDateString("fr-FR")}`
               : "";
-            return `${status} ${priority} **${t.title}** (id: ${t.id})${due}`;
+            const who = forWhom(t.assigneeIds as string[] | undefined, names);
+            return `${status} ${priority} **${t.title}** (id: ${t.id})${due}${who ? ` — ${who}` : ""}`;
           })
           .join("\n");
 
@@ -154,6 +159,9 @@ export function registerTodoTools(server: McpServer) {
         .describe("Nouvelle répétition, ou \"none\" pour la retirer"),
       notifyBefore: z.number().optional().describe("Nouveau délai de rappel, en minutes avant l'échéance"),
       completed: z.boolean().optional().describe("Marquer comme terminée ou non"),
+      assigneeIds: assigneeIdsParam.describe(
+        "Remplace les personnes concernées ([] pour n'assigner personne). profileId donnés par list_groups"
+      ),
     },
     async (params) => {
       try {

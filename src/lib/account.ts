@@ -54,6 +54,7 @@ export async function exportUserData(userId: string) {
           id: true, title: true, description: true, priority: true, dueDate: true,
           completed: true, recurrence: true, notifyBefore: true, createdAt: true,
           updatedAt: true, groupId: true,
+          assignees: { select: { profile: { select: { id: true, name: true } } } },
         },
       },
       calendarEvents: {
@@ -61,6 +62,7 @@ export async function exportUserData(userId: string) {
           id: true, title: true, description: true, date: true, endDate: true,
           allDay: true, recurrence: true, color: true, notifyBefore: true,
           createdAt: true, updatedAt: true, groupId: true,
+          assignees: { select: { profile: { select: { id: true, name: true } } } },
         },
       },
       calendarSubscriptions: {

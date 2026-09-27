@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
 import { isRecurrence } from "@/lib/recurrence";
+import { assigneesInclude, sanitizeAssigneeIds, withAssigneeIds } from "@/lib/profiles";
 
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
@@ -20,9 +21,10 @@ export async function GET(req: NextRequest) {
   const todos = await prisma.todo.findMany({
     where,
     orderBy: [{ completed: "asc" }, { position: "asc" }, { createdAt: "desc" }],
+    include: assigneesInclude,
   });
 
-  return NextResponse.json(todos);
+  return NextResponse.json(todos.map(withAssigneeIds));
 }
 
 export async function POST(req: NextRequest) {
@@ -35,6 +37,8 @@ export async function POST(req: NextRequest) {
   const err = await assertGroupMember(groupId, user.id);
   if (err) return err;
 
+  const assigneeIds = await sanitizeAssigneeIds(body.assigneeIds, groupId);
+
   const todo = await prisma.todo.create({
     data: {
       title: body.title,
@@ -45,8 +49,10 @@ export async function POST(req: NextRequest) {
       notifyBefore: body.notifyBefore || null,
       userId: user.id,
       groupId,
+      assignees: { create: assigneeIds.map((profileId) => ({ profileId })) },
     },
+    include: assigneesInclude,
   });
 
-  return NextResponse.json(todo, { status: 201 });
+  return NextResponse.json(withAssigneeIds(todo), { status: 201 });
 }

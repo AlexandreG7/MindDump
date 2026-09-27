@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { client } from "../client.js";
+import { assigneeIdsParam, forWhom, profileNames } from "./people.js";
 
 const TIME_ZONE = "Europe/Paris";
 
@@ -27,6 +28,7 @@ type CalendarEvent = {
   notifyBefore?: number | null;
   groupId?: string | null;
   source?: string;
+  assigneeIds?: string[];
 };
 
 /**
@@ -38,7 +40,7 @@ function toApiDate(value: string, allDay: boolean): string {
   return allDay ? `${value.slice(0, 10)}T00:00:00` : value;
 }
 
-function formatEvent(e: CalendarEvent): string {
+function formatEvent(e: CalendarEvent, names: Map<string, string> = new Map()): string {
   const date = new Date(e.date);
   const day = date.toLocaleDateString("fr-FR", {
     timeZone: TIME_ZONE,
@@ -50,6 +52,7 @@ function formatEvent(e: CalendarEvent): string {
     ? "journée"
     : date.toLocaleTimeString("fr-FR", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
   const extras = [
+    forWhom(e.assigneeIds, names),
     e.recurrence && RECURRENCE_LABELS[e.recurrence],
     e.notifyBefore ? `rappel ${e.notifyBefore} min avant` : null,
     e.source ? `calendrier « ${e.source} »` : null,
@@ -97,6 +100,7 @@ export function registerCalendarTools(server: McpServer) {
         .string()
         .optional()
         .describe("Groupe avec qui partager l'événement (voir list_groups). Par défaut : le groupe principal"),
+      assigneeIds: assigneeIdsParam,
     },
     async (params) => {
       try {
@@ -111,13 +115,15 @@ export function registerCalendarTools(server: McpServer) {
           notifyBefore: params.notifyBefore,
           color: params.color,
           groupId: params.groupId,
+          assigneeIds: params.assigneeIds,
         });
+        const names = await profileNames();
 
         return {
           content: [
             {
               type: "text" as const,
-              text: `Événement ajouté au calendrier :\n${formatEvent(event)}`,
+              text: `Événement ajouté au calendrier :\n${formatEvent(event, names)}`,
             },
           ],
         };
@@ -180,6 +186,7 @@ export function registerCalendarTools(server: McpServer) {
         }
 
         all.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const names = await profileNames();
 
         const label = new Date(year, month - 1, 1).toLocaleDateString("fr-FR", {
           month: "long",
@@ -188,7 +195,7 @@ export function registerCalendarTools(server: McpServer) {
         const body =
           all.length === 0
             ? `Aucun événement en ${label}.`
-            : `${all.length} événement(s) en ${label} :\n\n${all.map(formatEvent).join("\n")}`;
+            : `${all.length} événement(s) en ${label} :\n\n${all.map((e) => formatEvent(e, names)).join("\n")}`;
 
         return {
           content: [
@@ -226,6 +233,9 @@ export function registerCalendarTools(server: McpServer) {
         .min(0)
         .optional()
         .describe("Rappel e-mail X minutes avant (0 pour le retirer)"),
+      assigneeIds: assigneeIdsParam.describe(
+        "Remplace les personnes concernées ([] pour n'assigner personne). profileId donnés par list_groups"
+      ),
     },
     async (params) => {
       try {

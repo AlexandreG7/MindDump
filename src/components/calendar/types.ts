@@ -10,6 +10,10 @@ export interface CalendarEvent {
   notifyBefore: number | null;
   subscriptionId?: string;
   subscriptionName?: string;
+  /** Personnes du foyer concernées (profils du groupe de l'événement). */
+  assigneeIds?: string[];
+  /** Couleur affichée : celle de l'événement, sinon celle de sa première personne. */
+  displayColor?: string | null;
 }
 
 export interface Subscription {

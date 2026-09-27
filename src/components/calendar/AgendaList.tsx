@@ -4,6 +4,7 @@ import { addDays, format, isToday, isTomorrow } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { CalendarEvent } from "./types";
 import { EventList } from "./EventList";
+import type { FamilyProfile } from "@/components/profiles/ProfileAvatar";
 import { AGENDA_DAYS, occursOn, sortEvents } from "./utils";
 
 function dayLabel(day: Date): string {
@@ -17,12 +18,16 @@ export function AgendaList({
   from,
   events,
   onSetColor,
+  onSetAssignees,
   onDelete,
+  profiles,
 }: {
   from: Date;
   events: CalendarEvent[];
   onSetColor: (id: string, color: string | null) => void;
+  onSetAssignees: (id: string, assigneeIds: string[]) => void;
   onDelete: (id: string) => void;
+  profiles: { all: FamilyProfile[]; byId: Map<string, FamilyProfile> };
 }) {
   const days = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(from, i))
     .map((day) => ({ day, events: sortEvents(events.filter((e) => occursOn(e, day))) }))
@@ -47,7 +52,14 @@ export function AgendaList({
           >
             {dayLabel(day)}
           </h3>
-          <EventList events={dayEvents} day={day} onSetColor={onSetColor} onDelete={onDelete} />
+          <EventList
+            events={dayEvents}
+            day={day}
+            onSetColor={onSetColor}
+            onSetAssignees={onSetAssignees}
+            onDelete={onDelete}
+            profiles={profiles}
+          />
         </section>
       ))}
     </div>

@@ -265,6 +265,8 @@ model Todo {
   groupId String?
   group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
+  assignees TodoAssignee[]
+
   @@index([userId, completed])
   @@index([groupId])
   @@index([dueDate])
@@ -290,6 +292,8 @@ model CalendarEvent {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   groupId String?
   group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  assignees EventAssignee[]
 
   @@index([userId, date])
   @@index([groupId])
@@ -451,9 +455,34 @@ model FamilyProfile {
   userId  String?
   user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  kidDayEntries KidDayEntry[]
+  kidDayEntries    KidDayEntry[]
+  eventAssignments EventAssignee[]
+  todoAssignments  TodoAssignee[]
 
   @@unique([groupId, userId])
   @@index([groupId])
   @@index([userId])
+}
+
+// Personnes du foyer concernées par un événement ou une tâche (profils du
+// groupe de l'élément, voir src/lib/profiles.ts). Retirer une personne du foyer
+// retire ses assignations, jamais l'élément.
+model EventAssignee {
+  eventId   String
+  event     CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  profileId String
+  profile   FamilyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, profileId])
+  @@index([profileId])
+}
+
+model TodoAssignee {
+  todoId    String
+  todo      Todo          @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  profileId String
+  profile   FamilyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([todoId, profileId])
+  @@index([profileId])
 }

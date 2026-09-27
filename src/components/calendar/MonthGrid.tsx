@@ -2,7 +2,7 @@
 
 import { addDays, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek } from "date-fns";
 import type { CalendarEvent } from "./types";
-import { eventStyle, occursOn, sortEvents } from "./utils";
+import { eventStyle, hasColor, occursOn, sortEvents } from "./utils";
 
 const WEEK = { weekStartsOn: 1 as const };
 
@@ -52,7 +52,7 @@ export function MonthGrid({
             {dayEvents.slice(0, 2).map((e) => (
               <div
                 key={e.id}
-                className={`text-xs rounded px-1 mt-1 truncate ${!e.color ? "bg-primary/10 text-primary" : ""}`}
+                className={`text-xs rounded px-1 mt-1 truncate ${!hasColor(e) ? "bg-primary/10 text-primary" : ""}`}
                 style={eventStyle(e)}
               >
                 {e.title}

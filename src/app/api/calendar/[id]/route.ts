@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { buildItemAccessWhere } from "@/lib/groupAuth";
 import { isEventColor, isRecurrence } from "@/lib/recurrence";
+import { sanitizeAssigneeIds } from "@/lib/profiles";
 
 export async function PATCH(
   req: NextRequest,
@@ -30,29 +31,43 @@ export async function PATCH(
     (body.notifyBefore !== undefined &&
       (body.notifyBefore || null) !== existing.notifyBefore);
 
-  const event = await prisma.calendarEvent.updateMany({
-    where: { id: params.id, ...access },
-    data: {
-      ...(body.title !== undefined && { title: body.title }),
-      ...(body.description !== undefined && { description: body.description }),
-      ...(body.date !== undefined && { date: new Date(body.date) }),
-      ...(body.endDate !== undefined && {
-        endDate: body.endDate ? new Date(body.endDate) : null,
-      }),
-      ...(body.allDay !== undefined && { allDay: body.allDay }),
-      ...(body.recurrence !== undefined && {
-        recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
-      }),
-      ...(body.color !== undefined && {
-        color: isEventColor(body.color) ? body.color : null,
-      }),
-      ...(body.notifyBefore !== undefined && { notifyBefore: body.notifyBefore }),
-      ...(rearm && { notified: false, notifiedOccurrence: null }),
-    },
-  });
+  const data = {
+    ...(body.title !== undefined && { title: body.title }),
+    ...(body.description !== undefined && { description: body.description }),
+    ...(body.date !== undefined && { date: new Date(body.date) }),
+    ...(body.endDate !== undefined && {
+      endDate: body.endDate ? new Date(body.endDate) : null,
+    }),
+    ...(body.allDay !== undefined && { allDay: body.allDay }),
+    ...(body.recurrence !== undefined && {
+      recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
+    }),
+    ...(body.color !== undefined && {
+      color: isEventColor(body.color) ? body.color : null,
+    }),
+    ...(body.notifyBefore !== undefined && { notifyBefore: body.notifyBefore }),
+    ...(rearm && { notified: false, notifiedOccurrence: null }),
+  };
+
+  // Un PATCH qui ne change que les personnes n'a rien d'autre à écrire :
+  // updateMany sans données renverrait count 0, pris à tort pour « introuvable ».
+  const event =
+    Object.keys(data).length > 0
+      ? await prisma.calendarEvent.updateMany({ where: { id: params.id, ...access }, data })
+      : { count: 1 };
 
   if (event.count === 0) {
     return NextResponse.json({ error: "Non trouve" }, { status: 404 });
+  }
+
+  if (body.assigneeIds !== undefined) {
+    const assigneeIds = await sanitizeAssigneeIds(body.assigneeIds, existing.groupId);
+    await prisma.$transaction([
+      prisma.eventAssignee.deleteMany({ where: { eventId: params.id } }),
+      prisma.eventAssignee.createMany({
+        data: assigneeIds.map((profileId) => ({ eventId: params.id, profileId })),
+      }),
+    ]);
   }
 
   return NextResponse.json({ success: true });

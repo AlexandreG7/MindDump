@@ -164,8 +164,14 @@ export function layoutDay(events: CalendarEvent[], day: Date): PositionedEvent[]
 
 /** Couleur d'un événement (celle par défaut suit le thème). */
 export function eventStyle(e: CalendarEvent, solid = false): React.CSSProperties | undefined {
-  if (!e.color) return undefined;
+  const color = e.displayColor ?? e.color;
+  if (!color) return undefined;
   return solid
-    ? { backgroundColor: e.color, color: "#fff" }
-    : { backgroundColor: `${e.color}20`, color: e.color };
+    ? { backgroundColor: color, color: "#fff" }
+    : { backgroundColor: `${color}20`, color };
+}
+
+/** Sans couleur propre ni personne : couleur par défaut du thème. */
+export function hasColor(e: CalendarEvent): boolean {
+  return !!(e.displayColor ?? e.color);
 }

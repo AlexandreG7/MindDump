@@ -108,3 +108,26 @@ export async function isGroupAdmin(groupId: string, userId: string) {
   });
   return !!member && (member.role === "admin" || member.group.ownerId === userId);
 }
+
+/**
+ * Personnes assignables à un élément : seulement des profils de son groupe
+ * (un identifiant inconnu ou d'un autre foyer est ignoré, sans erreur).
+ */
+export async function sanitizeAssigneeIds(value: unknown, groupId: string | null): Promise<string[]> {
+  if (!groupId || !Array.isArray(value)) return [];
+  const ids = Array.from(new Set(value.filter((v): v is string => typeof v === "string"))).slice(0, 50);
+  if (ids.length === 0) return [];
+  const profiles = await prisma.familyProfile.findMany({
+    where: { id: { in: ids }, groupId },
+    select: { id: true },
+  });
+  return profiles.map((p) => p.id);
+}
+
+export const assigneesInclude = { assignees: { select: { profileId: true } } } as const;
+
+/** `assignees: [{ profileId }]` (Prisma) → `assigneeIds: string[]` (API). */
+export function withAssigneeIds<T extends { assignees: { profileId: string }[] }>(row: T) {
+  const { assignees, ...rest } = row;
+  return { ...rest, assigneeIds: assignees.map((a) => a.profileId) };
+}

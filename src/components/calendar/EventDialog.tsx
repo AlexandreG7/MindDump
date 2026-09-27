@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EVENT_COLORS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
+import { AssigneePicker } from "@/components/profiles/Assignees";
+import type { FamilyProfile } from "@/components/profiles/ProfileAvatar";
 
 export interface EventDraft {
   title: string;
@@ -18,6 +20,7 @@ export interface EventDraft {
   recurrence: string;
   color: string;
   notifyBefore: string;
+  assigneeIds: string[];
 }
 
 export const emptyDraft = (date = "", time = ""): EventDraft => ({
@@ -29,6 +32,7 @@ export const emptyDraft = (date = "", time = ""): EventDraft => ({
   recurrence: "",
   color: "",
   notifyBefore: "",
+  assigneeIds: [],
 });
 
 /** Création d'un événement, éventuellement pré-rempli (clic sur un créneau). */
@@ -36,11 +40,13 @@ export function EventDialog({
   open,
   onOpenChange,
   initial,
+  profiles,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initial: EventDraft;
+  profiles: FamilyProfile[];
   onSubmit: (draft: EventDraft) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<EventDraft>(initial);
@@ -109,6 +115,16 @@ export function EventDialog({
                   ? "Sans heure de fin, l'événement dure une heure dans l'agenda."
                   : "\u00a0"}
           </p>
+          {profiles.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Pour qui ?</Label>
+              <AssigneePicker
+                profiles={profiles}
+                value={draft.assigneeIds}
+                onChange={(assigneeIds) => setDraft({ ...draft, assigneeIds })}
+              />
+            </div>
+          )}
           <div>
             <Label>Récurrence</Label>
             <Select value={draft.recurrence} onValueChange={(v) => setDraft({ ...draft, recurrence: v })}>

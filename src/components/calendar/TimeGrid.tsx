@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { format, isSameDay, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { CalendarEvent } from "./types";
-import { eventStyle, isAllDayLike, layoutDay, occursOn } from "./utils";
+import { eventStyle, hasColor, isAllDayLike, layoutDay, occursOn } from "./utils";
 
 const HOUR_PX = 48;
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
@@ -74,7 +74,7 @@ export function TimeGrid({
                     <button
                       key={e.id}
                       onClick={() => onSelectDay(day)}
-                      className={`block w-full text-left text-xs rounded px-1.5 py-0.5 truncate ${e.color ? "" : "bg-primary/10 text-primary"}`}
+                      className={`block w-full text-left text-xs rounded px-1.5 py-0.5 truncate ${hasColor(e) ? "" : "bg-primary/10 text-primary"}`}
                       style={eventStyle(e)}
                       title={e.title}
                     >
@@ -118,7 +118,7 @@ export function TimeGrid({
                       onClick={() => onSelectDay(day)}
                       title={`${format(new Date(event.date), "HH:mm")} ${event.title}`}
                       className={`absolute rounded-md px-1.5 py-0.5 text-left text-xs overflow-hidden border border-background ${
-                        event.color ? "" : "bg-primary text-primary-foreground"
+                        hasColor(event) ? "" : "bg-primary text-primary-foreground"
                       }`}
                       style={{
                         top: top * (HOUR_PX / 60),

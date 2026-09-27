@@ -18,8 +18,10 @@ import { AgendaList } from "@/components/calendar/AgendaList";
 import { EventDialog, emptyDraft, type EventDraft } from "@/components/calendar/EventDialog";
 import { FeedExportButton } from "@/components/calendar/FeedExportButton";
 import { SubscriptionChips, SubscriptionDialog } from "@/components/calendar/Subscriptions";
+import { PeopleFilter, matchesPeople, useFamilyProfiles } from "@/components/profiles/Assignees";
 
 const VIEW_KEY = "calendar:view";
+const PEOPLE_KEY = "calendar:people";
 const VIEW_ORDER: ViewMode[] = ["day", "week", "month", "agenda", "year"];
 
 /** Vue au premier affichage : ?view=, sinon la dernière utilisée, sinon liste sur téléphone et mois ailleurs. */
@@ -61,6 +63,22 @@ export default function CalendarPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [subDialogOpen, setSubDialogOpen] = useState(false);
   const requestId = useRef(0);
+  const profiles = useFamilyProfiles(currentGroupId);
+  const [peopleFilter, setPeopleFilter] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PEOPLE_KEY) ?? "[]");
+      if (Array.isArray(saved)) setPeopleFilter(saved.filter((v) => typeof v === "string"));
+    } catch {}
+  }, []);
+
+  const changePeopleFilter = (ids: string[]) => {
+    setPeopleFilter(ids);
+    try {
+      localStorage.setItem(PEOPLE_KEY, JSON.stringify(ids));
+    } catch {}
+  };
 
   // Vue et date lues côté client seulement (URL, préférence, taille d'écran).
   useEffect(() => {
@@ -179,6 +197,7 @@ export default function CalendarPage() {
         color: d.color || null,
         groupId: currentGroupId,
         notifyBefore: d.notifyBefore ? Number(d.notifyBefore) : null,
+        assigneeIds: d.assigneeIds,
       }),
     });
     fetchEvents();
@@ -202,7 +221,33 @@ export default function CalendarPage() {
     fetchEvents();
   };
 
-  const allEvents = useMemo(() => [...events, ...externalEvents], [events, externalEvents]);
+  const setEventAssignees = async (id: string, assigneeIds: string[]) => {
+    // Mise à jour immédiate de toutes les occurrences affichées, puis rechargement.
+    const base = baseEventId(id);
+    setEvents((prev) => prev.map((e) => (baseEventId(e.id) === base ? { ...e, assigneeIds } : e)));
+    await fetch(`/api/calendar/${base}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assigneeIds }),
+    });
+    fetchEvents();
+  };
+
+  // Filtre « qui », limité aux personnes encore affichables.
+  const activeFilter = peopleFilter.filter((id) => profiles.assignable.some((p) => p.id === id));
+
+  const allEvents = useMemo(
+    () =>
+      [...events, ...externalEvents]
+        .filter((e) => matchesPeople(e.assigneeIds, activeFilter))
+        .map((e) => ({
+          ...e,
+          displayColor: e.color ?? profiles.byId.get(e.assigneeIds?.[0] ?? "")?.color ?? null,
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [events, externalEvents, activeFilter.join(","), profiles.all]
+  );
+  const listProfiles = { all: profiles.all, byId: profiles.byId };
 
   if (!isReady || !view || !range) return null;
 
@@ -255,9 +300,17 @@ export default function CalendarPage() {
         groupName={currentGroup?.name ?? null}
         onSubmit={addSubscription}
       />
-      <EventDialog open={dialogOpen} onOpenChange={setDialogOpen} initial={draft} onSubmit={addEvent} />
+      <EventDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        initial={draft}
+        profiles={profiles.assignable}
+        onSubmit={addEvent}
+      />
 
       <SubscriptionChips subscriptions={subscriptions} onDelete={deleteSubscription} />
+
+      <PeopleFilter profiles={profiles.assignable} value={activeFilter} onChange={changePeopleFilter} />
 
       {/* Navigation et choix de la vue */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -307,7 +360,14 @@ export default function CalendarPage() {
       )}
 
       {view === "agenda" && (
-        <AgendaList from={anchor} events={allEvents} onSetColor={setEventColor} onDelete={deleteEvent} />
+        <AgendaList
+          from={anchor}
+          events={allEvents}
+          onSetColor={setEventColor}
+          onSetAssignees={setEventAssignees}
+          onDelete={deleteEvent}
+          profiles={listProfiles}
+        />
       )}
 
       {view === "year" && (
@@ -340,7 +400,14 @@ export default function CalendarPage() {
             {selectedEvents.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucun événement ce jour</p>
             ) : (
-              <EventList events={selectedEvents} day={selectedDate} onSetColor={setEventColor} onDelete={deleteEvent} />
+              <EventList
+                events={selectedEvents}
+                day={selectedDate}
+                onSetColor={setEventColor}
+                onSetAssignees={setEventAssignees}
+                onDelete={deleteEvent}
+                profiles={listProfiles}
+              />
             )}
           </CardContent>
         </Card>

@@ -3,16 +3,22 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
 import { isEventColor, isRecurrence, occurrencesBetween } from "@/lib/recurrence";
+import { assigneesInclude, sanitizeAssigneeIds, withAssigneeIds } from "@/lib/profiles";
 
-type EventRow = Awaited<ReturnType<typeof prisma.calendarEvent.findMany>>[number];
+type EventRow = {
+  id: string;
+  date: Date;
+  endDate: Date | null;
+  recurrence: string | null;
+};
 
 /**
  * Événements qui touchent [from, to], récurrences développées. Une occurrence
  * autre que la première porte l'id `<id>_<date iso>` (l'interface agit toujours
  * sur l'événement source).
  */
-function expandRecurrences(events: EventRow[], from: Date, to: Date) {
-  const result: EventRow[] = [];
+function expandRecurrences<T extends EventRow>(events: T[], from: Date, to: Date) {
+  const result: T[] = [];
   for (const event of events) {
     const recurrence = event.recurrence && event.recurrence !== "none" ? event.recurrence : null;
     for (const occ of occurrencesBetween(event.date, event.endDate, recurrence, from, to)) {
@@ -91,17 +97,19 @@ export async function GET(req: NextRequest) {
         ],
       },
       orderBy: { date: "asc" },
+      include: assigneesInclude,
     });
 
-    return NextResponse.json(expandRecurrences(candidates, from, to));
+    return NextResponse.json(expandRecurrences(candidates.map(withAssigneeIds), from, to));
   }
 
   const events = await prisma.calendarEvent.findMany({
     where: baseWhere,
     orderBy: { date: "asc" },
+    include: assigneesInclude,
   });
 
-  return NextResponse.json(events);
+  return NextResponse.json(events.map(withAssigneeIds));
 }
 
 export async function POST(req: NextRequest) {
@@ -113,6 +121,8 @@ export async function POST(req: NextRequest) {
 
   const err = await assertGroupMember(groupId, user.id);
   if (err) return err;
+
+  const assigneeIds = await sanitizeAssigneeIds(body.assigneeIds, groupId);
 
   const event = await prisma.calendarEvent.create({
     data: {
@@ -126,8 +136,10 @@ export async function POST(req: NextRequest) {
       notifyBefore: body.notifyBefore || null,
       userId: user.id,
       groupId,
+      assignees: { create: assigneeIds.map((profileId) => ({ profileId })) },
     },
+    include: assigneesInclude,
   });
 
-  return NextResponse.json(event, { status: 201 });
+  return NextResponse.json(withAssigneeIds(event), { status: 201 });
 }
