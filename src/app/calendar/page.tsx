@@ -224,7 +224,7 @@ export default function CalendarPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Calendrier</h1>
         <div className="flex items-center gap-1 sm:gap-2">
           <button
@@ -242,7 +242,7 @@ export default function CalendarPage() {
             <HelpCircle className="h-4 w-4" />
           </Link>
           <FeedExportButton />
-          <Button onClick={() => openNewEvent()}>
+          <Button onClick={() => openNewEvent()} aria-label="Nouvel événement" className="px-3 sm:px-4">
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Nouvel événement</span>
           </Button>
