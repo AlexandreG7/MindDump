@@ -198,7 +198,7 @@ export default function TodosPage() {
 
         {items.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-8">
-            Aucune tache. Profite !
+            Aucune tâche. Profite !
           </p>
         )}
       </div>
@@ -208,17 +208,17 @@ export default function TodosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Mes taches</h1>
+        <h1 className="text-2xl font-bold">Mes tâches</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Nouvelle tache
+              Nouvelle tâche
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Ajouter une tache</DialogTitle>
+              <DialogTitle>Ajouter une tâche</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -238,11 +238,11 @@ export default function TodosPage() {
                   onChange={(e) =>
                     setNewTodo({ ...newTodo, description: e.target.value })
                   }
-                  placeholder="Details..."
+                  placeholder="Détails…"
                 />
               </div>
               <div>
-                <Label>Priorite</Label>
+                <Label>Priorité</Label>
                 <div className="flex gap-2 mt-1">
                   <Button
                     type="button"
@@ -268,14 +268,14 @@ export default function TodosPage() {
                     }
                   >
                     <Calendar className="h-4 w-4 mr-1" />
-                    Planifie
+                    Planifié
                   </Button>
                 </div>
               </div>
               {newTodo.priority === "PLANNED" && (
                 <>
                   <div>
-                    <Label>Date d&apos;echeance</Label>
+                    <Label>Date d&apos;échéance</Label>
                     <Input
                       type="datetime-local"
                       value={newTodo.dueDate}
@@ -285,7 +285,7 @@ export default function TodosPage() {
                     />
                   </div>
                   <div>
-                    <Label>Recurrence</Label>
+                    <Label>Récurrence</Label>
                     <Select
                       value={newTodo.recurrence}
                       onValueChange={(v) =>
@@ -309,8 +309,8 @@ export default function TodosPage() {
                     </Select>
                     {newTodo.recurrence && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Une nouvelle occurrence sera creee automatiquement quand
-                        tu coches la tache.
+                        Une nouvelle occurrence sera créée automatiquement quand
+                        tu coches la tâche.
                       </p>
                     )}
                   </div>
@@ -337,7 +337,7 @@ export default function TodosPage() {
 
       {/* Quick add */}
       <Input
-        placeholder="Ajout rapide (Entree pour ajouter en urgent)..."
+        placeholder="Ajout rapide (Entrée pour ajouter en urgent)…"
         value={quickAdd}
         onChange={(e) => setQuickAdd(e.target.value)}
         onKeyDown={handleQuickAdd}
@@ -351,7 +351,7 @@ export default function TodosPage() {
           </TabsTrigger>
           <TabsTrigger value="planned" className="gap-1">
             <Calendar className="h-4 w-4" />
-            Planifie ({plannedTodos.filter((t) => !t.completed).length})
+            Planifié ({plannedTodos.filter((t) => !t.completed).length})
           </TabsTrigger>
         </TabsList>
         <TabsContent value="urgent">{renderTodoList(urgentTodos)}</TabsContent>

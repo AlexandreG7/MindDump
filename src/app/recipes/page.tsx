@@ -610,7 +610,7 @@ export default function RecipesPage() {
                 <Input
                   value={newRecipe.title}
                   onChange={(e) => setNewRecipe({ ...newRecipe, title: e.target.value })}
-                  placeholder="Ex: Poulet roti, Tarte aux pommes..."
+                  placeholder="Ex: Poulet rôti, Tarte aux pommes..."
                 />
               </div>
               <div>
@@ -636,37 +636,37 @@ export default function RecipesPage() {
                 </div>
               </div>
               <div>
-                <Label>Ingredients</Label>
+                <Label>Ingrédients</Label>
                 <div className="space-y-2 mt-1">
                   {newRecipe.ingredients.map((ing, i) => (
                     <div key={i} className="flex gap-2 items-center">
                       <Input placeholder="Nom" value={ing.name} onChange={(e) => updateIngredient(i, "name", e.target.value)} className="flex-1" />
-                      <Input placeholder="Qte" value={ing.quantity} onChange={(e) => updateIngredient(i, "quantity", e.target.value)} className="w-20" />
-                      <Input placeholder="Unite" value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} className="w-20" />
+                      <Input placeholder="Qté" value={ing.quantity} onChange={(e) => updateIngredient(i, "quantity", e.target.value)} className="w-20" />
+                      <Input placeholder="Unité" value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} className="w-20" />
                       {newRecipe.ingredients.length > 1 && (
                         <Button aria-label="Retirer l'ingrédient" variant="ghost" size="icon" onClick={() => removeIngredientField(i)}><X className="h-4 w-4" /></Button>
                       )}
                     </div>
                   ))}
                   <Button variant="outline" size="sm" onClick={addIngredientField}>
-                    <Plus className="h-3 w-3 mr-1" />Ingredient
+                    <Plus className="h-3 w-3 mr-1" />Ingrédient
                   </Button>
                 </div>
               </div>
               <div>
-                <Label>Etapes</Label>
+                <Label>Étapes</Label>
                 <div className="space-y-2 mt-1">
                   {newRecipe.steps.map((step, i) => (
                     <div key={i} className="flex gap-2 items-start">
                       <span className="text-sm text-muted-foreground mt-2 w-6 shrink-0">{i + 1}.</span>
-                      <Textarea placeholder={`Etape ${i + 1}`} value={step} onChange={(e) => updateStep(i, e.target.value)} className="flex-1" rows={2} />
+                      <Textarea placeholder={`Étape ${i + 1}`} value={step} onChange={(e) => updateStep(i, e.target.value)} className="flex-1" rows={2} />
                       {newRecipe.steps.length > 1 && (
                         <Button aria-label="Retirer l'étape" variant="ghost" size="icon" onClick={() => removeStepField(i)}><X className="h-4 w-4" /></Button>
                       )}
                     </div>
                   ))}
                   <Button variant="outline" size="sm" onClick={addStepField}>
-                    <Plus className="h-3 w-3 mr-1" />Etape
+                    <Plus className="h-3 w-3 mr-1" />Étape
                   </Button>
                 </div>
               </div>
@@ -1365,26 +1365,26 @@ function RecipeCard({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Ingredients</Label>
+            <Label className="text-xs text-muted-foreground">Ingrédients</Label>
             <div className="space-y-1.5 mt-2">
               {editIngredients.map((ing, i) => (
                 <div key={i} className="flex gap-2 items-center">
                   <Input value={ing.name} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], name: e.target.value }; setEditIngredients(u); }} placeholder="Nom" className="flex-1 h-8 text-sm" />
-                  <Input value={ing.quantity} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], quantity: e.target.value }; setEditIngredients(u); }} placeholder="Qte" className="w-16 h-8 text-sm" />
-                  <Input value={ing.unit} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], unit: e.target.value }; setEditIngredients(u); }} placeholder="Unite" className="w-16 h-8 text-sm" />
+                  <Input value={ing.quantity} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], quantity: e.target.value }; setEditIngredients(u); }} placeholder="Qté" className="w-16 h-8 text-sm" />
+                  <Input value={ing.unit} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], unit: e.target.value }; setEditIngredients(u); }} placeholder="Unité" className="w-16 h-8 text-sm" />
                   <button aria-label="Retirer l'ingrédient" onClick={() => setEditIngredients(editIngredients.filter((_, j) => j !== i))} className="p-1.5 rounded-md hover:bg-destructive/10">
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 </div>
               ))}
               <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditIngredients([...editIngredients, { name: "", quantity: "", unit: "" }])}>
-                <Plus className="h-3 w-3 mr-1" />Ingredient
+                <Plus className="h-3 w-3 mr-1" />Ingrédient
               </Button>
             </div>
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Etapes</Label>
+            <Label className="text-xs text-muted-foreground">Étapes</Label>
             <div className="space-y-1.5 mt-2">
               {editSteps.map((step, i) => (
                 <div key={i} className="flex gap-2 items-start">
@@ -1396,7 +1396,7 @@ function RecipeCard({
                 </div>
               ))}
               <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditSteps([...editSteps, ""])}>
-                <Plus className="h-3 w-3 mr-1" />Etape
+                <Plus className="h-3 w-3 mr-1" />Étape
               </Button>
             </div>
           </div>
@@ -1525,12 +1525,12 @@ function RecipeCard({
                     <div className="text-sm text-green-600 dark:text-green-400 space-y-1">
                       <p className="font-medium">Recette enrichie !</p>
                       <ul className="text-xs space-y-0.5 text-muted-foreground">
-                        {enrichResult.image && <li>Image ajoutee</li>}
+                        {enrichResult.image && <li>Image ajoutée</li>}
                         {enrichResult.steps && <li>{enrichResult.stepsCount} etapes importees ({enrichResult.stepImages} avec photo)</li>}
                         {enrichResult.ingredients && enrichResult.ingredients > 0 && <li>{enrichResult.ingredients} ingredients ajoutes</li>}
-                        {enrichResult.description && <li>Description ajoutee</li>}
-                        {enrichResult.prepTime && <li>Temps de preparation ajoute</li>}
-                        {enrichResult.cookTime && <li>Temps de cuisson ajoute</li>}
+                        {enrichResult.description && <li>Description ajoutée</li>}
+                        {enrichResult.prepTime && <li>Temps de préparation ajouté</li>}
+                        {enrichResult.cookTime && <li>Temps de cuisson ajouté</li>}
                       </ul>
                     </div>
                   )}
@@ -1586,8 +1586,8 @@ function RecipeCard({
               onKeyDown={(e) => { if (e.key === "Enter") quickAddIngredient(); }}
               className="flex-1 h-8 text-sm" autoFocus
             />
-            <Input placeholder="Qte" value={newIng.quantity} onChange={(e) => setNewIng({ ...newIng, quantity: e.target.value })} className="w-16 h-8 text-sm" />
-            <Input placeholder="Unite" value={newIng.unit} onChange={(e) => setNewIng({ ...newIng, unit: e.target.value })} className="w-16 h-8 text-sm" />
+            <Input placeholder="Qté" value={newIng.quantity} onChange={(e) => setNewIng({ ...newIng, quantity: e.target.value })} className="w-16 h-8 text-sm" />
+            <Input placeholder="Unité" value={newIng.unit} onChange={(e) => setNewIng({ ...newIng, unit: e.target.value })} className="w-16 h-8 text-sm" />
             <button aria-label="Ajouter l'ingrédient" onClick={quickAddIngredient} className="p-1.5 rounded-md hover:bg-secondary">
               <Check className="h-4 w-4 text-primary" />
             </button>
@@ -1600,7 +1600,7 @@ function RecipeCard({
             onClick={() => setAddingIngredient(true)}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2 opacity-0 group-hover/card:opacity-100 touch:opacity-100"
           >
-            <Plus className="h-3 w-3" />Ajouter un ingredient
+            <Plus className="h-3 w-3" />Ajouter un ingrédient
           </button>
         )}
       </div>

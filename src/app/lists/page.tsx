@@ -286,7 +286,7 @@ export default function ListsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Creer une liste</DialogTitle>
+              <DialogTitle>Créer une liste</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -321,7 +321,7 @@ export default function ListsPage() {
                 </div>
               </div>
               <Button className="w-full" onClick={createList}>
-                Creer
+                Créer
               </Button>
             </div>
           </DialogContent>
@@ -461,7 +461,7 @@ function ListGroup({
   if (lists.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-8">
-        Aucune liste. Cree-en une !
+        Aucune liste. Crée-en une !
       </p>
     );
   }
@@ -516,7 +516,7 @@ function ListGroup({
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Ajouter les ingredients d&apos;une recette</DialogTitle>
+                        <DialogTitle>Ajouter les ingrédients d&apos;une recette</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-2">
                         {recipes.map((recipe) => (
@@ -590,7 +590,7 @@ function ListGroup({
                       className="text-base"
                     />
                     <Input
-                      placeholder="Qte"
+                      placeholder="Qté"
                       value={itemQuantity}
                       onChange={(e) => setItemQuantity(e.target.value)}
                       onKeyDown={(e) => {
