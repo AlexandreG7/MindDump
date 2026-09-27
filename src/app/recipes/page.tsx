@@ -501,7 +501,7 @@ export default function RecipesPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[10rem]">
           <h1 className="text-2xl font-semibold tracking-tight">Recettes</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {catalogCount} recette{catalogCount !== 1 ? "s" : ""} au catalogue
@@ -509,9 +509,9 @@ export default function RecipesPage() {
         </div>
         <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) { setImportUrl(""); setImportError(""); } }}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="shrink-0">
-              <Download className="h-4 w-4 mr-2" />
-              Importer
+            <Button variant="outline" className="shrink-0 px-3 sm:px-4" aria-label="Importer une recette">
+              <Download className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Importer</span>
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -550,9 +550,9 @@ export default function RecipesPage() {
         </Dialog>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="shrink-0">
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle recette
+            <Button className="shrink-0 px-3 sm:px-4" aria-label="Nouvelle recette">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Nouvelle recette</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto">
