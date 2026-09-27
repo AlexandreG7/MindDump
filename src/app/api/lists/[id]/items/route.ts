@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { buildItemAccessWhere } from "@/lib/groupAuth";
+import { CLIENT_ID_PATTERN } from "@/lib/offlineLists";
 
 export async function POST(
   req: NextRequest,
@@ -35,8 +36,24 @@ export async function POST(
     return NextResponse.json(items, { status: 201 });
   }
 
+  // Identifiant fourni par le client pour un article ajouté hors ligne
+  // (src/lib/offlineLists.ts) : rejouer la requête ne doit pas créer de doublon.
+  const clientId =
+    typeof body.id === "string" && CLIENT_ID_PATTERN.test(body.id) ? body.id : undefined;
+  if (clientId) {
+    const existing = await prisma.shoppingItem.findUnique({ where: { id: clientId } });
+    if (existing) {
+      // Déjà reçu : on renvoie l'article s'il est bien dans cette liste, sans
+      // rien révéler d'un article d'une autre liste qui aurait le même id.
+      return existing.listId === params.id
+        ? NextResponse.json(existing, { status: 200 })
+        : NextResponse.json({ error: "Identifiant déjà utilisé" }, { status: 409 });
+    }
+  }
+
   const item = await prisma.shoppingItem.create({
     data: {
+      ...(clientId && { id: clientId }),
       name: body.name,
       quantity: body.quantity || null,
       category: body.category || null,

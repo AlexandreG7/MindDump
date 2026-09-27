@@ -1,12 +1,13 @@
 /**
  * Caches du service worker (src/app/sw.ts) qui contiennent des données d'un
- * compte : pages déjà vues, photos. Le précache (code de l'app, page hors
+ * compte : pages déjà vues, photos, réponses d'API gardées pour le hors ligne. Le précache (code de l'app, page hors
  * ligne) est commun à tous et n'en fait pas partie.
  */
 export const OFFLINE_CACHES = {
   pages: "pages",
   rsc: "pages-rsc",
   images: "images",
+  api: "api",
 } as const;
 
 /**

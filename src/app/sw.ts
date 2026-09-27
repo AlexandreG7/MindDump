@@ -6,9 +6,8 @@ import { OFFLINE_CACHES } from "@/lib/offlineCache";
 // Service worker de la PWA, compilé en public/sw.js par @serwist/next
 // (next.config.mjs). Voir docs/app-mobile.md, étape 1.2.
 //
-// Règle : aucune réponse d'API n'est mise en cache ici. Les données des
-// utilisateurs ne sont gardées hors ligne que route par route, quand un
-// usage le justifie (listes de courses, étape 1.3), et effacées à la
+// Règle : les réponses d'API ne sont gardées hors ligne que route par route,
+// quand un usage le justifie (OFFLINE_API ci-dessous), et effacées à la
 // déconnexion (src/lib/offlineCache.ts).
 
 declare global {
@@ -27,6 +26,12 @@ const skipRedirected: SerwistPlugin = {
 };
 
 const isPage = (pathname: string) => !pathname.startsWith("/api/");
+
+// Lectures d'API gardées pour le hors ligne (étape 1.3) :
+// - la session, sans quoi useAuth renvoie vers /login dès que le réseau manque ;
+// - les groupes et fonctionnalités, qui construisent la navigation ;
+// - les listes de courses, l'usage en magasin.
+const OFFLINE_API = new Set(["/api/auth/session", "/api/groups", "/api/features", "/api/lists"]);
 
 const runtimeCaching: RuntimeCaching[] = [
   // Pages : toujours le réseau d'abord, la dernière version vue en secours.
@@ -50,6 +55,14 @@ const runtimeCaching: RuntimeCaching[] = [
       cacheName: OFFLINE_CACHES.rsc,
       networkTimeoutSeconds: 5,
       plugins: [skipRedirected, new ExpirationPlugin({ maxEntries: 32 })],
+    }),
+  },
+  {
+    matcher: ({ url, sameOrigin }) => sameOrigin && OFFLINE_API.has(url.pathname),
+    handler: new NetworkFirst({
+      cacheName: OFFLINE_CACHES.api,
+      networkTimeoutSeconds: 4,
+      plugins: [skipRedirected],
     }),
   },
   // Images optimisées par Next (photos de recettes).

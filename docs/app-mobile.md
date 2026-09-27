@@ -19,7 +19,7 @@ Web Push                 WebView                    finitions natives          f
 |---|-------|--------|--------|
 | 1.1 | Manifest, viewport, safe-area | S | ☑ (reste : test sur iPhone réel) |
 | 1.2 | Service worker et page hors ligne | M | ☑ |
-| 1.3 | Listes de courses hors ligne | M | ☐ |
+| 1.3 | Listes de courses hors ligne | M | ☑ |
 | 1.4 | Notifications Web Push | L | ☐ |
 | 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☐ |
 | 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☐ |
@@ -100,13 +100,27 @@ l'erreur du navigateur.
 **Objectif** : cocher des articles en magasin sans réseau. C'est le cas d'usage
 mobile principal.
 
-- [ ] Cache `NetworkFirst` sur `GET /api/lists` et `GET /api/lists/[id]`.
-- [ ] Dans `src/app/lists/page.tsx` : mise à jour optimiste ; si la requête
-      échoue hors ligne, la mettre dans une file (IndexedDB) rejouée à
-      l'événement `online` et au retour au premier plan.
-- [ ] Rejeu idempotent : cocher / décocher envoie l'état voulu (`checked: true`)
-      et non une bascule, pour qu'un double rejeu ne s'annule pas.
-- [ ] Indicateur discret « hors ligne · N modifications en attente ».
+- [x] SW : `NetworkFirst` (4 s) sur une liste fermée de lectures d'API
+      (`OFFLINE_API` dans `src/app/sw.ts`) : `/api/lists`, et aussi
+      `/api/auth/session`, `/api/groups`, `/api/features`. **La session est
+      indispensable** : sans elle, `useAuth` renvoie vers `/login` dès que le
+      réseau manque, ce qui rendait inutilisable hors ligne toute page connectée
+      (y compris celles de l'étape 1.2).
+- [x] `src/lib/offlineLists.ts` : opérations `check` / `add` / `delete`
+      appliquées tout de suite à l'écran, envoyées ou mises en file
+      (localStorage) si le réseau manque, rejouées dans l'ordre au chargement de
+      la page, à l'événement `online` et au retour au premier plan. Les
+      opérations en attente sont aussi rejouées sur les listes lues depuis le
+      cache, pour ne pas disparaître au rechargement.
+- [x] Rejeu idempotent : `checked` explicite ; suppression d'un article déjà
+      supprimé = succès ; un article ajouté porte un id au format cuid généré
+      par le client, que `POST /api/lists/[id]/items` accepte (même id rejoué →
+      200 sans doublon, id déjà pris par une autre liste → 409).
+- [x] Indicateur sous le titre : « Hors ligne · N modifications » ; en ligne
+      avec des envois en échec, « Envoi en attente », cliquable pour renvoyer.
+- [x] Hors ligne, créer / supprimer une liste et ajouter une recette sont
+      masqués ou désactivés (ils ont besoin du serveur).
+- [x] Déconnexion : la file est vidée avec les caches (`signOutAndClear`).
 
 **Validation** : hors ligne, cocher 3 articles, en ajouter 1, revenir en
 ligne → tout est en base et visible sur un autre appareil du groupe.

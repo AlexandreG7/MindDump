@@ -3,6 +3,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
+import {
+  applyOps,
+  flushPendingOps,
+  newItemId,
+  onPendingOpsChange,
+  pendingOps,
+  runListOp,
+  type ListOp,
+  type NewItem,
+} from "@/lib/offlineLists";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +37,8 @@ import {
   ChevronDown,
   ChevronUp,
   Tag,
+  WifiOff,
+  RefreshCw,
 } from "lucide-react";
 
 interface ShoppingItem {
@@ -78,6 +90,50 @@ function combineQuantities(items: ShoppingItem[]): string {
   return parts.join(" + ");
 }
 
+// Article ajouté hors ligne, affiché avant que le serveur ne l'ait reçu.
+function localItem(item: NewItem): ShoppingItem {
+  return {
+    id: item.id,
+    name: item.name,
+    quantity: item.quantity,
+    checked: false,
+    category: null,
+    url: item.url ?? null,
+    price: item.price ?? null,
+    store: item.store ?? null,
+    recipeId: null,
+    recipe: null,
+  };
+}
+
+function withPending(lists: ShoppingList[]): ShoppingList[] {
+  return applyOps(lists, pendingOps(), localItem);
+}
+
+/** Connexion et nombre de modifications de listes pas encore envoyées. */
+function useOfflineStatus() {
+  const [online, setOnline] = useState(true);
+  const [pending, setPending] = useState(0);
+
+  useEffect(() => {
+    const update = () => {
+      setOnline(navigator.onLine);
+      setPending(pendingOps().length);
+    };
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    const unsubscribe = onPendingOpsChange(update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+      unsubscribe();
+    };
+  }, []);
+
+  return { online, pending };
+}
+
 function groupItems(items: ShoppingItem[]): GroupedItem[] {
   const map = new Map<string, GroupedItem>();
   for (const item of items) {
@@ -111,21 +167,59 @@ export default function ListsPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newList, setNewList] = useState({ name: "", type: "GROCERY" as "GROCERY" | "ONLINE" });
+  const { online, pending } = useOfflineStatus();
 
+  // Hors ligne, /api/lists vient du cache du service worker (src/app/sw.ts) :
+  // on y rejoue les modifications en attente pour ne pas les faire disparaître.
   const fetchLists = useCallback(() => {
-    fetch("/api/lists").then((r) => r.json()).then(setLists);
+    fetch("/api/lists")
+      .then((r) => r.json())
+      .then((data: ShoppingList[]) => setLists(withPending(data)))
+      .catch(() => {});
   }, []);
 
   const fetchRecipes = useCallback(() => {
-    fetch("/api/recipes").then((r) => r.json()).then(setRecipes);
+    fetch("/api/recipes")
+      .then((r) => r.json())
+      .then(setRecipes)
+      .catch(() => {});
   }, []);
+
+  // Envoie les modifications en attente, puis recharge depuis le serveur.
+  const sync = useCallback(async () => {
+    if (await flushPendingOps()) fetchLists();
+  }, [fetchLists]);
 
   useEffect(() => {
     if (isReady) {
       fetchLists();
       fetchRecipes();
+      sync();
     }
-  }, [isReady, fetchLists, fetchRecipes]);
+  }, [isReady, fetchLists, fetchRecipes, sync]);
+
+  // Retour du réseau ou de l'app au premier plan : on retente l'envoi.
+  useEffect(() => {
+    if (!isReady) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    window.addEventListener("online", sync);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", sync);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [isReady, sync]);
+
+  // Applique les opérations à l'écran tout de suite, puis les envoie (ou les
+  // met en file hors ligne). On ne recharge que si tout est parti : sinon le
+  // serveur, ou son cache, ne connaît pas encore ces modifications.
+  const runOps = async (ops: ListOp[]) => {
+    setLists((current) => applyOps(current, ops, localItem));
+    const results = await Promise.all(ops.map(runListOp));
+    if (!results.includes("queued")) fetchLists();
+  };
 
   const createList = async () => {
     if (!newList.name.trim()) return;
@@ -145,14 +239,8 @@ export default function ListsPage() {
     fetchLists();
   };
 
-  const addItem = async (listId: string, item: Partial<ShoppingItem>) => {
-    await fetch(`/api/lists/${listId}/items`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(item),
-    });
-    fetchLists();
-  };
+  const addItem = (listId: string, item: Omit<NewItem, "id">) =>
+    runOps([{ type: "add", listId, item: { ...item, id: newItemId() } }]);
 
   const addRecipeToList = async (listId: string, recipeId: string) => {
     await fetch(`/api/recipes/${recipeId}/to-list`, {
@@ -163,42 +251,19 @@ export default function ListsPage() {
     fetchLists();
   };
 
-  const toggleItem = async (listId: string, itemId: string, checked: boolean) => {
-    await fetch(`/api/lists/${listId}/items/${itemId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ checked: !checked }),
-    });
-    fetchLists();
+  const toggleItem = (listId: string, itemId: string, checked: boolean) =>
+    runOps([{ type: "check", listId, itemId, checked: !checked }]);
+
+  const toggleGroup = (listId: string, items: ShoppingItem[]) => {
+    const checked = !items[0].checked;
+    return runOps(items.map((item) => ({ type: "check", listId, itemId: item.id, checked })));
   };
 
-  const toggleGroup = async (listId: string, items: ShoppingItem[]) => {
-    const newChecked = !items[0].checked;
-    await Promise.all(
-      items.map((item) =>
-        fetch(`/api/lists/${listId}/items/${item.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ checked: newChecked }),
-        })
-      )
-    );
-    fetchLists();
-  };
+  const deleteGroup = (listId: string, items: ShoppingItem[]) =>
+    runOps(items.map((item) => ({ type: "delete", listId, itemId: item.id })));
 
-  const deleteGroup = async (listId: string, items: ShoppingItem[]) => {
-    await Promise.all(
-      items.map((item) =>
-        fetch(`/api/lists/${listId}/items/${item.id}`, { method: "DELETE" })
-      )
-    );
-    fetchLists();
-  };
-
-  const deleteItem = async (listId: string, itemId: string) => {
-    await fetch(`/api/lists/${listId}/items/${itemId}`, { method: "DELETE" });
-    fetchLists();
-  };
+  const deleteItem = (listId: string, itemId: string) =>
+    runOps([{ type: "delete", listId, itemId }]);
 
   if (!isReady) return null;
 
@@ -208,10 +273,13 @@ export default function ListsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Mes listes</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold">Mes listes</h1>
+          <OfflineStatus online={online} pending={pending} onRetry={sync} />
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button disabled={!online}>
               <Plus className="h-4 w-4 mr-2" />
               Nouvelle liste
             </Button>
@@ -277,6 +345,7 @@ export default function ListsPage() {
             lists={groceryLists}
             type="GROCERY"
             recipes={recipes}
+            online={online}
             onAddItem={addItem}
             onAddRecipeToList={addRecipeToList}
             onToggleGroup={toggleGroup}
@@ -292,6 +361,7 @@ export default function ListsPage() {
             lists={onlineLists}
             type="ONLINE"
             recipes={recipes}
+            online={online}
             onAddItem={addItem}
             onAddRecipeToList={addRecipeToList}
             onToggleGroup={toggleGroup}
@@ -306,12 +376,43 @@ export default function ListsPage() {
   );
 }
 
+/* ── Offline status ───────────────────────────────────────── */
+
+function OfflineStatus({
+  online,
+  pending,
+  onRetry,
+}: {
+  online: boolean;
+  pending: number;
+  onRetry: () => void;
+}) {
+  if (online && pending === 0) return null;
+  const content = (
+    <>
+      {online ? <RefreshCw className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+      {online ? "Envoi en attente" : "Hors ligne"}
+      {pending > 0 && ` · ${pending} modification${pending > 1 ? "s" : ""}`}
+    </>
+  );
+  const className = "mt-1 flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap";
+  // En ligne avec des modifications en attente : un envoi a échoué, on peut relancer.
+  return online ? (
+    <button className={`${className} hover:text-foreground`} onClick={onRetry} title="Renvoyer">
+      {content}
+    </button>
+  ) : (
+    <span className={className}>{content}</span>
+  );
+}
+
 /* ── List Group ───────────────────────────────────────────── */
 
 function ListGroup({
   lists,
   type,
   recipes,
+  online,
   onAddItem,
   onAddRecipeToList,
   onToggleGroup,
@@ -323,7 +424,8 @@ function ListGroup({
   lists: ShoppingList[];
   type: "GROCERY" | "ONLINE";
   recipes: Recipe[];
-  onAddItem: (listId: string, item: Partial<ShoppingItem>) => void;
+  online: boolean;
+  onAddItem: (listId: string, item: Omit<NewItem, "id">) => void;
   onAddRecipeToList: (listId: string, recipeId: string) => void;
   onToggleGroup: (listId: string, items: ShoppingItem[]) => void;
   onToggleItem: (listId: string, itemId: string, checked: boolean) => void;
@@ -341,7 +443,7 @@ function ListGroup({
 
   const handleAddItem = (listId: string) => {
     if (!itemName.trim()) return;
-    const item: Partial<ShoppingItem> = { name: itemName, quantity: itemQuantity || null };
+    const item: Omit<NewItem, "id"> = { name: itemName, quantity: itemQuantity || null };
     if (type === "ONLINE") {
       item.url = itemUrl || null;
       item.price = itemPrice ? Number(itemPrice) : null;
@@ -405,7 +507,7 @@ function ListGroup({
                     {total.toFixed(2)} EUR
                   </span>
                 )}
-                {type === "GROCERY" && recipes.length > 0 && (
+                {online && type === "GROCERY" && recipes.length > 0 && (
                   <Dialog>
                     <DialogTrigger asChild>
                       <button className="grocery-icon-btn" title="Ajouter une recette">
@@ -445,13 +547,15 @@ function ListGroup({
                     <Tag className="h-4 w-4" />
                   </button>
                 )}
-                <button
-                  className="grocery-icon-btn grocery-icon-btn-danger"
-                  onClick={() => onDeleteList(list.id)}
-                  title="Supprimer la liste"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {online && (
+                  <button
+                    className="grocery-icon-btn grocery-icon-btn-danger"
+                    onClick={() => onDeleteList(list.id)}
+                    title="Supprimer la liste"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
 
