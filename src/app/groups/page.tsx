@@ -28,6 +28,7 @@ import {
   Star,
 } from "lucide-react";
 import { FamilyProfiles } from "@/components/profiles/FamilyProfiles";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface Member {
   id: string;
@@ -48,6 +49,7 @@ interface Group {
 }
 
 export default function GroupsPage() {
+  const { confirm } = useFeedback();
   const { isReady, session } = useAuth();
   const currentUserId = session?.user?.id ?? "dev-user";
 
@@ -86,13 +88,21 @@ export default function GroupsPage() {
   };
 
   const deleteGroup = async (id: string) => {
-    if (!confirm("Supprimer ce groupe ? Les enfants du foyer et leur semainier seront supprimés. Cette action est irréversible.")) return;
+    if (
+      !(await confirm({
+        title: "Supprimer ce groupe ?",
+        description: "Les enfants du foyer et leur semainier seront supprimés. Cette action est irréversible.",
+        confirmLabel: "Supprimer",
+        destructive: true,
+      }))
+    )
+      return;
     await fetch(`/api/groups/${id}`, { method: "DELETE" });
     fetchGroups();
   };
 
   const leaveGroup = async (groupId: string) => {
-    if (!confirm("Quitter ce groupe ?")) return;
+    if (!(await confirm({ title: "Quitter ce groupe ?", confirmLabel: "Quitter", destructive: true }))) return;
     await fetch(`/api/groups/${groupId}/members/${currentUserId}`, { method: "DELETE" });
     fetchGroups();
   };

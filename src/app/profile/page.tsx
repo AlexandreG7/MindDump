@@ -51,6 +51,7 @@ import { LoginMethods } from "@/components/LoginMethods";
 import { useFeaturesContext, type FeatureKey } from "@/components/FeaturesContext";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { ConnectedDevices } from "@/components/ConnectedDevices";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface Member {
   id: string;
@@ -73,6 +74,7 @@ interface Group {
 }
 
 export default function ProfilePage() {
+  const { confirm } = useFeedback();
   const { isReady, session } = useAuth();
   const { refresh: refreshGroups } = useGroupContext();
   const currentUserId = session?.user?.id ?? "dev-user";
@@ -282,14 +284,22 @@ export default function ProfilePage() {
   };
 
   const deleteGroup = async (id: string) => {
-    if (!confirm("Supprimer ce groupe ? Cette action est irréversible.")) return;
+    if (
+      !(await confirm({
+        title: "Supprimer ce groupe ?",
+        description: "Cette action est irréversible.",
+        confirmLabel: "Supprimer",
+        destructive: true,
+      }))
+    )
+      return;
     await fetch(`/api/groups/${id}`, { method: "DELETE" });
     fetchGroups();
     refreshGroups();
   };
 
   const leaveGroup = async (groupId: string) => {
-    if (!confirm("Quitter ce groupe ?")) return;
+    if (!(await confirm({ title: "Quitter ce groupe ?", confirmLabel: "Quitter", destructive: true }))) return;
     await fetch(`/api/groups/${groupId}/members/${currentUserId}`, { method: "DELETE" });
     fetchGroups();
     refreshGroups();

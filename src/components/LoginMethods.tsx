@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { Check, KeyRound, LogIn, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProviderIcon } from "@/components/OAuthButtons";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface Methods {
   hasPassword: boolean;
@@ -19,6 +20,7 @@ const LINK_MESSAGES: Record<string, (name: string) => { text: string; ok: boolea
 };
 
 export function LoginMethods() {
+  const { confirm } = useFeedback();
   const [methods, setMethods] = useState<Methods | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
@@ -68,7 +70,15 @@ export function LoginMethods() {
   };
 
   const unlink = async (id: string, name: string) => {
-    if (!confirm(`Délier ${name} ? Tu ne pourras plus te connecter avec ce compte.`)) return;
+    if (
+      !(await confirm({
+        title: `Délier ${name} ?`,
+        description: "Tu ne pourras plus te connecter avec ce compte.",
+        confirmLabel: "Délier",
+        destructive: true,
+      }))
+    )
+      return;
     setBusy(id);
     setMessage(null);
     const res = await fetch(`/api/users/me/accounts?provider=${encodeURIComponent(id)}`, { method: "DELETE" });

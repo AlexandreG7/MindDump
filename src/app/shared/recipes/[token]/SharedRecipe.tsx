@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { BookmarkPlus, Check, Loader } from "lucide-react";
 import { RecipeView, type RecipeViewData } from "@/components/recipes/RecipeView";
+import { useFeedback } from "@/components/ui/feedback";
 
 const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true" && process.env.NODE_ENV !== "production";
 
@@ -14,6 +15,7 @@ export function SharedRecipe({ token, recipe }: { token: string; recipe: RecipeV
   const isLoggedIn = skipAuth || status === "authenticated";
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const { toast } = useFeedback();
 
   const saveToMyRecipes = async () => {
     if (!isLoggedIn) {
@@ -25,7 +27,7 @@ export function SharedRecipe({ token, recipe }: { token: string; recipe: RecipeV
     setSaving(false);
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: null }));
-      alert(error || "Impossible d'ajouter la recette");
+      toast(error || "Impossible d'ajouter la recette", "error");
       return;
     }
     const { id } = await res.json();

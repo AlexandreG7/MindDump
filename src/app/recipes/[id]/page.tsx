@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { RecipeView, type RecipeViewData } from "@/components/recipes/RecipeView";
 import { ShareRecipeDialog } from "@/components/recipes/ShareRecipeDialog";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface Recipe extends RecipeViewData {
   id: string;
@@ -23,6 +24,7 @@ interface Recipe extends RecipeViewData {
 }
 
 export default function RecipeDetailPage() {
+  const { toast } = useFeedback();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { isReady } = useAuth();
@@ -117,7 +119,7 @@ export default function RecipeDetailPage() {
     setUploadingImage(false);
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: null }));
-      alert(error || "Impossible d'enregistrer l'image");
+      toast(error || "Impossible d'enregistrer l'image", "error");
       return;
     }
     fetchRecipe();

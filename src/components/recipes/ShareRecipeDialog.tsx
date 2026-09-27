@@ -5,6 +5,7 @@ import { Check, Copy, Link2, Link2Off, Loader, Send } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useFeedback } from "@/components/ui/feedback";
 
 export function ShareRecipeDialog({
   open,
@@ -22,6 +23,7 @@ export function ShareRecipeDialog({
   onChange: () => void;
 }) {
   const [token, setToken] = useState(shareToken);
+  const { confirm, toast } = useFeedback();
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
@@ -36,7 +38,7 @@ export function ShareRecipeDialog({
     const res = await fetch(`/api/recipes/${recipeId}/share`, { method: "POST" });
     setLoading(false);
     if (!res.ok) {
-      alert("Impossible de créer le lien");
+      toast("Impossible de créer le lien", "error");
       return;
     }
     const data = await res.json();
@@ -45,7 +47,15 @@ export function ShareRecipeDialog({
   };
 
   const revokeLink = async () => {
-    if (!confirm("Désactiver le lien ? Les personnes qui l'ont ne pourront plus voir la recette.")) return;
+    if (
+      !(await confirm({
+        title: "Désactiver le lien ?",
+        description: "Les personnes qui l'ont ne pourront plus voir la recette.",
+        confirmLabel: "Désactiver",
+        destructive: true,
+      }))
+    )
+      return;
     setLoading(true);
     await fetch(`/api/recipes/${recipeId}/share`, { method: "DELETE" });
     setLoading(false);

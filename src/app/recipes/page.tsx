@@ -41,6 +41,7 @@ import {
   ArrowUpDown,
   Heart,
 } from "lucide-react";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface Ingredient {
   id?: string;
@@ -76,6 +77,7 @@ type ViewMode = "grid" | "list" | "compact";
 type SortOption = "recent" | "oldest" | "alpha-asc" | "alpha-desc" | "fastest" | "slowest";
 
 export default function RecipesPage() {
+  const { confirm, toast } = useFeedback();
   const { isReady } = useAuth();
   const router = useRouter();
   const { currentGroupId } = useGroupContext();
@@ -236,7 +238,7 @@ export default function RecipesPage() {
       });
       if (!imgRes.ok) {
         const { error } = await imgRes.json().catch(() => ({ error: null }));
-        alert(error || "Recette créée, mais impossible d'enregistrer l'image");
+        toast(error || "Recette créée, mais impossible d'enregistrer l'image", "error");
       }
     }
 
@@ -286,10 +288,21 @@ export default function RecipesPage() {
         await fetch(`/api/recipes/${id}`, { method: "DELETE" });
       }
     } else {
-      const message = recipe.planned
-        ? `Retirer « ${recipe.title} » du catalogue ? Elle restera dans les recettes prévues.`
-        : `Supprimer « ${recipe.title} » ? Cette action est irréversible.`;
-      if (!confirm(message)) return;
+      const ok = await confirm(
+        recipe.planned
+          ? {
+              title: `Retirer « ${recipe.title} » du catalogue ?`,
+              description: "Elle restera dans les recettes prévues.",
+              confirmLabel: "Retirer",
+            }
+          : {
+              title: `Supprimer « ${recipe.title} » ?`,
+              description: "Cette action est irréversible.",
+              confirmLabel: "Supprimer",
+              destructive: true,
+            }
+      );
+      if (!ok) return;
       if (recipe.planned) {
         await fetch(`/api/recipes/${id}`, {
           method: "PATCH",
@@ -312,7 +325,7 @@ export default function RecipesPage() {
     });
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: null }));
-      alert(error || "Impossible d'enregistrer l'image");
+      toast(error || "Impossible d'enregistrer l'image", "error");
     }
     fetchRecipes();
   };
