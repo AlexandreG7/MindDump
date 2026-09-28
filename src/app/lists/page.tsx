@@ -294,7 +294,7 @@ export default function ListsPage() {
                 <Input
                   value={newList.name}
                   onChange={(e) => setNewList({ ...newList, name: e.target.value })}
-                  placeholder="Ex: Courses semaine, Wishlist Amazon..."
+                  placeholder="Ex. : courses de la semaine, idées cadeaux…"
                 />
               </div>
               <div>
@@ -504,7 +504,7 @@ function ListGroup({
               <div className="flex items-center gap-1 shrink-0">
                 {type === "ONLINE" && total > 0 && (
                   <span className="text-sm text-muted-foreground mr-2">
-                    {total.toFixed(2)} EUR
+                    {total.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
                   </span>
                 )}
                 {online && type === "GROCERY" && recipes.length > 0 && (

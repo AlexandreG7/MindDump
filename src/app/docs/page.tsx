@@ -127,7 +127,7 @@ export default function DocsPage() {
             1. Créer une clé API
           </p>
           <p className="text-muted-foreground">
-            Dans <Link href="/profile" className="text-primary hover:underline">Profil → Clés API</Link>,
+            Dans <Link href="/profile" className="text-primary hover:underline">Profil → Assistant IA</Link>,
             clique sur « Nouvelle clé » et copie-la — elle ne sera plus affichée en entier
             ensuite.
           </p>

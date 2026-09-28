@@ -34,10 +34,10 @@ type NavItem = { href: string; label: string; shortLabel?: string; icon: typeof 
 const MOBILE_TABS = 4;
 
 const ALL_NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Dashboard", shortLabel: "Accueil", icon: LayoutDashboard, feature: null },
-  { href: "/todos", label: "Todos", icon: CheckSquare, feature: "todos" as FeatureKey },
-  { href: "/calendar", label: "Calendrier", shortLabel: "Agenda", icon: Calendar, feature: "calendar" as FeatureKey },
-  { href: "/lists", label: "Courses", icon: ShoppingCart, feature: "lists" as FeatureKey },
+  { href: "/", label: "Accueil", icon: LayoutDashboard, feature: null },
+  { href: "/todos", label: "Tâches", icon: CheckSquare, feature: "todos" as FeatureKey },
+  { href: "/calendar", label: "Agenda", icon: Calendar, feature: "calendar" as FeatureKey },
+  { href: "/lists", label: "Listes", icon: ShoppingCart, feature: "lists" as FeatureKey },
   { href: "/recipes", label: "Recettes", icon: ChefHat, feature: "recipes" as FeatureKey },
   { href: "/kids", label: "Semainier", icon: Baby, feature: "kids" as FeatureKey },
 ];

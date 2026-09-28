@@ -336,7 +336,7 @@ export default function GroupsPage() {
                     <p className="text-sm font-medium truncate">
                       {member.user.name ?? member.user.email}
                       {member.user.id === currentUserId && (
-                        <span className="text-muted-foreground font-normal"> (vous)</span>
+                        <span className="text-muted-foreground font-normal"> (toi)</span>
                       )}
                     </p>
                     {member.user.name && member.user.email && (

@@ -173,7 +173,7 @@ export function Dashboard() {
       icon: AlertCircle,
       iconClass: "text-destructive",
       value: urgentTodos.length,
-      label: "tâches urgentes",
+      label: urgentTodos.length > 1 ? "tâches urgentes" : "tâche urgente",
     },
     {
       feature: "calendar" as const,
@@ -182,16 +182,16 @@ export function Dashboard() {
       icon: Calendar,
       iconClass: "text-primary",
       value: todayEvents.length,
-      label: "événements",
+      label: todayEvents.length > 1 ? "événements" : "événement",
     },
     {
       feature: "lists" as const,
       href: "/lists",
-      title: "Courses",
+      title: "Listes",
       icon: ShoppingCart,
       iconClass: "text-primary",
       value: activeListsCount,
-      label: "listes actives",
+      label: activeListsCount > 1 ? "listes actives" : "liste active",
     },
     {
       feature: "recipes" as const,

@@ -32,6 +32,7 @@ import {
   KeyRound,
   Copy,
   LayoutDashboard,
+  Baby,
   CheckSquare,
   Calendar,
   ShoppingCart,
@@ -249,12 +250,13 @@ export default function ProfilePage() {
   const { flags, toggle: toggleFeature } = useFeaturesContext();
 
   const FEATURE_ITEMS: { key: FeatureKey; label: string; description: string; icon: React.ElementType; parent?: FeatureKey }[] = [
-    { key: "todos", label: "Todos", description: "Liste de tâches et rappels", icon: CheckSquare },
-    { key: "calendar", label: "Calendrier", description: "Événements et planning", icon: Calendar },
-    { key: "lists", label: "Courses", description: "Listes de courses", icon: ShoppingCart },
+    { key: "todos", label: "Tâches", description: "Liste de tâches et rappels", icon: CheckSquare },
+    { key: "calendar", label: "Agenda", description: "Événements et planning", icon: Calendar },
+    { key: "lists", label: "Listes", description: "Courses, envies et autres listes", icon: ShoppingCart },
     { key: "recipes", label: "Recettes", description: "Catalogue et planification", icon: ChefHat },
     { key: "recipesPlanned", label: "Vue Prévues", description: "Recettes à cuisiner prochainement", icon: CalendarCheck, parent: "recipes" },
     { key: "recipesWeek", label: "Vue Semaine", description: "Repas placés midi et soir, courses de la semaine", icon: CalendarDays, parent: "recipes" },
+    { key: "kids", label: "Semainier", description: "La semaine des enfants du foyer", icon: Baby },
   ];
 
   const fetchGroups = useCallback(() => {
@@ -533,250 +535,6 @@ export default function ProfilePage() {
         </section>
       )}
 
-      {/* ── Clés API ──────────────────────────────────────────── */}
-      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-base font-semibold">Clés API</h2>
-          </div>
-          <Dialog open={apiKeyDialogOpen} onOpenChange={(open) => {
-            setApiKeyDialogOpen(open);
-            if (!open) { setNewlyCreatedKey(null); setApiKeyCopied(false); }
-          }}>
-            <DialogTrigger asChild>
-              <Button size="sm"><Plus className="h-4 w-4 mr-2" />Nouvelle clé</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>
-                {newlyCreatedKey ? "Clé créée" : "Créer une clé API"}
-              </DialogTitle></DialogHeader>
-              {newlyCreatedKey ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/15 px-3 py-2 rounded-lg">
-                    Sauvegardez cette clé maintenant. Elle ne sera plus affichée en entier.
-                  </p>
-                  <div className="flex gap-2">
-                    <Input value={newlyCreatedKey} readOnly className="font-mono text-xs" />
-                    <Button size="sm" variant={apiKeyCopied ? "default" : "outline"} onClick={copyApiKey} className="shrink-0">
-                      {apiKeyCopied
-                        ? <><Check className="h-3.5 w-3.5 mr-1" />Copié !</>
-                        : <><Copy className="h-3.5 w-3.5 mr-1" />Copier</>}
-                    </Button>
-                  </div>
-                  <DialogClose asChild>
-                    <Button variant="outline" className="w-full">Fermer</Button>
-                  </DialogClose>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label>Nom de la clé</Label>
-                    <Input placeholder="Ex: MCP, Claude Desktop…" value={newKeyName}
-                      onChange={(e) => setNewKeyName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && createApiKey()} autoFocus />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button className="flex-1" onClick={createApiKey} disabled={apiKeyLoading}>
-                      {apiKeyLoading ? "Création…" : "Créer"}
-                    </Button>
-                    <DialogClose asChild><Button variant="outline">Annuler</Button></DialogClose>
-                  </div>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
-        </div>
-        <p className="text-sm text-muted-foreground -mt-1">
-          Clés pour connecter le serveur MCP ou d&apos;autres intégrations.
-        </p>
-        {apiKeys.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">Aucune clé API</p>
-        ) : (
-          <div className="space-y-2">
-            {apiKeys.map((k) => (
-              <div key={k.id} className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl bg-secondary/30">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{k.name}</p>
-                  <p className="text-xs text-muted-foreground font-mono">{k.key}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(k.createdAt).toLocaleDateString("fr-FR")}
-                  </span>
-                  <button aria-label="Supprimer la clé API" onClick={() => deleteApiKey(k.id)}
-                    className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* ── Météo ────────────────────────────────────────────────── */}
-      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-semibold">Météo</h2>
-        </div>
-        <p className="text-sm text-muted-foreground -mt-1">
-          Localisation utilisée pour la météo du dashboard. Sans réglage, la position du navigateur est demandée à chaque visite.
-        </p>
-
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40">
-          <MapPin className="h-4 w-4 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground">Ville actuelle</p>
-            <p className="text-sm font-semibold truncate">
-              {weatherCity ?? "Automatique (position du navigateur)"}
-            </p>
-          </div>
-          {weatherCity && (
-            <button
-              onClick={() => saveWeatherLocation(null, null, null)}
-              disabled={weatherSaving}
-              className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-              title="Revenir à la détection automatique"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="space-y-1.5 relative">
-          <Label>Changer de ville</Label>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Ex: Lyon, Bruxelles…"
-              value={weatherQuery}
-              onChange={(e) => searchWeatherCity(e.target.value)}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={useCurrentLocation}
-              disabled={weatherLocating}
-              className="shrink-0"
-              title="Utiliser ma position actuelle"
-            >
-              <LocateFixed className="h-4 w-4" />
-            </Button>
-          </div>
-          {(weatherResults.length > 0 || weatherSearchLoading) && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-10 bg-popover border border-border rounded-xl shadow-lg overflow-hidden">
-              {weatherSearchLoading ? (
-                <p className="text-sm text-muted-foreground px-3 py-2">Recherche…</p>
-              ) : (
-                weatherResults.map((r, i) => (
-                  <button
-                    key={i}
-                    onClick={() =>
-                      saveWeatherLocation(
-                        r.latitude,
-                        r.longitude,
-                        [r.name, r.admin1].filter(Boolean).join(", ")
-                      )
-                    }
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
-                  >
-                    <span className="font-medium">{r.name}</span>
-                    {r.admin1 && <span className="text-muted-foreground"> — {r.admin1}</span>}
-                    {r.country && <span className="text-muted-foreground">, {r.country}</span>}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <NotificationSettings />
-
-      <ConnectedDevices />
-
-      {/* ── Feature flags ───────────────────────────────────────── */}
-      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <Sliders className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-semibold">Fonctionnalités</h2>
-        </div>
-        <p className="text-sm text-muted-foreground -mt-1">
-          Active ou désactive les onglets de navigation.
-        </p>
-        <div className="space-y-1">
-          {FEATURE_ITEMS.filter(({ parent }) => !parent || flags[parent]).map(({ key, label, description, icon: Icon, parent }) => (
-            <div
-              key={key}
-              className={`flex items-center justify-between gap-4 py-3 px-1 rounded-xl hover:bg-secondary/40 transition-colors ${
-                parent ? "ml-11" : ""
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                  flags[key] ? "bg-primary/10" : "bg-secondary"
-                }`}>
-                  <Icon className={`h-4 w-4 transition-colors ${flags[key] ? "text-primary" : "text-muted-foreground"}`} />
-                </div>
-                <div>
-                  <p className={`text-sm font-medium transition-colors ${!flags[key] && "text-muted-foreground"}`}>
-                    {label}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{description}</p>
-                </div>
-              </div>
-              {/* Toggle switch */}
-              <button aria-label={label}
-                role="switch"
-                aria-checked={flags[key]}
-                onClick={() => toggleFeature(key, !flags[key])}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 ${
-                  flags[key] ? "bg-primary" : "bg-input"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-                    flags[key] ? "translate-x-4" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Mes données (RGPD) ──────────────────────────────────── */}
-      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-semibold">Mes données</h2>
-        </div>
-        <p className="text-sm text-muted-foreground -mt-1">
-          Récupère toutes tes données au format JSON, ou supprime ton compte. Détails dans la{" "}
-          <Link href="/confidentialite" className="text-primary hover:underline">
-            politique de confidentialité
-          </Link>
-          .
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild size="sm" variant="outline">
-            <a href="/api/users/me/export" download>
-              <Download className="h-4 w-4 mr-2" />Exporter mes données
-            </a>
-          </Button>
-          {!skipAuth && (
-            <DeleteAccountDialog
-              trigger={
-                <button className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1.5 rounded-lg hover:bg-destructive/10">
-                  <Trash2 className="h-3.5 w-3.5" />Supprimer mon compte
-                </button>
-              }
-            />
-          )}
-        </div>
-      </section>
-
       {/* ── Mes groupes ─────────────────────────────────────────── */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
@@ -896,7 +654,7 @@ export default function ProfilePage() {
                     <p className="text-sm font-medium truncate">
                       {member.user.name ?? member.user.email}
                       {member.user.id === currentUserId && (
-                        <span className="text-muted-foreground font-normal"> (vous)</span>
+                        <span className="text-muted-foreground font-normal"> (toi)</span>
                       )}
                     </p>
                     {member.user.name && member.user.email && (
@@ -945,7 +703,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   {([
-                    { field: "shareTodos", label: "Todos", icon: CheckSquare, value: group.shareTodos },
+                    { field: "shareTodos", label: "Tâches", icon: CheckSquare, value: group.shareTodos },
                     { field: "shareCalendar", label: "Calendrier", icon: Calendar, value: group.shareCalendar },
                     { field: "shareLists", label: "Courses", icon: ShoppingCart, value: group.shareLists },
                     { field: "shareRecipes", label: "Recettes", icon: ChefHat, value: group.shareRecipes },
@@ -1010,6 +768,250 @@ export default function ProfilePage() {
             )}
           </div>
         ))}
+      </section>
+
+      {/* ── Feature flags ───────────────────────────────────────── */}
+      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Sliders className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Fonctionnalités</h2>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-1">
+          Active ou désactive les onglets de navigation.
+        </p>
+        <div className="space-y-1">
+          {FEATURE_ITEMS.filter(({ parent }) => !parent || flags[parent]).map(({ key, label, description, icon: Icon, parent }) => (
+            <div
+              key={key}
+              className={`flex items-center justify-between gap-4 py-3 px-1 rounded-xl hover:bg-secondary/40 transition-colors ${
+                parent ? "ml-11" : ""
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                  flags[key] ? "bg-primary/10" : "bg-secondary"
+                }`}>
+                  <Icon className={`h-4 w-4 transition-colors ${flags[key] ? "text-primary" : "text-muted-foreground"}`} />
+                </div>
+                <div>
+                  <p className={`text-sm font-medium transition-colors ${!flags[key] && "text-muted-foreground"}`}>
+                    {label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{description}</p>
+                </div>
+              </div>
+              {/* Toggle switch */}
+              <button aria-label={label}
+                role="switch"
+                aria-checked={flags[key]}
+                onClick={() => toggleFeature(key, !flags[key])}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 ${
+                  flags[key] ? "bg-primary" : "bg-input"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                    flags[key] ? "translate-x-4" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Météo ────────────────────────────────────────────────── */}
+      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Météo</h2>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-1">
+          Localisation utilisée pour la météo du dashboard. Sans réglage, la position du navigateur est demandée à chaque visite.
+        </p>
+
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40">
+          <MapPin className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground">Ville actuelle</p>
+            <p className="text-sm font-semibold truncate">
+              {weatherCity ?? "Automatique (position du navigateur)"}
+            </p>
+          </div>
+          {weatherCity && (
+            <button
+              onClick={() => saveWeatherLocation(null, null, null)}
+              disabled={weatherSaving}
+              className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+              title="Revenir à la détection automatique"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-1.5 relative">
+          <Label>Changer de ville</Label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Ex: Lyon, Bruxelles…"
+              value={weatherQuery}
+              onChange={(e) => searchWeatherCity(e.target.value)}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={useCurrentLocation}
+              disabled={weatherLocating}
+              className="shrink-0"
+              title="Utiliser ma position actuelle"
+            >
+              <LocateFixed className="h-4 w-4" />
+            </Button>
+          </div>
+          {(weatherResults.length > 0 || weatherSearchLoading) && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-10 bg-popover border border-border rounded-xl shadow-lg overflow-hidden">
+              {weatherSearchLoading ? (
+                <p className="text-sm text-muted-foreground px-3 py-2">Recherche…</p>
+              ) : (
+                weatherResults.map((r, i) => (
+                  <button
+                    key={i}
+                    onClick={() =>
+                      saveWeatherLocation(
+                        r.latitude,
+                        r.longitude,
+                        [r.name, r.admin1].filter(Boolean).join(", ")
+                      )
+                    }
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+                  >
+                    <span className="font-medium">{r.name}</span>
+                    {r.admin1 && <span className="text-muted-foreground"> — {r.admin1}</span>}
+                    {r.country && <span className="text-muted-foreground">, {r.country}</span>}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <NotificationSettings />
+
+      <ConnectedDevices />
+
+      {/* ── Assistant IA (clés API) ──────────────────────────────────────────── */}
+      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-base font-semibold">Assistant IA</h2>
+          </div>
+          <Dialog open={apiKeyDialogOpen} onOpenChange={(open) => {
+            setApiKeyDialogOpen(open);
+            if (!open) { setNewlyCreatedKey(null); setApiKeyCopied(false); }
+          }}>
+            <DialogTrigger asChild>
+              <Button size="sm"><Plus className="h-4 w-4 mr-2" />Nouvelle clé</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>
+                {newlyCreatedKey ? "Clé créée" : "Créer une clé API"}
+              </DialogTitle></DialogHeader>
+              {newlyCreatedKey ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/15 px-3 py-2 rounded-lg">
+                    Copie cette clé maintenant : elle ne sera plus affichée en entier.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input value={newlyCreatedKey} readOnly className="font-mono text-xs" />
+                    <Button size="sm" variant={apiKeyCopied ? "default" : "outline"} onClick={copyApiKey} className="shrink-0">
+                      {apiKeyCopied
+                        ? <><Check className="h-3.5 w-3.5 mr-1" />Copié !</>
+                        : <><Copy className="h-3.5 w-3.5 mr-1" />Copier</>}
+                    </Button>
+                  </div>
+                  <DialogClose asChild>
+                    <Button variant="outline" className="w-full">Fermer</Button>
+                  </DialogClose>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Nom de la clé</Label>
+                    <Input placeholder="Ex: MCP, Claude Desktop…" value={newKeyName}
+                      onChange={(e) => setNewKeyName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && createApiKey()} autoFocus />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button className="flex-1" onClick={createApiKey} disabled={apiKeyLoading}>
+                      {apiKeyLoading ? "Création…" : "Créer"}
+                    </Button>
+                    <DialogClose asChild><Button variant="outline">Annuler</Button></DialogClose>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-1">
+          Une clé permet à ton assistant IA (Claude ou un autre client MCP) de lire et remplir MindDump à ta place. Mode d&apos;emploi dans la <Link href="/docs" className="underline underline-offset-2 hover:text-foreground">documentation</Link>.
+        </p>
+        {apiKeys.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Aucune clé API</p>
+        ) : (
+          <div className="space-y-2">
+            {apiKeys.map((k) => (
+              <div key={k.id} className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl bg-secondary/30">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{k.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{k.key}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(k.createdAt).toLocaleDateString("fr-FR")}
+                  </span>
+                  <button aria-label="Supprimer la clé API" onClick={() => deleteApiKey(k.id)}
+                    className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Mes données (RGPD) ──────────────────────────────────── */}
+      <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Mes données</h2>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-1">
+          Récupère toutes tes données au format JSON, ou supprime ton compte. Détails dans la{" "}
+          <Link href="/confidentialite" className="text-primary hover:underline">
+            politique de confidentialité
+          </Link>
+          .
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm" variant="outline">
+            <a href="/api/users/me/export" download>
+              <Download className="h-4 w-4 mr-2" />Exporter mes données
+            </a>
+          </Button>
+          {!skipAuth && (
+            <DeleteAccountDialog
+              trigger={
+                <button className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1.5 rounded-lg hover:bg-destructive/10">
+                  <Trash2 className="h-3.5 w-3.5" />Supprimer mon compte
+                </button>
+              }
+            />
+          )}
+        </div>
       </section>
     </div>
   );

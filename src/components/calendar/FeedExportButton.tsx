@@ -59,7 +59,7 @@ export function FeedExportButton() {
           <div className="absolute right-0 top-full mt-2 z-50 w-72 bg-popover border border-border rounded-xl shadow-lg p-4 space-y-3">
             <p className="text-sm font-medium">Exporter le calendrier</p>
             <p className="text-xs text-muted-foreground">
-              Exporte tes events MindDump vers Apple Calendar, Google Calendar ou Outlook.
+              Exporte tes événements MindDump vers Apple Calendar, Google Calendar ou Outlook.
             </p>
             <button
               onClick={() => {
