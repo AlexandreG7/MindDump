@@ -22,6 +22,12 @@
   éléments personnels des membres) et ne permet que de cocher tâches et courses. Supprimer l'écran
   révoque le lien. Le navigateur de l'écran garde le dernier tableau en localStorage (`wall:snapshot`)
   pour rester lisible hors ligne ; il est effacé quand le lien est révoqué.
+- **Mot de passe oublié** (`src/lib/passwordReset.ts`) : table `VerificationToken` de NextAuth,
+  `identifier` = adresse du compte, `token` = empreinte SHA-256 du jeton envoyé par e-mail (jamais le
+  jeton lui-même). Valable une heure, à usage unique, un seul lien actif, un envoi au plus toutes les
+  2 minutes. La route répond pareil que le compte existe ou non. Le changement déconnecte l'app mobile
+  (`MobileDevice` supprimés) ; les sessions web en JWT restent valides jusqu'à expiration. Supprimé
+  avec le compte (même `identifier`).
 - **Cookies** : uniquement des cookies strictement nécessaires (session NextAuth) et des préférences
   d'interface en localStorage (`theme`, `sidebarCollapsed`, `currentGroupId`, `kids:selectedProfile`), plus
   `nextauth.message` posé par NextAuth pour synchroniser la session entre onglets. Pas de bandeau

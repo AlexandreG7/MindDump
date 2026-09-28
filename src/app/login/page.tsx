@@ -41,7 +41,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Email ou mot de passe incorrect.");
+      setError("Adresse e-mail ou mot de passe incorrect.");
     } else {
       // Retour à la page demandée (ex. lien de partage), chemins internes uniquement.
       router.push(callbackUrl);
@@ -74,7 +74,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Adresse e-mail</Label>
               <Input
                 id="email"
                 type="email"
@@ -87,7 +87,12 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Mot de passe</Label>
+              <div className="flex items-baseline justify-between">
+                <Label htmlFor="password">Mot de passe</Label>
+                <Link href="/mot-de-passe-oublie" className="text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               <div className="relative">
                 <Input
                   id="password"
