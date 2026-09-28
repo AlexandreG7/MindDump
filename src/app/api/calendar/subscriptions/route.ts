@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { UnsafeUrlError, assertPublicUrl } from "@/lib/safeFetch";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import {
@@ -55,16 +56,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "URL et nom requis" }, { status: 400 });
   }
 
-  // N'accepter que des URL http(s) (bloque javascript:, file:, data:, etc.
-  // qui seraient ensuite refetchées côté client).
-  let parsedUrl: URL;
+  // URL http(s) publique seulement : ni javascript:/file:/data:, ni adresse du
+  // réseau interne du serveur (SSRF), revérifiée à chaque récupération.
   try {
-    parsedUrl = new URL(url);
-  } catch {
-    return NextResponse.json({ error: "URL invalide" }, { status: 400 });
-  }
-  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-    return NextResponse.json({ error: "URL invalide (http/https uniquement)" }, { status: 400 });
+    await assertPublicUrl(url);
+  } catch (e) {
+    const message = e instanceof UnsafeUrlError ? e.message : "URL invalide";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   // Un calendrier synchronisé l'est pour le groupe sélectionné : tous ses

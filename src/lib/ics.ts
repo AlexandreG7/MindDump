@@ -1,4 +1,5 @@
 import { RRule, RRuleSet } from "rrule";
+import { safeFetchText } from "./safeFetch";
 
 export interface ICSEvent {
   uid: string;
@@ -302,12 +303,6 @@ export function parseICS(icsText: string, from?: Date, to?: Date): ICSEvent[] {
 }
 
 export async function fetchICSEvents(url: string, from?: Date, to?: Date): Promise<ICSEvent[]> {
-  const fetchUrl = url.replace(/^webcal:\/\//, "https://");
-  const res = await fetch(fetchUrl, {
-    headers: { "User-Agent": "MindDump/1.0" },
-    next: { revalidate: 0 },
-  });
-  if (!res.ok) throw new Error(`Failed to fetch ICS: ${res.status}`);
-  const text = await res.text();
+  const text = await safeFetchText(url.replace(/^webcal:\/\//, "https://"));
   return parseICS(text, from, to);
 }
