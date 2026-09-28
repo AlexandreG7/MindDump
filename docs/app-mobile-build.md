@@ -75,7 +75,17 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
   `sdk.dir=/Users/<toi>/Library/Android/sdk`. Android Studio le crée tout seul.
 - Serveur local : l'émulateur n'a pas le même `localhost` que le Mac. Utiliser
   `adb reverse tcp:3110 tcp:3110` puis `MINDDUMP_URL=http://localhost:3110`,
-  pour que l'URL reste celle de `NEXTAUTH_URL` (cookies de session).
+  pour que l'URL reste celle de `NEXTAUTH_URL` (cookies de session). Le HTTP
+  n'est autorisé que vers `localhost` (`res/xml/network_security_config.xml`).
+  Basculer le mode avion de l'émulateur **supprime** la redirection
+  `adb reverse` : la refaire ensuite.
+- Saisie : `adb shell input text '…'` fonctionne (pas de problème de clavier
+  AZERTY comme sur le simulateur iOS) ; `input keyevent 61` (Tab) pour passer
+  au champ suivant, le clavier décalant la page.
+- `MainActivity` écrit les cookies sur disque au passage en arrière-plan : sans
+  ça, une app fermée juste après la connexion perdait sa session.
+- `ACCESS_NETWORK_STATE` : sans elle, la WebView laisse `navigator.onLine` à
+  `true` et l'app n'affiche jamais « Hors ligne ».
 - Icône adaptative : fond orange (`values/ic_launcher_background.xml`) et
   « M » en premier plan ; écran de lancement Android 12+ par l'API SplashScreen
   (`values/styles.xml`), fichiers `splash.png` pour les versions antérieures.

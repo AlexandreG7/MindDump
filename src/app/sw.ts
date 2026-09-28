@@ -124,7 +124,10 @@ const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
-  navigationPreload: true,
+  // Pas de préchargement de navigation : dans la WebView Android de l'app,
+  // l'échec de cette requête parallèle hors ligne est pris pour celui de la
+  // page (écran d'erreur de Capacitor) alors que le cache y répond.
+  navigationPreload: false,
   runtimeCaching,
   fallbacks: {
     entries: [
@@ -137,6 +140,12 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Le réglage persiste sur l'enregistrement : les appareils qui ont eu une
+// version avec préchargement doivent le désactiver explicitement.
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.registration.navigationPreload?.disable().catch(() => {}) ?? Promise.resolve());
+});
 
 // ─── Notifications push (étape 1.4, src/lib/push.ts) ───────────
 

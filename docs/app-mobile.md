@@ -24,7 +24,7 @@ Web Push                 WebView                    finitions natives          f
 | 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☑ (reste : test sur Android réel) |
 | 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☑ (reste : aller-retour Google / Apple réel, avec l'app) |
 | 2.2 | Appareils connectés (liste, révocation) | S | ☑ |
-| 3.1 | Projet Capacitor (iOS + Android) | M | ☑ (reste : Android testé sur émulateur ou téléphone) |
+| 3.1 | Projet Capacitor (iOS + Android) | M | ☑ |
 | 3.2 | Branchement de la connexion mobile | S | ☐ |
 | 3.3 | Push natif (APNs / FCM) | L | ☐ |
 | 3.4 | Extension de partage iOS + intent Android | M | ☐ |
@@ -266,10 +266,16 @@ faux schéma ; code réutilisé, expiré ou avec un mauvais verifier → refusé
       8.5, iOS en Swift Package Manager (pas de CocoaPods). Exclu du
       TypeScript du site (`tsconfig.json`) et de l'image Docker
       (`.dockerignore`). Identifiant `fr.minddump.app`.
-- [x] Plateforme Android : APK de debug construit (Gradle passé à 9.2.1 pour
-      le JDK 25 d'Android Studio), icône adaptative et écran de lancement
-      Android 12+. Pas encore lancé : aucun émulateur ni image système
-      installés.
+- [x] Plateforme Android (Gradle passé à 9.2.1 pour le JDK 25 d'Android
+      Studio), icône adaptative et écran de lancement Android 12+. Vérifié sur
+      émulateur Pixel 9 (Android 16) : connexion, session conservée après
+      fermeture de l'app, puis en mode avion accueil et listes servis par le
+      cache, avec l'indicateur « Hors ligne ».
+- [x] Trouvé sur Android : le préchargement de navigation du service worker
+      (`navigationPreload`) échouait hors ligne et la WebView le prenait pour
+      l'échec de la page (écran d'erreur de Capacitor) alors que le cache
+      répondait. Désactivé dans `sw.ts`, explicitement à l'activation car le
+      réglage persiste sur les appareils déjà installés.
 - [x] `capacitor.config.ts` : `server.url = "https://minddump.fr"`
       (`MINDDUMP_URL` pour un serveur local), `allowNavigation` limité à ce
       domaine, `appendUserAgent: "MindDumpApp/1"`.
