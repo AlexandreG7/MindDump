@@ -192,8 +192,8 @@ export default function GroupsPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label>Nom du groupe</Label>
-                <Input
+                <Label htmlFor="groups-nom-du-groupe">Nom du groupe</Label>
+                <Input id="groups-nom-du-groupe"
                   placeholder="Ex: Famille Dupont, Coloc, Équipe…"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}

@@ -618,16 +618,16 @@ export default function RecipesPage() {
               </div>
 
               <div>
-                <Label>Titre</Label>
-                <Input
+                <Label htmlFor="recipes-titre">Titre</Label>
+                <Input id="recipes-titre"
                   value={newRecipe.title}
                   onChange={(e) => setNewRecipe({ ...newRecipe, title: e.target.value })}
                   placeholder="Ex: Poulet rôti, Tarte aux pommes..."
                 />
               </div>
               <div>
-                <Label>Description (optionnel)</Label>
-                <Textarea
+                <Label htmlFor="recipes-description-optionnel">Description (optionnel)</Label>
+                <Textarea id="recipes-description-optionnel"
                   value={newRecipe.description}
                   onChange={(e) => setNewRecipe({ ...newRecipe, description: e.target.value })}
                   rows={2}
@@ -635,16 +635,16 @@ export default function RecipesPage() {
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label>Portions</Label>
-                  <Input type="number" value={newRecipe.servings} onChange={(e) => setNewRecipe({ ...newRecipe, servings: Number(e.target.value) })} />
+                  <Label htmlFor="recipes-portions">Portions</Label>
+                  <Input id="recipes-portions" type="number" value={newRecipe.servings} onChange={(e) => setNewRecipe({ ...newRecipe, servings: Number(e.target.value) })} />
                 </div>
                 <div>
-                  <Label>Prep (min)</Label>
-                  <Input type="number" value={newRecipe.prepTime} onChange={(e) => setNewRecipe({ ...newRecipe, prepTime: e.target.value })} />
+                  <Label htmlFor="recipes-prep-min">Prep (min)</Label>
+                  <Input id="recipes-prep-min" type="number" value={newRecipe.prepTime} onChange={(e) => setNewRecipe({ ...newRecipe, prepTime: e.target.value })} />
                 </div>
                 <div>
-                  <Label>Cuisson (min)</Label>
-                  <Input type="number" value={newRecipe.cookTime} onChange={(e) => setNewRecipe({ ...newRecipe, cookTime: e.target.value })} />
+                  <Label htmlFor="recipes-cuisson-min">Cuisson (min)</Label>
+                  <Input id="recipes-cuisson-min" type="number" value={newRecipe.cookTime} onChange={(e) => setNewRecipe({ ...newRecipe, cookTime: e.target.value })} />
                 </div>
               </div>
               <div>
@@ -652,9 +652,9 @@ export default function RecipesPage() {
                 <div className="space-y-2 mt-1">
                   {newRecipe.ingredients.map((ing, i) => (
                     <div key={i} className="flex gap-2 items-center">
-                      <Input placeholder="Nom" value={ing.name} onChange={(e) => updateIngredient(i, "name", e.target.value)} className="flex-1" />
-                      <Input placeholder="Qté" value={ing.quantity} onChange={(e) => updateIngredient(i, "quantity", e.target.value)} className="w-20" />
-                      <Input placeholder="Unité" value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} className="w-20" />
+                      <Input placeholder="Nom" aria-label={`Ingrédient ${i + 1}`} value={ing.name} onChange={(e) => updateIngredient(i, "name", e.target.value)} className="flex-1" />
+                      <Input placeholder="Qté" aria-label={`Quantité de l’ingrédient ${i + 1}`} value={ing.quantity} onChange={(e) => updateIngredient(i, "quantity", e.target.value)} className="w-20" />
+                      <Input placeholder="Unité" aria-label={`Unité de l’ingrédient ${i + 1}`} value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} className="w-20" />
                       {newRecipe.ingredients.length > 1 && (
                         <Button aria-label="Retirer l'ingrédient" variant="ghost" size="icon" onClick={() => removeIngredientField(i)}><X className="h-4 w-4" /></Button>
                       )}
@@ -671,7 +671,7 @@ export default function RecipesPage() {
                   {newRecipe.steps.map((step, i) => (
                     <div key={i} className="flex gap-2 items-start">
                       <span className="text-sm text-muted-foreground mt-2 w-6 shrink-0">{i + 1}.</span>
-                      <Textarea placeholder={`Étape ${i + 1}`} value={step} onChange={(e) => updateStep(i, e.target.value)} className="flex-1" rows={2} />
+                      <Textarea placeholder={`Étape ${i + 1}`} aria-label={`Étape ${i + 1}`} value={step} onChange={(e) => updateStep(i, e.target.value)} className="flex-1" rows={2} />
                       {newRecipe.steps.length > 1 && (
                         <Button aria-label="Retirer l'étape" variant="ghost" size="icon" onClick={() => removeStepField(i)}><X className="h-4 w-4" /></Button>
                       )}

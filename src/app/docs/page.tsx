@@ -58,16 +58,16 @@ Crée le fichier de config s'il n'existe pas, redémarre-toi si besoin, puis con
     <div className="space-y-3">
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>URL de ton app MindDump</Label>
-          <Input
+          <Label htmlFor="docs-url-de-ton-app-minddump">URL de ton app MindDump</Label>
+          <Input id="docs-url-de-ton-app-minddump"
             placeholder="https://mon-minddump.example"
             value={appUrl}
             onChange={(e) => setAppUrl(e.target.value)}
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Ta clé API</Label>
-          <Input
+          <Label htmlFor="docs-ta-cle-api">Ta clé API</Label>
+          <Input id="docs-ta-cle-api"
             placeholder="mdk_..."
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}

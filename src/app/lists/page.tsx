@@ -290,8 +290,8 @@ export default function ListsPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Nom</Label>
-                <Input
+                <Label htmlFor="lists-nom">Nom</Label>
+                <Input id="lists-nom"
                   value={newList.name}
                   onChange={(e) => setNewList({ ...newList, name: e.target.value })}
                   placeholder="Ex. : courses de la semaine, idées cadeaux…"
@@ -738,6 +738,7 @@ function CheckedSection({
       <button
         className="grocery-checked-toggle"
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
       >
         <Check className="h-3.5 w-3.5" />
         <span>Fait ({groups.length})</span>
@@ -751,7 +752,7 @@ function CheckedSection({
         <div className="divide-y divide-border/30">
           {groups.map((group) => (
             <div key={group.key} className="grocery-checked-item group">
-              <button aria-label="Décocher l'article"
+              <button aria-label={`Décocher ${group.name}`}
                 className="grocery-checkbox-zone"
                 onClick={() => onToggle(listId, group.items)}
               >

@@ -493,9 +493,9 @@ export default function ProfilePage() {
           </div>
           <form onSubmit={changePassword} className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Mot de passe actuel</Label>
+              <Label htmlFor="profile-mot-de-passe-actuel">Mot de passe actuel</Label>
               <div className="relative">
-                <Input
+                <Input id="profile-mot-de-passe-actuel"
                   type={showPwd ? "text" : "password"}
                   value={pwdCurrent}
                   onChange={(e) => setPwdCurrent(e.target.value)}
@@ -510,13 +510,13 @@ export default function ProfilePage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Nouveau mot de passe</Label>
-                <Input type={showPwd ? "text" : "password"} value={pwdNew}
+                <Label htmlFor="profile-nouveau-mot-de-passe">Nouveau mot de passe</Label>
+                <Input id="profile-nouveau-mot-de-passe" type={showPwd ? "text" : "password"} value={pwdNew}
                   onChange={(e) => setPwdNew(e.target.value)} placeholder="8 caractères min." />
               </div>
               <div className="space-y-1.5">
-                <Label>Confirmer</Label>
-                <Input type={showPwd ? "text" : "password"} value={pwdConfirm}
+                <Label htmlFor="profile-confirmer">Confirmer</Label>
+                <Input id="profile-confirmer" type={showPwd ? "text" : "password"} value={pwdConfirm}
                   onChange={(e) => setPwdConfirm(e.target.value)} placeholder="••••••••" />
               </div>
             </div>
@@ -554,8 +554,8 @@ export default function ProfilePage() {
               <DialogHeader><DialogTitle>Créer un groupe</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>Nom du groupe</Label>
-                  <Input placeholder="Ex: Famille, Coloc, Équipe…" value={newGroupName}
+                  <Label htmlFor="profile-nom-du-groupe">Nom du groupe</Label>
+                  <Input id="profile-nom-du-groupe" placeholder="Ex: Famille, Coloc, Équipe…" value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && createGroup()} autoFocus />
                 </div>
@@ -851,9 +851,9 @@ export default function ProfilePage() {
         </div>
 
         <div className="space-y-1.5 relative">
-          <Label>Changer de ville</Label>
+          <Label htmlFor="profile-changer-de-ville">Changer de ville</Label>
           <div className="flex gap-2">
-            <Input
+            <Input id="profile-changer-de-ville"
               placeholder="Ex: Lyon, Bruxelles…"
               value={weatherQuery}
               onChange={(e) => searchWeatherCity(e.target.value)}
@@ -939,8 +939,8 @@ export default function ProfilePage() {
               ) : (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label>Nom de la clé</Label>
-                    <Input placeholder="Ex: MCP, Claude Desktop…" value={newKeyName}
+                    <Label htmlFor="profile-nom-de-la-cle">Nom de la clé</Label>
+                    <Input id="profile-nom-de-la-cle" placeholder="Ex: MCP, Claude Desktop…" value={newKeyName}
                       onChange={(e) => setNewKeyName(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && createApiKey()} autoFocus />
                   </div>

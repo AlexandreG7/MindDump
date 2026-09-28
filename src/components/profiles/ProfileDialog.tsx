@@ -64,8 +64,8 @@ export function ProfileDialog({
           <div className="flex items-center gap-3">
             <ProfileAvatar profile={{ ...draft, name: draft.name || "?" }} size="lg" />
             <div className="flex-1 space-y-1.5">
-              <Label>Prénom</Label>
-              <Input
+              <Label htmlFor="profiledialog-prenom">Prénom</Label>
+              <Input id="profiledialog-prenom"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                 onKeyDown={(e) => e.key === "Enter" && save()}
@@ -156,8 +156,8 @@ export function ProfileDialog({
 
           {draft.kind === "child" && !isMember && (
             <div className="space-y-1.5">
-              <Label>Date de naissance <span className="text-muted-foreground font-normal">(facultatif)</span></Label>
-              <Input
+              <Label htmlFor="profiledialog-date-de-naissance">Date de naissance <span className="text-muted-foreground font-normal">(facultatif)</span></Label>
+              <Input id="profiledialog-date-de-naissance"
                 type="date"
                 value={draft.birthDate ?? ""}
                 onChange={(e) => setDraft({ ...draft, birthDate: e.target.value || null })}

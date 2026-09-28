@@ -100,7 +100,7 @@ export function Navbar() {
         <div className={cn("mb-8 flex items-center", collapsed ? "justify-center" : "justify-between")}>
           {!collapsed && (
             <div>
-              <h1 className="text-xl font-bold">MindDump</h1>
+              <p className="text-xl font-bold">MindDump</p>
               <p className="text-sm text-muted-foreground">Vide ta charge mentale</p>
             </div>
           )}
@@ -141,6 +141,8 @@ export function Navbar() {
             </p>
             <button
               onClick={() => setGroupDropOpen((o) => !o)}
+              aria-expanded={groupDropOpen}
+              aria-label={`Groupe actif : ${currentGroup?.name ?? "aucun"}. Changer de groupe`}
               className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm hover:bg-accent transition-colors"
             >
               <span className="flex items-center gap-2 truncate">
@@ -158,10 +160,11 @@ export function Navbar() {
                   <button
                     key={g.id}
                     onClick={() => { setCurrentGroupId(g.id); setGroupDropOpen(false); }}
+                    aria-pressed={currentGroupId === g.id}
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left",
                       currentGroupId === g.id
-                        ? "bg-primary/10 text-primary font-medium"
+                        ? "bg-[hsl(var(--primary-soft))] text-[hsl(var(--primary-soft-foreground))] font-medium"
                         : "hover:bg-accent text-foreground"
                     )}
                   >
@@ -183,6 +186,7 @@ export function Navbar() {
             <Link
               href="/profile"
               title={currentGroup?.name ?? "Groupes"}
+              aria-label={currentGroup ? `Groupe actif : ${currentGroup.name}` : "Groupes"}
               className="p-2 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             >
               <Users className="h-5 w-5" />
@@ -275,10 +279,11 @@ export function Navbar() {
 
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] flex items-center justify-between">
-        <h1 className="text-lg font-bold">MindDump</h1>
+        <p className="text-lg font-bold">MindDump</p>
         <div className="flex items-center gap-1">
           {currentGroup && groups.length > 1 && (
             <span className="max-w-[9rem] truncate rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <span className="sr-only">Groupe actif : </span>
               {currentGroup.name}
             </span>
           )}
@@ -345,7 +350,7 @@ export function Navbar() {
                       className={cn(
                         "rounded-full border px-3.5 py-2 text-sm transition-colors",
                         currentGroupId === g.id
-                          ? "border-primary bg-primary/10 font-medium text-primary"
+                          ? "border-primary bg-[hsl(var(--primary-soft))] font-medium text-[hsl(var(--primary-soft-foreground))]"
                           : "border-border text-foreground hover:bg-accent"
                       )}
                     >
