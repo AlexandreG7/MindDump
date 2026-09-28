@@ -85,6 +85,9 @@ export async function exportUserData(userId: string) {
         },
       },
       recipeFavorites: { select: { recipeId: true, createdAt: true } },
+      wallDevices: {
+        select: { id: true, name: true, groupId: true, createdAt: true, lastSeenAt: true },
+      },
       familyProfiles: {
         select: { id: true, groupId: true, name: true, kind: true, color: true, emoji: true, birthDate: true },
       },

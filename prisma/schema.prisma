@@ -85,6 +85,7 @@ model User {
   kidDayEntries         KidDayEntry[]
   loginEvents           LoginEvent[]
   familyProfiles        FamilyProfile[]
+  wallDevices           WallDevice[]
   pushSubscriptions     PushSubscription[]
 
   @@index([createdAt])
@@ -207,6 +208,7 @@ model Group {
   shoppingLists  ShoppingList[]
   recipes        Recipe[]
   profiles       FamilyProfile[]
+  wallDevices    WallDevice[]
 
   @@index([ownerId])
 }
@@ -485,4 +487,22 @@ model TodoAssignee {
 
   @@id([todoId, profileId])
   @@index([profileId])
+}
+
+// Écran mural (tablette fixée au mur) : accès sans session au tableau du
+// groupe par un lien secret. Seule l'empreinte du jeton est stockée ; le
+// supprimer révoque l'écran. Voir src/lib/wall.ts.
+model WallDevice {
+  id         String    @id @default(cuid())
+  name       String
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+
+  groupId     String
+  group       Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([groupId])
 }

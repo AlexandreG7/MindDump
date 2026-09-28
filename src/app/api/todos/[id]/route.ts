@@ -3,8 +3,9 @@ import type { Todo } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { buildItemAccessWhere } from "@/lib/groupAuth";
-import { isRecurrence, nextOccurrence } from "@/lib/recurrence";
-import { assigneesInclude, sanitizeAssigneeIds, withAssigneeIds } from "@/lib/profiles";
+import { isRecurrence } from "@/lib/recurrence";
+import { createNextOccurrence } from "@/lib/todos";
+import { assigneesInclude, sanitizeAssigneeIds } from "@/lib/profiles";
 
 export async function PATCH(
   req: NextRequest,
@@ -72,41 +73,8 @@ export async function PATCH(
 
   // Tache recurrente cochee : on genere automatiquement l'occurrence suivante.
   let next: (Todo & { assigneeIds: string[] }) | null = null;
-  if (
-    body.completed === true &&
-    !existing.completed &&
-    existing.recurrence &&
-    existing.dueDate
-  ) {
-    let nextDue = nextOccurrence(existing.dueDate, existing.recurrence);
-    if (nextDue) {
-      // Si la tache avait du retard, on avance jusqu'a la prochaine echeance a venir.
-      const now = new Date();
-      let safety = 400;
-      while (nextDue < now && safety-- > 0) {
-        const after = nextOccurrence(nextDue, existing.recurrence);
-        if (!after) break;
-        nextDue = after;
-      }
-
-      const created = await prisma.todo.create({
-        data: {
-          title: existing.title,
-          description: existing.description,
-          priority: existing.priority,
-          dueDate: nextDue,
-          recurrence: existing.recurrence,
-          notifyBefore: existing.notifyBefore,
-          position: existing.position,
-          userId: existing.userId,
-          groupId: existing.groupId,
-          // L'occurrence suivante revient aux mêmes personnes.
-          assignees: { create: assigneeIds.map((profileId) => ({ profileId })) },
-        },
-        include: assigneesInclude,
-      });
-      next = withAssigneeIds(created);
-    }
+  if (body.completed === true && !existing.completed) {
+    next = await createNextOccurrence(existing, assigneeIds);
   }
 
   return NextResponse.json({ success: true, next });

@@ -17,6 +17,11 @@
   du groupe, **pas un compte** : il ne peut pas se connecter, seuls les membres du groupe gèrent son
   profil et son semainier. Données : prénom, couleur, emoji, date de naissance facultative. Le
   profil disparaît avec le groupe ou quand un membre le retire (avec son semainier).
+- **Écrans muraux** (`WallDevice`) : lien secret `/wall/<jeton>` créé par un admin du groupe ; seule
+  l'empreinte SHA-256 du jeton est stockée. L'écran ne montre que les éléments du groupe (jamais les
+  éléments personnels des membres) et ne permet que de cocher tâches et courses. Supprimer l'écran
+  révoque le lien. Le navigateur de l'écran garde le dernier tableau en localStorage (`wall:snapshot`)
+  pour rester lisible hors ligne ; il est effacé quand le lien est révoqué.
 - **Cookies** : uniquement des cookies strictement nécessaires (session NextAuth) et des préférences
   d'interface en localStorage (`theme`, `sidebarCollapsed`, `currentGroupId`, `kids:selectedProfile`), plus
   `nextauth.message` posé par NextAuth pour synchroniser la session entre onglets. Pas de bandeau

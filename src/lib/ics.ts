@@ -302,7 +302,25 @@ export function parseICS(icsText: string, from?: Date, to?: Date): ICSEvent[] {
   );
 }
 
+/**
+ * Flux déjà récupérés, gardés 10 minutes : l'écran mural se rafraîchit chaque
+ * minute et ne doit pas retélécharger chaque calendrier à chaque fois.
+ */
+const ICS_CACHE_TTL_MS = 10 * 60 * 1000;
+const ICS_CACHE_MAX = 200;
+const icsCache = new Map<string, { at: number; text: string }>();
+
+async function fetchICSText(url: string): Promise<string> {
+  const cached = icsCache.get(url);
+  if (cached && Date.now() - cached.at < ICS_CACHE_TTL_MS) return cached.text;
+  const text = await safeFetchText(url);
+  icsCache.delete(url);
+  icsCache.set(url, { at: Date.now(), text });
+  if (icsCache.size > ICS_CACHE_MAX) icsCache.delete(icsCache.keys().next().value!);
+  return text;
+}
+
 export async function fetchICSEvents(url: string, from?: Date, to?: Date): Promise<ICSEvent[]> {
-  const text = await safeFetchText(url.replace(/^webcal:\/\//, "https://"));
+  const text = await fetchICSText(url.replace(/^webcal:\/\//, "https://"));
   return parseICS(text, from, to);
 }

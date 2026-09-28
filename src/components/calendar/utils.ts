@@ -81,12 +81,15 @@ export function titleForView(view: ViewMode, anchor: Date): string {
   }
 }
 
-export function eventStart(e: CalendarEvent): Date {
+/** Ce dont ont besoin les calculs de jours : aussi utilisé par l'écran mural. */
+export type Timed = Pick<CalendarEvent, "date" | "endDate" | "allDay">;
+
+export function eventStart(e: Timed): Date {
   return new Date(e.date);
 }
 
 /** Fin affichée : heure de fin, sinon fin de journée (journée entière) ou +1 h. */
-export function eventEnd(e: CalendarEvent): Date {
+export function eventEnd(e: Timed): Date {
   if (e.endDate) {
     const end = new Date(e.endDate);
     if (end > eventStart(e)) return end;
@@ -104,7 +107,7 @@ function localDayKey(d: Date): string {
 }
 
 /** L'événement touche-t-il ce jour (y compris un événement sur plusieurs jours) ? */
-export function occursOn(e: CalendarEvent, day: Date): boolean {
+export function occursOn(e: Timed, day: Date): boolean {
   if (e.allDay) {
     // Journée entière : dates au sens du calendrier, fin exclusive (norme ICS),
     // quel que soit le fuseau du navigateur.
@@ -123,12 +126,12 @@ export function occursOn(e: CalendarEvent, day: Date): boolean {
 }
 
 /** Sur plusieurs jours, ou journée entière : affiché dans la bande du haut de la grille horaire. */
-export function isAllDayLike(e: CalendarEvent): boolean {
+export function isAllDayLike(e: Timed): boolean {
   if (e.allDay) return true;
   return startOfDay(eventStart(e)).getTime() !== startOfDay(new Date(eventEnd(e).getTime() - 1)).getTime();
 }
 
-export function sortEvents(events: CalendarEvent[]): CalendarEvent[] {
+export function sortEvents<T extends Timed>(events: T[]): T[] {
   return [...events].sort((a, b) => {
     if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
     return eventStart(a).getTime() - eventStart(b).getTime();

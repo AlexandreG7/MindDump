@@ -109,6 +109,11 @@ export default function PrivacyPolicyPage() {
                 sont visibles par les membres du groupe. Un enfant n&apos;a pas de compte : il ne peut
                 pas se connecter à MindDump, seuls les membres du groupe gèrent son profil.
               </Row>
+              <Row label="Écrans muraux">
+                Si un admin du groupe crée un écran mural : son nom, sa date de création et sa dernière
+                connexion. L&apos;écran affiche les éléments du groupe (pas les éléments personnels) à
+                quiconque a son lien secret ; le déconnecter depuis Groupes coupe l&apos;accès.
+              </Row>
               <Row label="Semainier">
                 Si tu utilises le semainier enfant : les informations que tu notes sur la journée
                 d&apos;un enfant (météo, humeur, sieste, « accidents », activités). Elles sont partagées

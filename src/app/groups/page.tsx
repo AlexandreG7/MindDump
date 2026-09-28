@@ -28,6 +28,7 @@ import {
   Star,
 } from "lucide-react";
 import { FamilyProfiles } from "@/components/profiles/FamilyProfiles";
+import { WallDevices } from "@/components/profiles/WallDevices";
 import { useFeedback } from "@/components/ui/feedback";
 
 interface Member {
@@ -383,6 +384,10 @@ export default function GroupsPage() {
               currentUserId={currentUserId}
               isAdmin={group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin"}
             />
+
+            {(group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin") && (
+              <WallDevices groupId={group.id} />
+            )}
 
             {/* Invite section (owner / admin) */}
             {(group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin") && (
