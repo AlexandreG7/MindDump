@@ -72,6 +72,8 @@ export function ProfileDialog({
                 placeholder="Ex : Léa"
                 maxLength={60}
                 autoFocus
+                // Prénom sélectionné à l'ouverture : on tape directement le nouveau.
+                onFocus={(e) => e.currentTarget.select()}
               />
             </div>
           </div>

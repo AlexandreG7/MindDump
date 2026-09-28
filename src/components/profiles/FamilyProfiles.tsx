@@ -78,29 +78,29 @@ export function FamilyProfiles({
         {profiles.map((p) => (
           <div
             key={p.id}
-            className="group/profile flex items-center gap-2 pl-1 pr-2 py-1 rounded-full border border-border bg-card"
+            className="group/profile flex items-center rounded-full border border-border bg-card"
           >
-            <ProfileAvatar profile={p} size="sm" />
-            <span className="text-sm">{p.name}</span>
-            {!p.userId && (
-              <span className="text-[11px] text-muted-foreground" title="Sans compte : ne peut pas se connecter">
-                {p.kind === "child" ? "enfant" : "sans compte"}
-              </span>
-            )}
-            {canEdit(p) && (
-              <button
-                onClick={() => { setEditing(p); setDialogOpen(true); }}
-                className="p-0.5 touch:p-1.5 rounded text-muted-foreground hover:text-foreground opacity-0 group-hover/profile:opacity-100 focus:opacity-100 touch:opacity-100 transition-opacity"
-                title="Modifier"
-                aria-label={`Modifier ${p.name}`}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            )}
+            {/* Toute la pastille ouvre la fiche : prénom, emoji, couleur, date de naissance. */}
+            <button
+              onClick={() => { if (canEdit(p)) { setEditing(p); setDialogOpen(true); } }}
+              disabled={!canEdit(p)}
+              className="flex items-center gap-2 pl-1 pr-2 py-1 touch:py-1.5 rounded-full enabled:hover:bg-secondary transition-colors disabled:cursor-default"
+              title={canEdit(p) ? "Modifier" : undefined}
+              aria-label={canEdit(p) ? `Modifier ${p.name}` : p.name}
+            >
+              <ProfileAvatar profile={p} size="sm" />
+              <span className="text-sm">{p.name}</span>
+              {!p.userId && (
+                <span className="text-[11px] text-muted-foreground" title="Sans compte : ne peut pas se connecter">
+                  {p.kind === "child" ? "enfant" : "sans compte"}
+                </span>
+              )}
+              {canEdit(p) && <Pencil className="h-3 w-3 text-muted-foreground" aria-hidden />}
+            </button>
             {!p.userId && (
               <button
                 onClick={() => remove(p)}
-                className="p-0.5 touch:p-1.5 -ml-1 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover/profile:opacity-100 focus:opacity-100 touch:opacity-100 transition-opacity"
+                className="p-0.5 touch:p-1.5 mr-1.5 -ml-1 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover/profile:opacity-100 focus:opacity-100 touch:opacity-100 transition-opacity"
                 title="Retirer"
                 aria-label={`Retirer ${p.name}`}
               >

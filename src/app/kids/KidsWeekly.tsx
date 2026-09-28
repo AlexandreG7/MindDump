@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { addDays, addWeeks, startOfWeek, format, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, X, Maximize2, Lock, BarChart3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Maximize2, Lock, BarChart3, Pencil } from "lucide-react";
+import { ProfileDialog, type ProfileDraft } from "@/components/profiles/ProfileDialog";
 import { cn } from "@/lib/utils";
 import {
   NapYes,
@@ -67,7 +68,9 @@ export function KidsWeekly() {
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  useEffect(() => {
+  const [editOpen, setEditOpen] = useState(false);
+
+  const loadChildren = useCallback(() => {
     fetch("/api/profiles?kind=child")
       .then((r) => (r.ok ? r.json() : []))
       .then((list: FamilyProfile[]) => {
@@ -76,10 +79,26 @@ export function KidsWeekly() {
         try {
           saved = localStorage.getItem(SELECTED_KEY);
         } catch {}
-        setProfileId(list.find((c) => c.id === saved)?.id ?? list[0]?.id ?? null);
+        setProfileId((current) => list.find((c) => c.id === (current ?? saved))?.id ?? list[0]?.id ?? null);
       })
       .catch(() => setChildren([]));
   }, []);
+
+  useEffect(() => {
+    loadChildren();
+  }, [loadChildren]);
+
+  // Renommer l'enfant (ex. « Mon enfant », créé à la reprise des anciens semainiers) sans passer par Groupes.
+  const saveChild = async (draft: ProfileDraft) => {
+    if (!profileId) return;
+    const res = await fetch(`/api/profiles/${profileId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+    });
+    if (!res.ok) throw new Error("Erreur");
+    loadChildren();
+  };
 
   const selectChild = (id: string) => {
     setProfileId(id);
@@ -186,8 +205,18 @@ export function KidsWeekly() {
           <ChevronLeft size={24} />
         </button>
         <div className="text-center">
-          <h1 className="kids-title">
+          <h1 className="kids-title inline-flex items-center gap-2">
             {child ? `Semainier de ${child.name}` : "Semainier"}
+            {child && !fullscreen && (
+              <button
+                onClick={() => setEditOpen(true)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                title="Renommer"
+                aria-label={`Renommer ${child.name}`}
+              >
+                <Pencil size={16} />
+              </button>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {format(days[0], "d MMM", { locale: fr })} —{" "}
@@ -479,6 +508,14 @@ export function KidsWeekly() {
       {showStats && (
         <KidsStats entries={entries} days={days} onClose={() => setShowStats(false)} />
       )}
+
+      <ProfileDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        profile={child}
+        defaultColor={child?.color ?? "#ec4899"}
+        onSave={saveChild}
+      />
     </div>
   );
 }
