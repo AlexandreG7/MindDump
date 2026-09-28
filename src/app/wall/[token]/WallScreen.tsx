@@ -297,8 +297,8 @@ export function WallScreen({ token }: { token: string }) {
                       return (
                         <div
                           key={e.id}
-                          className="rounded-xl px-2.5 py-1.5 border-l-4 bg-secondary/60"
-                          style={color ? { borderLeftColor: color } : undefined}
+                          className={cn("rounded-xl px-2.5 py-1.5", !color && "bg-secondary/60")}
+                          style={color ? { backgroundColor: `${color}26` } : undefined}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="font-medium leading-snug">{e.title}</p>
