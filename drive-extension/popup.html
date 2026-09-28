@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Panier Match</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { margin: 0; width: 320px; padding: 16px; color: #1c1917; background: #fff; font-size: 13px; }
+    h1 { margin: 0 0 4px; font-size: 15px; }
+    p { margin: 0 0 12px; color: #78716c; line-height: 1.4; }
+    label { display: block; margin: 10px 0 4px; font-weight: 500; }
+    input, select { width: 100%; font: inherit; padding: 7px 8px; border: 1px solid #e7e5e4; border-radius: 8px; background: #fff; color: inherit; }
+    button { font: inherit; cursor: pointer; }
+    .primary { width: 100%; margin-top: 14px; border: 0; border-radius: 10px; padding: 10px; background: #15803d; color: #fff; font-weight: 600; font-size: 14px; }
+    .primary:disabled { background: #a8a29e; cursor: default; }
+    .link { border: 0; background: none; padding: 0; color: #78716c; text-decoration: underline; font-size: 12px; }
+    .msg { margin-top: 10px; font-size: 12px; color: #b91c1c; min-height: 1em; }
+    .row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+    [hidden] { display: none !important; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1c1917; color: #f5f5f4; }
+      input, select { background: #1c1917; border-color: #44403c; }
+      .msg { color: #fca5a5; }
+      p, .link { color: #a8a29e; }
+    }
+  </style>
+</head>
+<body>
+  <section id="fill" hidden>
+    <h1>Remplir le panier Match</h1>
+    <p>Choisis une liste : l'extension cherche les produits sur Match, tu vérifies, puis tu valides et paies sur le site.</p>
+    <label for="list">Liste de courses</label>
+    <select id="list"></select>
+    <button id="go" class="primary">Remplir le panier</button>
+    <div class="row"><button id="edit" class="link">Réglages</button></div>
+    <div id="fill-msg" class="msg" role="status"></div>
+  </section>
+
+  <section id="settings" hidden>
+    <h1>Connexion à MindDump</h1>
+    <p>Crée une clé API dans ton profil MindDump (section « Clés API »), puis colle-la ici. Elle reste dans ce navigateur.</p>
+    <label for="key">Clé API</label>
+    <input id="key" type="password" autocomplete="off" placeholder="mdk_…" />
+    <label for="url">Adresse de MindDump</label>
+    <input id="url" type="url" placeholder="https://minddump.fr" />
+    <button id="save" class="primary">Enregistrer</button>
+    <div id="settings-msg" class="msg" role="status"></div>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
