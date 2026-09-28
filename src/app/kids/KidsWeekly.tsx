@@ -16,7 +16,7 @@ import {
 } from "@/components/kids/icons";
 import { KidsStats } from "./KidsStats";
 import Link from "next/link";
-import { ProfileAvatar, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
+import { ProfileAvatar, textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
 
 const SELECTED_KEY = "kids:selectedProfile";
 
@@ -231,10 +231,10 @@ export function KidsWeekly() {
               className={cn(
                 "flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border text-sm transition-colors",
                 c.id === profileId
-                  ? "border-transparent text-white font-medium"
+                  ? "border-transparent font-medium"
                   : "border-border text-muted-foreground hover:bg-secondary"
               )}
-              style={c.id === profileId ? { backgroundColor: c.color } : undefined}
+              style={c.id === profileId ? { backgroundColor: c.color, color: textOn(c.color) } : undefined}
             >
               <ProfileAvatar profile={c} size="sm" className={c.id === profileId ? "ring-2 ring-white/70" : undefined} />
               {c.name}

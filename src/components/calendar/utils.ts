@@ -15,6 +15,7 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { CalendarEvent, ViewMode } from "./types";
+import { textOn } from "@/components/profiles/ProfileAvatar";
 
 const WEEK = { weekStartsOn: 1 as const };
 
@@ -188,7 +189,7 @@ export function eventStyle(e: CalendarEvent, solid = false): React.CSSProperties
   const color = e.displayColor ?? e.color;
   if (!color) return undefined;
   return solid
-    ? { backgroundColor: color, color: "#fff" }
+    ? { backgroundColor: color, color: textOn(color) }
     : { backgroundColor: `${color}20`, color };
 }
 
