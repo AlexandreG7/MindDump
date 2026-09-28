@@ -37,10 +37,13 @@ export function MealPlanner({
   recipes,
   groupId,
   onOpenRecipe,
+  onPlannedChange,
 }: {
   recipes: PlannerRecipe[];
   groupId: string | null;
   onOpenRecipe?: (id: string) => void;
+  /** Une recette placée devient « prévue » : la page rafraîchit sa liste. */
+  onPlannedChange?: () => void;
 }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), WEEK));
   const [entries, setEntries] = useState<MealEntry[]>([]);
@@ -99,12 +102,12 @@ export function MealPlanner({
     setNote("");
   };
 
-  const add = async (payload: { recipeId?: string; note?: string }) => {
-    if (!picker) return;
+  const add = async (payload: { recipeId?: string; note?: string }, at = picker) => {
+    if (!at) return;
     const res = await fetch("/api/meals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...picker, ...payload, groupId }),
+      body: JSON.stringify({ ...at, ...payload, groupId }),
     });
     if (!res.ok) {
       toast("Le repas n'a pas pu être ajouté.", "error");
@@ -113,7 +116,16 @@ export function MealPlanner({
     const entry: MealEntry = await res.json();
     setEntries((prev) => [...prev, entry]);
     setPicker(null);
+    setToPlace(null);
+    if (payload.recipeId && !recipes.find((r) => r.id === payload.recipeId)?.planned) onPlannedChange?.();
   };
+
+  // Recettes prévues pas encore placées cette semaine : même liste que l'onglet Prévues.
+  const [toPlace, setToPlace] = useState<PlannerRecipe | null>(null);
+  const unplaced = useMemo(() => {
+    const placed = new Set(entries.map((e) => e.recipe?.id).filter(Boolean));
+    return recipes.filter((r) => r.planned && !placed.has(r.id));
+  }, [recipes, entries]);
 
   // Retrait immédiat à l'écran, suppression après le délai d'annulation.
   const remove = (entry: MealEntry) => {
@@ -202,6 +214,41 @@ export function MealPlanner({
         </Button>
       </div>
 
+      {unplaced.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <p className="text-sm">
+            <span className="font-medium">À placer</span>
+            <span className="text-muted-foreground">
+              {toPlace
+                ? ` · choisis le jour et le repas pour « ${toPlace.title} »`
+                : " · recettes prévues pas encore placées cette semaine"}
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {unplaced.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => setToPlace(toPlace?.id === r.id ? null : r)}
+                aria-pressed={toPlace?.id === r.id}
+                className={cn(
+                  "px-3 py-1 touch:py-2 rounded-full border text-sm transition-colors",
+                  toPlace?.id === r.id
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border hover:bg-secondary"
+                )}
+              >
+                {r.title}
+              </button>
+            ))}
+            {toPlace && (
+              <button onClick={() => setToPlace(null)} className="px-2 text-sm text-muted-foreground hover:text-foreground">
+                Annuler
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-2 grid-cols-1 min-[375px]:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {days.map((d) => {
           const date = day(d);
@@ -243,14 +290,24 @@ export function MealPlanner({
                         </button>
                       </div>
                     ))}
-                    <button
-                      onClick={() => openPicker(date, slot.value)}
-                      className="w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-border py-1.5 touch:py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                      aria-label={`Ajouter un repas le ${format(d, "EEEE d", { locale: fr })}, ${slot.label.toLowerCase()}`}
-                    >
-                      <Plus className="h-3.5 w-3.5" aria-hidden />
-                      Ajouter
-                    </button>
+                    {toPlace ? (
+                      <button
+                        onClick={() => add({ recipeId: toPlace.id }, { date, slot: slot.value })}
+                        className="w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-primary bg-primary/5 py-1.5 touch:py-2.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                        aria-label={`Placer ${toPlace.title} le ${format(d, "EEEE d", { locale: fr })}, ${slot.label.toLowerCase()}`}
+                      >
+                        Placer ici
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => openPicker(date, slot.value)}
+                        className="w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-border py-1.5 touch:py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                        aria-label={`Ajouter un repas le ${format(d, "EEEE d", { locale: fr })}, ${slot.label.toLowerCase()}`}
+                      >
+                        <Plus className="h-3.5 w-3.5" aria-hidden />
+                        Ajouter
+                      </button>
+                    )}
                   </div>
                 );
               })}

@@ -60,6 +60,9 @@ export async function POST(req: NextRequest) {
   const err = await assertGroupMember(groupId, user.id);
   if (err) return err;
 
+  // Placer une recette dans la semaine la rend « prévue » (même liste que l'onglet Prévues).
+  if (recipeId) await prisma.recipe.update({ where: { id: recipeId }, data: { planned: true } });
+
   const entry = await prisma.mealPlanEntry.create({
     data: {
       date: body.date,

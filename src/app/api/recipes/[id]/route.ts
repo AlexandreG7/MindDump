@@ -108,6 +108,14 @@ export async function PATCH(
     },
   });
 
+  // « Prévues » et le planning de la semaine sont la même chose : retirer une
+  // recette des prévues la retire aussi des jours à venir (l'historique reste).
+  if (body.planned === false) {
+    await prisma.mealPlanEntry.deleteMany({
+      where: { recipeId: params.id, date: { gte: new Date().toISOString().slice(0, 10) } },
+    });
+  }
+
   return NextResponse.json({ success: true });
 }
 

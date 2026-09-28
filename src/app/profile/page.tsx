@@ -36,6 +36,8 @@ import {
   Calendar,
   ShoppingCart,
   ChefHat,
+  CalendarCheck,
+  CalendarDays,
   Sliders,
   Hash,
   UserPlus,
@@ -244,11 +246,13 @@ export default function ProfilePage() {
   // ── Feature flags ─────────────────────────────────────────────
   const { flags, toggle: toggleFeature } = useFeaturesContext();
 
-  const FEATURE_ITEMS: { key: FeatureKey; label: string; description: string; icon: React.ElementType }[] = [
+  const FEATURE_ITEMS: { key: FeatureKey; label: string; description: string; icon: React.ElementType; parent?: FeatureKey }[] = [
     { key: "todos", label: "Todos", description: "Liste de tâches et rappels", icon: CheckSquare },
     { key: "calendar", label: "Calendrier", description: "Événements et planning", icon: Calendar },
     { key: "lists", label: "Courses", description: "Listes de courses", icon: ShoppingCart },
     { key: "recipes", label: "Recettes", description: "Catalogue et planification", icon: ChefHat },
+    { key: "recipesPlanned", label: "Vue Prévues", description: "Recettes à cuisiner prochainement", icon: CalendarCheck, parent: "recipes" },
+    { key: "recipesWeek", label: "Vue Semaine", description: "Repas placés midi et soir, courses de la semaine", icon: CalendarDays, parent: "recipes" },
   ];
 
   const fetchGroups = useCallback(() => {
@@ -700,10 +704,12 @@ export default function ProfilePage() {
           Active ou désactive les onglets de navigation.
         </p>
         <div className="space-y-1">
-          {FEATURE_ITEMS.map(({ key, label, description, icon: Icon }) => (
+          {FEATURE_ITEMS.filter(({ parent }) => !parent || flags[parent]).map(({ key, label, description, icon: Icon, parent }) => (
             <div
               key={key}
-              className="flex items-center justify-between gap-4 py-3 px-1 rounded-xl hover:bg-secondary/40 transition-colors"
+              className={`flex items-center justify-between gap-4 py-3 px-1 rounded-xl hover:bg-secondary/40 transition-colors ${
+                parent ? "ml-11" : ""
+              }`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MealPlanner } from "@/components/recipes/MealPlanner";
+import { useFeaturesContext } from "@/components/FeaturesContext";
 import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,15 @@ export default function RecipesPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<Tab>("catalogue");
+  // Vues facultatives (Profil → Fonctionnalités) ; Catalogue reste toujours là.
+  const { flags } = useFeaturesContext();
+  const showPlanned = flags.recipesPlanned;
+  const showWeek = flags.recipesWeek;
+  useEffect(() => {
+    if ((activeTab === "prevues" && !showPlanned) || (activeTab === "semaine" && !showWeek)) {
+      setActiveTab("catalogue");
+    }
+  }, [activeTab, showPlanned, showWeek]);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   // Vues liste et compacte : un seul input fichier, hors des éléments cliquables.
@@ -679,7 +689,9 @@ export default function RecipesPage() {
       </div>
 
       {/* Tabs */}
+      {(showPlanned || showWeek) && (
       <div className="flex items-center gap-1 p-1 bg-secondary rounded-xl w-fit">
+        {showPlanned && (
         <button
           onClick={() => setActiveTab("prevues")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -698,6 +710,7 @@ export default function RecipesPage() {
             </span>
           )}
         </button>
+        )}
         <button
           onClick={() => setActiveTab("catalogue")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -714,6 +727,7 @@ export default function RecipesPage() {
             {catalogCount}
           </span>
         </button>
+        {showWeek && (
         <button
           onClick={() => setActiveTab("semaine")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -725,13 +739,16 @@ export default function RecipesPage() {
           <CalendarDays className="h-3.5 w-3.5" />
           Semaine
         </button>
+        )}
       </div>
+      )}
 
       {activeTab === "semaine" ? (
         <MealPlanner
           recipes={recipes}
           groupId={currentGroupId}
           onOpenRecipe={(id) => router.push(`/recipes/${id}`)}
+          onPlannedChange={fetchRecipes}
         />
       ) : (
       <>

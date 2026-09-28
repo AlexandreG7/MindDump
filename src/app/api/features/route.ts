@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 
 // All toggleable features with their default state (true = enabled)
-const ALL_FEATURES = ["todos", "calendar", "lists", "recipes"] as const;
+// recipesPlanned / recipesWeek : vues « Prévues » et « Semaine » des recettes.
+const ALL_FEATURES = ["todos", "calendar", "lists", "recipes", "recipesPlanned", "recipesWeek"] as const;
 type Feature = (typeof ALL_FEATURES)[number];
 
 /** GET /api/features — returns { todos: true, calendar: true, ... } */

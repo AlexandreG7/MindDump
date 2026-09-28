@@ -94,6 +94,9 @@ node prisma/backfill-subscription-groups.js
 echo "Attaching kid diaries to a child profile..."
 node prisma/backfill-kid-profiles.js
 
+echo "Marking scheduled recipes as planned..."
+node prisma/backfill-planned-meals.js
+
 echo "Cleaning up phantom todos..."
 node prisma/cleanup-phantom-todos.js
 

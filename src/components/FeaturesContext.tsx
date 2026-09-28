@@ -9,13 +9,15 @@ import React, {
 } from "react";
 import { useSession } from "next-auth/react";
 
-export type FeatureKey = "todos" | "calendar" | "lists" | "recipes" | "kids";
+export type FeatureKey = "todos" | "calendar" | "lists" | "recipes" | "recipesPlanned" | "recipesWeek" | "kids";
 
 const DEFAULT_FLAGS: Record<FeatureKey, boolean> = {
   todos: true,
   calendar: true,
   lists: true,
   recipes: true,
+  recipesPlanned: true,
+  recipesWeek: true,
   kids: true,
 };
 
