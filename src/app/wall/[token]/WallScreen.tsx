@@ -12,6 +12,7 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
+  PartyPopper,
   ShoppingCart,
   Sun,
   UtensilsCrossed,
@@ -29,6 +30,8 @@ const CACHE_KEY = "wall:snapshot";
 const NIGHT_START = 22;
 const NIGHT_END = 6;
 const WAKE_MS = 2 * 60_000;
+/** Délai pendant lequel un élément coché reste affiché et annulable. */
+const UNDO_MS = 4000;
 
 type Profile = WallSnapshot["profiles"][number];
 
@@ -173,28 +176,59 @@ export function WallScreen({ token }: { token: string }) {
   const hour = now.getHours();
   const night = (hour >= NIGHT_START || hour < NIGHT_END) && Date.now() - wokeAt > WAKE_MS;
 
-  const toggleTodo = async (id: string) => {
-    setSnapshot((s) => (s ? { ...s, todos: s.todos.filter((t) => t.id !== id) } : s));
-    const res = await fetch(`/api/wall/${encodeURIComponent(token)}/todos/${id}`, {
+  // Un appui coche visiblement ; la validation part après UNDO_MS, un second
+  // appui l'annule (écran partagé : enfant, geste accidentel).
+  const [pending, setPending] = useState<Set<string>>(new Set());
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  useEffect(() => {
+    const map = timers.current;
+    return () => map.forEach(clearTimeout);
+  }, []);
+
+  const commit = async (kind: "todos" | "items", id: string) => {
+    setSnapshot((s) =>
+      !s
+        ? s
+        : kind === "todos"
+          ? { ...s, todos: s.todos.filter((t) => t.id !== id) }
+          : { ...s, lists: s.lists.map((l) => ({ ...l, items: l.items.filter((i) => i.id !== id) })) }
+    );
+    const res = await fetch(`/api/wall/${encodeURIComponent(token)}/${kind}/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
+      body: JSON.stringify(kind === "todos" ? { completed: true } : { checked: true }),
     }).catch(() => null);
     if (!res?.ok) setOffline(true);
     refresh();
   };
 
-  const toggleItem = async (id: string) => {
-    setSnapshot((s) =>
-      s ? { ...s, lists: s.lists.map((l) => ({ ...l, items: l.items.filter((i) => i.id !== id) })) } : s
+  const tap = (kind: "todos" | "items", id: string) => {
+    const key = `${kind}:${id}`;
+    const existing = timers.current.get(key);
+    setPending((prev) => {
+      const next = new Set(prev);
+      if (existing) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    if (existing) {
+      clearTimeout(existing);
+      timers.current.delete(key);
+      return;
+    }
+    timers.current.set(
+      key,
+      setTimeout(() => {
+        timers.current.delete(key);
+        setPending((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+        commit(kind, id);
+      }, UNDO_MS)
     );
-    const res = await fetch(`/api/wall/${encodeURIComponent(token)}/items/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ checked: true }),
-    }).catch(() => null);
-    if (!res?.ok) setOffline(true);
-    refresh();
   };
 
   if (revoked) {
@@ -242,7 +276,7 @@ export function WallScreen({ token }: { token: string }) {
           </div>
           <div className="flex items-center gap-4">
             {offline && (
-              <span className="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
+              <span className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400">
                 <WifiOff className="h-4 w-4" />
                 Hors ligne{savedAt ? ` · mis à jour à ${format(savedAt, "HH:mm")}` : ""}
               </span>
@@ -281,11 +315,11 @@ export function WallScreen({ token }: { token: string }) {
                     <div className="flex items-start justify-between gap-1">
                       <p className={cn("font-semibold leading-tight first-letter:uppercase", today && "text-primary")}>
                         {today ? "Aujourd'hui" : format(day, "EEEE", { locale: fr })}
-                        <span className="block text-sm text-muted-foreground font-normal">{format(day, "d MMMM", { locale: fr })}</span>
+                        <span className="block text-base text-muted-foreground font-normal">{format(day, "d MMMM", { locale: fr })}</span>
                       </p>
                       {forecast && DayIcon && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <DayIcon className="h-4 w-4" />
+                        <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <DayIcon className="h-5 w-5" aria-hidden />
                           {Math.round(forecast.max)}°
                         </span>
                       )}
@@ -327,21 +361,36 @@ export function WallScreen({ token }: { token: string }) {
               <section className="rounded-2xl border border-border bg-card p-4">
                 <h2 className="font-semibold text-lg mb-2">À faire</h2>
                 {snapshot.todos.length === 0 ? (
-                  <p className="text-muted-foreground">Tout est fait 🎉</p>
+                  <p className="text-muted-foreground flex items-center gap-2">
+                    <PartyPopper className="h-5 w-5 text-primary" aria-hidden />
+                    Tout est fait
+                  </p>
                 ) : (
                   <ul className="space-y-1">
                     {snapshot.todos.slice(0, 10).map((t) => {
                       const people = t.assigneeIds.map((id) => profilesById.get(id)).filter((p): p is Profile => !!p);
+                      const done = pending.has(`todos:${t.id}`);
                       return (
                         <li key={t.id}>
                           <button
-                            onClick={() => toggleTodo(t.id)}
+                            onClick={() => tap("todos", t.id)}
+                            aria-pressed={done}
+                            aria-label={done ? `Annuler : « ${t.title} » faite` : `Marquer « ${t.title} » comme faite`}
                             className="w-full flex items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-secondary active:bg-secondary transition-colors"
                           >
-                            <span className="w-7 h-7 rounded-full border-2 border-primary/60 flex items-center justify-center shrink-0">
-                              <Check className="h-4 w-4 text-primary opacity-0" />
+                            <span
+                              className={cn(
+                                "w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
+                                done ? "bg-primary border-primary" : "border-primary/60"
+                              )}
+                              aria-hidden
+                            >
+                              {done && <Check className="h-4 w-4 text-primary-foreground" />}
                             </span>
-                            <span className="flex-1 text-base leading-snug">{t.title}</span>
+                            <span className={cn("flex-1 text-base leading-snug", done && "line-through text-muted-foreground")}>
+                              {t.title}
+                            </span>
+                            {done && <span className="text-sm font-medium text-primary">Annuler</span>}
                             {people.slice(0, 2).map((p) => (
                               <Avatar key={p.id} profile={p} size={24} />
                             ))}
@@ -360,18 +409,35 @@ export function WallScreen({ token }: { token: string }) {
                     Courses
                   </h2>
                   <ul className="space-y-0.5">
-                    {listItems.slice(0, 15).map((i) => (
-                      <li key={i.id}>
-                        <button
-                          onClick={() => toggleItem(i.id)}
-                          className="w-full flex items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary active:bg-secondary transition-colors"
-                        >
-                          <span className="w-6 h-6 rounded-md border-2 border-primary/60 shrink-0" />
-                          <span className="flex-1">{i.name}</span>
-                          {i.quantity && <span className="text-sm text-muted-foreground">{i.quantity}</span>}
-                        </button>
-                      </li>
-                    ))}
+                    {listItems.slice(0, 15).map((i) => {
+                      const done = pending.has(`items:${i.id}`);
+                      return (
+                        <li key={i.id}>
+                          <button
+                            onClick={() => tap("items", i.id)}
+                            aria-pressed={done}
+                            aria-label={done ? `Annuler : « ${i.name} » pris` : `Marquer « ${i.name} » comme pris`}
+                            className="w-full flex items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary active:bg-secondary transition-colors"
+                          >
+                            <span
+                              className={cn(
+                                "w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors",
+                                done ? "bg-primary border-primary" : "border-primary/60"
+                              )}
+                              aria-hidden
+                            >
+                              {done && <Check className="h-4 w-4 text-primary-foreground" />}
+                            </span>
+                            <span className={cn("flex-1", done && "line-through text-muted-foreground")}>{i.name}</span>
+                            {done ? (
+                              <span className="text-sm font-medium text-primary">Annuler</span>
+                            ) : (
+                              i.quantity && <span className="text-sm text-muted-foreground">{i.quantity}</span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                   {listItems.length > 15 && (
                     <p className="text-sm text-muted-foreground mt-1">et {listItems.length - 15} autres…</p>
