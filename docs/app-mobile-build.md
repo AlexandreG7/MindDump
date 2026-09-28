@@ -10,7 +10,8 @@ un nouveau build.
 
 - Xcode (26 ou plus), sélectionné comme outil actif :
   `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
-- Android Studio (pour Android, étape à venir).
+- Android Studio, qui fournit le JDK (`jbr`, Java 25) et le SDK
+  (`~/Library/Android/sdk`).
 - Node, puis `cd mobile && npm install`.
 
 iOS utilise Swift Package Manager : pas de CocoaPods.
@@ -50,6 +51,34 @@ sans `MINDDUMP_URL` avant tout build destiné à un appareil ou aux stores.**
 Dans le simulateur, la frappe injectée suit la disposition du clavier du Mac
 (AZERTY) : pour remplir un champ, passer par le presse-papiers
 (`printf '…' | xcrun simctl pbcopy booted`, puis « Coller »).
+
+## Android
+
+```bash
+cd mobile
+npx cap sync android
+npx cap open android      # Android Studio, puis ▶︎ sur un émulateur ou un téléphone
+```
+
+En ligne de commande :
+
+```bash
+cd mobile/android
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+./gradlew assembleDebug   # → app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+- Le wrapper Gradle est passé de 8.14 à **9.2.1** : Gradle 8 ne tourne pas sur
+  le JDK 25 d'Android Studio (« Unsupported class file major version 69 »).
+- `android/local.properties` (chemin du SDK, non versionné) :
+  `sdk.dir=/Users/<toi>/Library/Android/sdk`. Android Studio le crée tout seul.
+- Serveur local : l'émulateur n'a pas le même `localhost` que le Mac. Utiliser
+  `adb reverse tcp:3110 tcp:3110` puis `MINDDUMP_URL=http://localhost:3110`,
+  pour que l'URL reste celle de `NEXTAUTH_URL` (cookies de session).
+- Icône adaptative : fond orange (`values/ic_launcher_background.xml`) et
+  « M » en premier plan ; écran de lancement Android 12+ par l'API SplashScreen
+  (`values/styles.xml`), fichiers `splash.png` pour les versions antérieures.
 
 ## Ce que contient le projet iOS
 
