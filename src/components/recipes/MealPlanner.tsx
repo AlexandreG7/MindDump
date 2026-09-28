@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { addDays, addWeeks, format, isToday, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Heart, Plus, ShoppingCart, StickyNote, X } from "lucide-react";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { TOAST_ACTION_DURATION, useFeedback } from "@/components/ui/feedback";
 import { MEAL_SLOTS, type MealSlot } from "@/lib/meals";
 
 export interface PlannerRecipe {
@@ -46,9 +47,14 @@ export function MealPlanner({
   const [picker, setPicker] = useState<{ date: string; slot: MealSlot } | null>(null);
   const [query, setQuery] = useState("");
   const [note, setNote] = useState("");
-  const [shopping, setShopping] = useState<{ status: "idle" | "busy" | "done" | "error"; message?: string }>({
-    status: "idle",
-  });
+  const [shopping, setShopping] = useState<"idle" | "busy" | "done">("idle");
+  const { toast, dismiss, confirm } = useFeedback();
+  const router = useRouter();
+  const pendingDeletes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; toastId: number }>());
+  const todayRef = useRef<HTMLDivElement>(null);
+  // Clavier du téléphone : pas d'autofocus sur la recherche sans souris.
+  const [canHover, setCanHover] = useState(false);
+  useEffect(() => setCanHover(window.matchMedia("(hover: hover)").matches), []);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const from = day(days[0]);
@@ -64,8 +70,28 @@ export function MealPlanner({
 
   useEffect(() => {
     fetchEntries();
-    setShopping({ status: "idle" });
+    setShopping("idle");
   }, [fetchEntries]);
+
+  // Retraits en attente : envoyés si on quitte la page avant la fin du délai d'annulation.
+  useEffect(() => {
+    const pending = pendingDeletes.current;
+    return () => {
+      pending.forEach(({ timer, toastId }, id) => {
+        clearTimeout(timer);
+        dismiss(toastId);
+        fetch(`/api/meals/${id}`, { method: "DELETE", keepalive: true }).catch(() => {});
+      });
+    };
+  }, [dismiss]);
+
+  // Semaine en cours sur téléphone : aller directement au jour d'aujourd'hui.
+  const isCurrentWeek = day(weekStart) === day(startOfWeek(new Date(), WEEK));
+  useEffect(() => {
+    if (isCurrentWeek && window.matchMedia("(max-width: 639px)").matches) {
+      todayRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  }, [isCurrentWeek]);
 
   const openPicker = (date: string, slot: MealSlot) => {
     setPicker({ date, slot });
@@ -80,31 +106,66 @@ export function MealPlanner({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...picker, ...payload, groupId }),
     });
-    if (res.ok) {
-      const entry: MealEntry = await res.json();
-      setEntries((prev) => [...prev, entry]);
+    if (!res.ok) {
+      toast("Le repas n'a pas pu être ajouté.", "error");
+      return;
     }
+    const entry: MealEntry = await res.json();
+    setEntries((prev) => [...prev, entry]);
     setPicker(null);
   };
 
-  const remove = async (id: string) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
-    await fetch(`/api/meals/${id}`, { method: "DELETE" });
+  // Retrait immédiat à l'écran, suppression après le délai d'annulation.
+  const remove = (entry: MealEntry) => {
+    setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+    const timer = setTimeout(async () => {
+      pendingDeletes.current.delete(entry.id);
+      const res = await fetch(`/api/meals/${entry.id}`, { method: "DELETE" }).catch(() => null);
+      if (!res?.ok) {
+        setEntries((prev) => [...prev, entry]);
+        toast("Le repas n'a pas pu être retiré.", "error");
+      }
+    }, TOAST_ACTION_DURATION);
+    const toastId = toast(`« ${entry.recipe?.title ?? entry.note} » retiré`, "info", {
+      label: "Annuler",
+      onClick: () => {
+        clearTimeout(pendingDeletes.current.get(entry.id)?.timer);
+        pendingDeletes.current.delete(entry.id);
+        setEntries((prev) => [...prev, entry]);
+      },
+    });
+    pendingDeletes.current.set(entry.id, { timer, toastId });
   };
 
   const makeShoppingList = async () => {
-    setShopping({ status: "busy" });
+    if (
+      shopping === "done" &&
+      !(await confirm({
+        title: "Ajouter encore les ingrédients ?",
+        description: "Ils ont déjà été ajoutés à une liste pour cette semaine.",
+        confirmLabel: "Ajouter",
+      }))
+    ) {
+      return;
+    }
+    setShopping("busy");
     const res = await fetch("/api/meals/to-list", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, groupId }),
     });
     const data = await res.json().catch(() => ({}));
-    setShopping(
-      res.ok
-        ? { status: "done", message: `${data.added} ingrédient${data.added > 1 ? "s" : ""} ajouté${data.added > 1 ? "s" : ""} pour ${data.meals} repas.` }
-        : { status: "error", message: data.error ?? "Impossible de créer la liste." }
-    );
+    if (!res.ok) {
+      setShopping("idle");
+      toast(data.error ?? "Impossible de créer la liste.", "error");
+      return;
+    }
+    setShopping("done");
+    const plural = data.added > 1 ? "s" : "";
+    toast(`${data.added} ingrédient${plural} ajouté${plural} pour ${data.meals} repas.`, "success", {
+      label: "Voir la liste",
+      onClick: () => router.push("/lists"),
+    });
   };
 
   // Favoris puis recettes prévues d'abord : ce sont les candidates naturelles.
@@ -135,30 +196,20 @@ export function MealPlanner({
             {format(days[0], "d MMM", { locale: fr })} – {format(days[6], "d MMM yyyy", { locale: fr })}
           </h2>
         </div>
-        <Button onClick={makeShoppingList} disabled={recipeMeals === 0 || shopping.status === "busy"}>
+        <Button onClick={makeShoppingList} disabled={recipeMeals === 0 || shopping === "busy"}>
           <ShoppingCart className="h-4 w-4 mr-2" />
           Courses de la semaine
         </Button>
       </div>
 
-      {shopping.message && (
-        <p className={cn("text-sm", shopping.status === "error" ? "text-destructive" : "text-muted-foreground")}>
-          {shopping.message}{" "}
-          {shopping.status === "done" && (
-            <Link href="/lists" className="font-medium text-primary hover:underline">
-              Voir la liste
-            </Link>
-          )}
-        </p>
-      )}
-
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid gap-2 grid-cols-1 min-[375px]:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {days.map((d) => {
           const date = day(d);
           return (
             <div
               key={date}
-              className={cn("rounded-xl border p-3 space-y-3", isToday(d) ? "border-primary bg-primary/5" : "border-border bg-card")}
+              ref={isToday(d) ? todayRef : undefined}
+              className={cn("rounded-xl border p-3 space-y-3 scroll-mt-20", isToday(d) ? "border-primary bg-primary/5" : "border-border bg-card")}
             >
               <p className={cn("text-sm font-semibold first-letter:uppercase", isToday(d) && "text-primary")}>
                 {format(d, "EEEE d", { locale: fr })}
@@ -184,8 +235,8 @@ export function MealPlanner({
                           </span>
                         )}
                         <button
-                          onClick={() => remove(e.id)}
-                          className="p-1 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover/meal:opacity-100 focus:opacity-100 touch:opacity-100 transition-opacity"
+                          onClick={() => remove(e)}
+                          className="p-1 touch:p-2 -m-0.5 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover/meal:opacity-100 focus:opacity-100 touch:opacity-100 transition-opacity"
                           aria-label={`Retirer ${e.recipe?.title ?? e.note} du ${slot.label.toLowerCase()}`}
                         >
                           <X className="h-3.5 w-3.5" />
@@ -197,7 +248,8 @@ export function MealPlanner({
                       className="w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-border py-1.5 touch:py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                       aria-label={`Ajouter un repas le ${format(d, "EEEE d", { locale: fr })}, ${slot.label.toLowerCase()}`}
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-3.5 w-3.5" aria-hidden />
+                      Ajouter
                     </button>
                   </div>
                 );
@@ -218,7 +270,12 @@ export function MealPlanner({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Chercher une recette…" autoFocus />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Chercher une recette…"
+              autoFocus={canHover}
+            />
             <ul className="max-h-72 overflow-y-auto -mx-1">
               {choices.map((r) => (
                 <li key={r.id}>
