@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { textOn } from "@/components/profiles/ProfileAvatar";
 import { occursOn, sortEvents } from "@/components/calendar/utils";
 import type { WallSnapshot } from "@/lib/wall";
 
@@ -48,18 +49,6 @@ function weatherIcon(code: number | null): LucideIcon {
 }
 
 /** Encre ou blanc selon la clarté de la couleur de fond (lisibilité sur jaune, vert…). */
-function inkOn(hex: string): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return "#fff";
-  const n = parseInt(m[1], 16);
-  const lin = (c: number) => {
-    const v = c / 255;
-    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-  };
-  const L = 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
-  return L > 0.4 ? "#1a1a1a" : "#fff";
-}
-
 function readCache(): { snapshot: WallSnapshot; savedAt: string } | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
@@ -79,7 +68,7 @@ function Avatar({ profile, size = 28 }: { profile: Profile; size?: number }) {
   return (
     <span
       className="rounded-full flex items-center justify-center font-semibold shrink-0"
-      style={{ width: size, height: size, fontSize: size * 0.5, backgroundColor: profile.color, color: inkOn(profile.color) }}
+      style={{ width: size, height: size, fontSize: size * 0.5, backgroundColor: profile.color, color: textOn(profile.color) }}
       title={profile.name}
     >
       {profile.emoji || profile.name[0]?.toUpperCase()}
