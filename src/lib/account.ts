@@ -85,6 +85,9 @@ export async function exportUserData(userId: string) {
         },
       },
       recipeFavorites: { select: { recipeId: true, createdAt: true } },
+      mealPlanEntries: {
+        select: { date: true, slot: true, note: true, servings: true, groupId: true, createdAt: true, recipe: { select: { id: true, title: true } } },
+      },
       wallDevices: {
         select: { id: true, name: true, groupId: true, createdAt: true, lastSeenAt: true },
       },
@@ -142,7 +145,7 @@ function parseJson(value: string): unknown {
  *   (qui devient un groupe ordinaire chez son nouveau propriétaire) ; sinon il
  *   est supprimé. Les éléments des autres membres ne sont jamais touchés.
  * - keepShared = choix de la personne pour ce qu'ELLE a rangé dans un groupe qui
- *   continue d'exister (todos, événements, listes, recettes) :
+ *   continue d'exister (todos, événements, listes, recettes, repas prévus) :
  *     true  -> ces éléments passent au propriétaire du groupe, rien ne disparaît
  *              pour les autres membres ;
  *     false -> ils sont supprimés avec le reste.
@@ -211,6 +214,7 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
       collect(await tx.calendarEvent.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
       collect(await tx.shoppingList.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
       collect(await tx.recipe.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
+      collect(await tx.mealPlanEntry.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
       const kidProfiles = await tx.kidDayEntry.findMany({
         where: { userId, profileId: { not: null } },
         select: { profile: { select: { groupId: true } } },
@@ -229,6 +233,7 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
         await tx.calendarEvent.updateMany({ where, data });
         await tx.shoppingList.updateMany({ where, data });
         await tx.recipe.updateMany({ where, data });
+        await tx.mealPlanEntry.updateMany({ where, data });
         await tx.kidDayEntry.updateMany({ where: { userId, profile: { groupId: g.id } }, data });
       }
     }

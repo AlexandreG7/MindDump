@@ -100,7 +100,7 @@ export default function PrivacyPolicyPage() {
               </Row>
               <Row label="Contenus">
                 Ce que tu crées : todos, événements et rappels, abonnements à des calendriers externes
-                (adresse du calendrier), listes de courses, recettes et leurs photos, groupes et
+                (adresse du calendrier), listes de courses, recettes et leurs photos, repas prévus, groupes et
                 invitations (dont l&apos;e-mail de la personne invitée, si tu l&apos;indiques).
               </Row>
               <Row label="Personnes du foyer">

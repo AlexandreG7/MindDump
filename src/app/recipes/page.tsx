@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { MealPlanner } from "@/components/recipes/MealPlanner";
 import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
   Search,
   Camera,
   CalendarCheck,
+  CalendarDays,
   CalendarX2,
   BookOpen,
   BookMarked,
@@ -72,7 +74,7 @@ interface ShoppingList {
   type?: string;
 }
 
-type Tab = "catalogue" | "prevues";
+type Tab = "catalogue" | "prevues" | "semaine";
 type ViewMode = "grid" | "list" | "compact";
 type SortOption = "recent" | "oldest" | "alpha-asc" | "alpha-desc" | "fastest" | "slowest";
 
@@ -712,8 +714,27 @@ export default function RecipesPage() {
             {catalogCount}
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab("semaine")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === "semaine"
+              ? "bg-card text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <CalendarDays className="h-3.5 w-3.5" />
+          Semaine
+        </button>
       </div>
 
+      {activeTab === "semaine" ? (
+        <MealPlanner
+          recipes={recipes}
+          groupId={currentGroupId}
+          onOpenRecipe={(id) => router.push(`/recipes/${id}`)}
+        />
+      ) : (
+      <>
       {/* Search + View toggle */}
       <div className="flex items-center gap-3">
         <div className="relative max-w-md flex-1" ref={searchRef}>
@@ -1020,6 +1041,8 @@ export default function RecipesPage() {
             </div>
           ))}
         </div>
+      )}
+      </>
       )}
 
       <input

@@ -95,7 +95,11 @@ async function weatherFor(ownerId: string) {
 export async function buildWallSnapshot(device: WallDeviceInfo, from: Date, to: Date) {
   const groupId = device.groupId;
 
-  const [profiles, eventRows, subscriptions, todoRows, lists, meals, weather] = await Promise.all([
+  // Jours « yyyy-MM-dd » : l'écran compare avec ses propres jours, on prend large d'un jour.
+  const fromDay = new Date(from.getTime() - 86400000).toISOString().slice(0, 10);
+  const toDay = new Date(to.getTime() + 86400000).toISOString().slice(0, 10);
+
+  const [profiles, eventRows, subscriptions, todoRows, lists, meals, mealPlan, weather] = await Promise.all([
     syncGroupProfiles(groupId),
     prisma.calendarEvent.findMany({
       where: {
@@ -135,6 +139,11 @@ export async function buildWallSnapshot(device: WallDeviceInfo, from: Date, to: 
       select: { id: true, title: true, image: true },
       orderBy: { updatedAt: "desc" },
       take: 7,
+    }),
+    prisma.mealPlanEntry.findMany({
+      where: { groupId, date: { gte: fromDay, lte: toDay } },
+      select: { id: true, date: true, slot: true, note: true, recipe: { select: { title: true, image: true } } },
+      orderBy: [{ date: "asc" }, { slot: "desc" }, { createdAt: "asc" }],
     }),
     weatherFor(device.group.ownerId),
   ]);
@@ -187,6 +196,13 @@ export async function buildWallSnapshot(device: WallDeviceInfo, from: Date, to: 
     })),
     lists: lists.filter((l) => l.items.length > 0),
     meals,
+    mealPlan: mealPlan.map((m) => ({
+      id: m.id,
+      date: m.date,
+      slot: m.slot,
+      title: m.recipe?.title ?? m.note ?? "",
+      image: m.recipe?.image ?? null,
+    })),
     weather,
   };
 }

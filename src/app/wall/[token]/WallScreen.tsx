@@ -248,6 +248,12 @@ export function WallScreen({ token }: { token: string }) {
 
   const WeatherIcon = weatherIcon(snapshot?.weather?.code ?? null);
   const listItems = (snapshot?.lists ?? []).flatMap((l) => l.items.map((i) => ({ ...i, list: l.name })));
+  // Au menu : les repas planifiés du jour, sinon les recettes « prévues » (sans date).
+  const todayKey = format(now, "yyyy-MM-dd");
+  const todayMeals = (snapshot?.mealPlan ?? []).filter((m) => m.date === todayKey);
+  const menu: Array<{ id: string; title: string; image: string | null; slot?: string }> = todayMeals.length
+    ? todayMeals
+    : (snapshot?.meals ?? []);
 
   return (
     <div className="fixed inset-0 z-[100] bg-background text-foreground overflow-y-auto">
@@ -290,6 +296,7 @@ export function WallScreen({ token }: { token: string }) {
             <section className="flex-1 grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 content-stretch" aria-label="Semaine">
               {days.map((day) => {
                 const dayEvents = sortEvents(snapshot.events.filter((e) => occursOn(e, day)));
+                const dayMeals = (snapshot.mealPlan ?? []).filter((m) => m.date === format(day, "yyyy-MM-dd"));
                 const forecast = snapshot.weather?.daily.find((d) => d.day === format(day, "yyyy-MM-dd"));
                 const DayIcon = forecast ? weatherIcon(forecast.code) : null;
                 const today = isToday(day);
@@ -313,7 +320,9 @@ export function WallScreen({ token }: { token: string }) {
                         </span>
                       )}
                     </div>
-                    {dayEvents.length === 0 && <p className="text-sm text-muted-foreground/70">Rien de prévu</p>}
+                    {dayEvents.length === 0 && dayMeals.length === 0 && (
+                      <p className="text-sm text-muted-foreground/70">Rien de prévu</p>
+                    )}
                     {dayEvents.map((e) => {
                       const people = e.assigneeIds.map((id) => profilesById.get(id)).filter((p): p is Profile => !!p);
                       const color = e.color ?? people[0]?.color ?? null;
@@ -340,6 +349,19 @@ export function WallScreen({ token }: { token: string }) {
                         </div>
                       );
                     })}
+                    {dayMeals.length > 0 && (
+                      <div className="mt-auto pt-2 border-t border-border/60 space-y-1">
+                        {dayMeals.map((m) => (
+                          <p key={m.id} className="flex items-start gap-1.5 text-sm">
+                            <UtensilsCrossed className="h-4 w-4 mt-0.5 text-primary shrink-0" aria-hidden />
+                            <span>
+                              <span className="text-muted-foreground">{m.slot === "lunch" ? "Midi" : "Soir"} · </span>
+                              {m.title}
+                            </span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -434,14 +456,14 @@ export function WallScreen({ token }: { token: string }) {
                 </section>
               )}
 
-              {snapshot.meals.length > 0 && (
+              {menu.length > 0 && (
                 <section className="rounded-2xl border border-border bg-card p-4">
                   <h2 className="font-semibold text-lg mb-2 flex items-center gap-2">
                     <UtensilsCrossed className="h-5 w-5 text-primary" />
                     Au menu
                   </h2>
                   <ul className="space-y-2">
-                    {snapshot.meals.map((m) => (
+                    {menu.map((m) => (
                       <li key={m.id} className="flex items-center gap-3">
                         {m.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -449,7 +471,10 @@ export function WallScreen({ token }: { token: string }) {
                         ) : (
                           <span className="w-12 h-12 rounded-lg bg-secondary shrink-0" />
                         )}
-                        <span className="leading-snug">{m.title}</span>
+                        <span className="leading-snug">
+                          {m.slot && <span className="block text-sm text-muted-foreground">{m.slot === "lunch" ? "Midi" : "Soir"}</span>}
+                          {m.title}
+                        </span>
                       </li>
                     ))}
                   </ul>

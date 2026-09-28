@@ -86,6 +86,7 @@ model User {
   loginEvents           LoginEvent[]
   familyProfiles        FamilyProfile[]
   wallDevices           WallDevice[]
+  mealPlanEntries       MealPlanEntry[]
   pushSubscriptions     PushSubscription[]
 
   @@index([createdAt])
@@ -209,6 +210,7 @@ model Group {
   recipes        Recipe[]
   profiles       FamilyProfile[]
   wallDevices    WallDevice[]
+  mealPlanEntries MealPlanEntry[]
 
   @@index([ownerId])
 }
@@ -383,6 +385,7 @@ model Recipe {
   ingredients  RecipeIngredient[]
   shoppingItems ShoppingItem[]
   favorites    RecipeFavorite[]
+  mealPlanEntries MealPlanEntry[]
 
   @@index([userId])
   @@index([groupId])
@@ -505,4 +508,26 @@ model WallDevice {
   createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([groupId])
+}
+
+// Repas prévu un jour donné (midi ou soir) : une recette, ou une simple note
+// (« restes », « resto »). Même règle que les autres éléments : il reste
+// visible par son auteur si le groupe disparaît.
+model MealPlanEntry {
+  id        String   @id @default(cuid())
+  date      String   // "yyyy-MM-dd", jour du calendrier (pas d'heure, pas de fuseau)
+  slot      String   // "lunch" | "dinner"
+  note      String?
+  servings  Int?
+  createdAt DateTime @default(now())
+
+  recipeId String?
+  recipe   Recipe? @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId  String?
+  group    Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@index([groupId, date])
+  @@index([userId, date])
 }
