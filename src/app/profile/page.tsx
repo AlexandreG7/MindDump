@@ -79,7 +79,7 @@ interface Group {
 }
 
 export default function ProfilePage() {
-  const { confirm } = useFeedback();
+  const { confirm, toast } = useFeedback();
   const { isReady, session } = useAuth();
   const { refresh: refreshGroups } = useGroupContext();
   const currentUserId = session?.user?.id ?? "dev-user";
@@ -295,20 +295,37 @@ export default function ProfilePage() {
     if (
       !(await confirm({
         title: "Supprimer ce groupe ?",
-        description: "Cette action est irréversible.",
+        description: "Les enfants du foyer et leur semainier seront supprimés. Cette action est irréversible.",
         confirmLabel: "Supprimer",
         destructive: true,
       }))
     )
       return;
-    await fetch(`/api/groups/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/groups/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast(data.error || "Le groupe n'a pas pu être supprimé. Réessaie dans un instant.", "error");
+      return;
+    }
     fetchGroups();
     refreshGroups();
   };
 
   const leaveGroup = async (groupId: string) => {
-    if (!(await confirm({ title: "Quitter ce groupe ?", confirmLabel: "Quitter", destructive: true }))) return;
-    await fetch(`/api/groups/${groupId}/members/${currentUserId}`, { method: "DELETE" });
+    if (
+      !(await confirm({
+        title: "Quitter ce groupe ?",
+        description: "Tu gardes tout ce que tu as créé, et les autres membres continuent de le voir. Toi, tu ne verras plus leurs tâches, listes et recettes. Pour revenir, il te faudra une nouvelle invitation.",
+        confirmLabel: "Quitter",
+        destructive: true,
+      }))
+    )
+      return;
+    const res = await fetch(`/api/groups/${groupId}/members/${currentUserId}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast("Impossible de quitter le groupe. Réessaie dans un instant.", "error");
+      return;
+    }
     fetchGroups();
     refreshGroups();
   };

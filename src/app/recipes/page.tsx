@@ -773,7 +773,8 @@ export default function RecipesPage() {
             <div className="relative flex-1 min-w-[120px]">
               <Search className={`absolute left-0 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none ${filters.length > 0 ? "hidden" : ""}`} />
               <input
-                placeholder={filters.length > 0 ? "Ajouter un filtre..." : "Titre ou ingrédient..."}
+                placeholder={filters.length > 0 ? "Autre filtre…" : "Rechercher…"}
+                aria-label="Rechercher une recette par titre ou ingrédient"
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
                 onFocus={() => setShowSuggestions(true)}
@@ -787,7 +788,7 @@ export default function RecipesPage() {
                     addFilter(suggestions[0]);
                   }
                 }}
-                className={`w-full bg-transparent text-sm outline-none py-1 ${filters.length > 0 ? "pl-1" : "pl-5"}`}
+                className={`w-full bg-transparent text-sm outline-none py-1 placeholder:text-muted-foreground ${filters.length > 0 ? "pl-1" : "pl-5"}`}
               />
             </div>
             {(searchQuery || filters.length > 0) && (
@@ -906,7 +907,19 @@ export default function RecipesPage() {
           </div>
           <div>
             <p className="font-medium text-foreground">Catalogue vide</p>
-            <p className="text-sm text-muted-foreground mt-1">Commence par ajouter ta première recette</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Colle le lien d&apos;une recette Jow ou HelloFresh : ingrédients, étapes et photo arrivent tout seuls.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2 pt-1">
+            <Button size="sm" onClick={() => setImportOpen(true)}>
+              <Download className="h-4 w-4 mr-1.5" />
+              Importer une recette
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              La saisir moi-même
+            </Button>
           </div>
         </div>
       )}
