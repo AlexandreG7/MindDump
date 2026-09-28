@@ -360,7 +360,7 @@ export function CtaSection() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
               <Link
                 href="/register"
-                className="rounded-xl bg-white text-[hsl(24_85%_45%)] font-semibold px-7 py-3.5 hover:bg-white/90 transition-colors"
+                className="rounded-xl bg-white text-[hsl(24_65%_33%)] font-semibold px-7 py-3.5 hover:bg-white/90 transition-colors"
               >
                 Créer un compte
               </Link>
