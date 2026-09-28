@@ -367,8 +367,6 @@ export function Dashboard() {
         </p>
       </header>
 
-      <InstallPrompt />
-
       <div className={cn("grid gap-6 items-start", hasAside && showDay && "lg:grid-cols-[minmax(0,1fr)_20rem]")}>
         {showDay && (
           <section aria-labelledby="today-title" className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -500,6 +498,8 @@ export function Dashboard() {
           </div>
         )}
       </div>
+
+      <InstallPrompt />
     </div>
   );
 }
