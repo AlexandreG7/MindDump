@@ -1,8 +1,11 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { isAuthBypassEnabled } from "@/lib/devAuth";
 import { Dashboard } from "@/components/Dashboard";
 import { Landing } from "@/components/landing/Landing";
+import { isNativeUserAgent } from "@/lib/native";
 
 /**
  * Le choix landing / dashboard se fait côté serveur, et pas depuis
@@ -16,6 +19,10 @@ export default async function Home() {
 
   const session = await getServerSession(authOptions);
   if (session?.user) return <Dashboard />;
+
+  // Dans l'app native, la page de présentation n'a pas de sens : on a déjà
+  // installé MindDump, on veut se connecter.
+  if (isNativeUserAgent(headers().get("user-agent"))) redirect("/login");
 
   return <Landing />;
 }

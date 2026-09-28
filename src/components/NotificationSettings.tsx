@@ -9,6 +9,7 @@ import {
   unsubscribeFromPush,
   type PushSupport,
 } from "@/lib/pushClient";
+import { isNativeApp } from "@/lib/native";
 
 type Prefs = { notifyEmail: boolean; pushPublicKey: string | null };
 
@@ -84,6 +85,9 @@ export function NotificationSettings() {
   const [subscribed, setSubscribed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // Dans l'app native, le Web Push n'est pas disponible : les notifications
+  // y passeront par APNs / FCM (docs/app-mobile.md, étape 3.3).
+  const [native, setNative] = useState(false);
 
   const refreshDevice = useCallback(async () => {
     const s = pushSupport();
@@ -98,6 +102,7 @@ export function NotificationSettings() {
       .then((r) => (r.ok ? r.json() : null))
       .then(setPrefs)
       .catch(() => {});
+    setNative(isNativeApp());
     refreshDevice();
   }, [refreshDevice]);
 
@@ -167,7 +172,7 @@ export function NotificationSettings() {
           <Switch checked={prefs.notifyEmail} onChange={setNotifyEmail} label="Rappels par e-mail" />
         </Row>
 
-        {prefs.pushPublicKey && (
+        {prefs.pushPublicKey && !native && (
           <Row
             icon={Smartphone}
             active={subscribed}

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Download, Share, X } from "lucide-react";
+import { isNativeApp } from "@/lib/native";
 
 /**
  * Invitation discrète à installer MindDump (docs/app-mobile.md, étape 1.5) :
  * bouton d'installation sur Android / Chrome, rappel du geste sur iPhone.
- * Jamais affichée une fois l'app installée, ni après avoir été fermée.
+ * Jamais affichée une fois l'app installée (PWA ou app native), ni après
+ * avoir été fermée.
  */
 
 type InstallEvent = Event & { prompt: () => Promise<void> };
@@ -50,7 +52,7 @@ export function InstallPrompt() {
     try {
       dismissed = localStorage.getItem(DISMISSED_KEY) === "true";
     } catch {}
-    if (dismissed || isStandalone()) return;
+    if (dismissed || isStandalone() || isNativeApp()) return;
 
     const update = () => setMode(deferredPrompt ? "android" : isIosSafari() ? "ios" : null);
     update();

@@ -1,0 +1,9 @@
+node_modules/
+# Produits de build natifs
+ios/App/build/
+ios/DerivedData/
+ios/App/Pods/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties

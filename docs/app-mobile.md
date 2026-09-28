@@ -24,7 +24,7 @@ Web Push                 WebView                    finitions natives          f
 | 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☑ (reste : test sur Android réel) |
 | 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☑ (reste : aller-retour Google / Apple réel, avec l'app) |
 | 2.2 | Appareils connectés (liste, révocation) | S | ☑ |
-| 3.1 | Projet Capacitor (iOS + Android) | M | ☐ |
+| 3.1 | Projet Capacitor (iOS + Android) | M | ◐ iOS fait, Android à faire |
 | 3.2 | Branchement de la connexion mobile | S | ☐ |
 | 3.3 | Push natif (APNs / FCM) | L | ☐ |
 | 3.4 | Extension de partage iOS + intent Android | M | ☐ |
@@ -262,26 +262,33 @@ faux schéma ; code réutilisé, expiré ou avec un mauvais verifier → refusé
 
 ### 3.1 Projet Capacitor
 
-- [ ] Dossier `mobile/` (package séparé, comme `minddump-mcp/`) : Capacitor,
-      plateformes `ios/` et `android/`.
-- [ ] `capacitor.config.ts` : `server.url = "https://minddump.fr"`,
-      `allowNavigation` limité à minddump.fr ; liens externes ouverts dans le
-      navigateur système.
-- [ ] `mobile/www/index.html` : écran de repli si le site est injoignable au
-      premier lancement.
-- [ ] iOS : `WKAppBoundDomains` (minddump.fr) et
-      `limitsNavigationsToAppBoundDomains`, **nécessaires pour que le service
-      worker fonctionne dans WKWebView**.
-      ⚠️ Dès que cette clé existe, iOS n'autorise l'injection de script
-      (`evaluateJavaScript`, user scripts, message handlers) que sur les
-      domaines listés, dans **toutes** les WebViews de l'app, et échoue sans
-      erreur ailleurs. Y ajouter `supermarchesmatch.fr` et
-      `api-drive.drive.supermarchesmatch.fr` pour l'étape 3.6 (10 domaines
-      maximum).
-- [ ] Côté web : `src/lib/native.ts` (`isNativeApp()`), pour masquer
-      l'invitation à installer, le bouton Web Push, etc.
-- [ ] Icônes et écran de lancement générés depuis l'icône existante.
-- [ ] `docs/app-mobile-build.md` : build iOS / Android en local.
+- [x] Dossier `mobile/` (package séparé, comme `minddump-mcp/`), Capacitor
+      8.5, iOS en Swift Package Manager (pas de CocoaPods). Exclu du
+      TypeScript du site (`tsconfig.json`) et de l'image Docker
+      (`.dockerignore`). Identifiant `fr.minddump.app`.
+- [ ] Plateforme Android (`npx cap add android`).
+- [x] `capacitor.config.ts` : `server.url = "https://minddump.fr"`
+      (`MINDDUMP_URL` pour un serveur local), `allowNavigation` limité à ce
+      domaine, `appendUserAgent: "MindDumpApp/1"`.
+- [x] `mobile/www/offline.html` : écran de repli (`server.errorPath`).
+- [x] iOS : `WKAppBoundDomains` (minddump.fr, les deux domaines Match,
+      localhost) et `limitsNavigationsToAppBoundDomains`. **Vérifié : le
+      service worker tourne dans WKWebView.**
+- [x] Côté web : `src/lib/native.ts` (`isNativeApp()` côté client,
+      `isNativeUserAgent()` côté serveur). Dans l'app : `/` → `/login` au lieu
+      de la page de présentation, pas d'invitation à installer, pas de ligne
+      Web Push dans le profil (la WebView iOS ressemble à Safari : sans ça,
+      l'app proposait de « s'ajouter à l'écran d'accueil »).
+- [x] Icône (1024 px, sans alpha) et écran de lancement générés depuis le
+      dessin du site : `mobile/scripts/generate-assets.tsx`.
+- [x] `docs/app-mobile-build.md` : build iOS en local.
+- [x] Trouvé en testant : une navigation dans l'app passe par des charges RSC
+      (`_rsc` variable, souvent préchargées) jamais retrouvées hors ligne.
+      `sw.ts` met maintenant en cache la page complète en arrière-plan après
+      toute charge RSC (préchargements compris, 10 min par page) : les onglets
+      sont disponibles hors ligne, dans l'app comme dans la PWA.
+- [x] En `next dev`, un service worker laissé par un build de production sur le
+      même port est désinscrit au chargement (script inline du layout).
 
 **Validation** : l'app tourne sur simulateur iOS et émulateur Android ;
 connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais.
