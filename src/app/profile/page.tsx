@@ -55,6 +55,7 @@ import { NotificationSettings } from "@/components/NotificationSettings";
 import { ConnectedDevices } from "@/components/ConnectedDevices";
 import { useFeedback } from "@/components/ui/feedback";
 import { FamilyProfiles } from "@/components/profiles/FamilyProfiles";
+import { WallDevices } from "@/components/profiles/WallDevices";
 
 interface Member {
   id: string;
@@ -930,6 +931,10 @@ export default function ProfilePage() {
               currentUserId={currentUserId}
               isAdmin={group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin"}
             />
+
+            {(group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin") && (
+              <WallDevices groupId={group.id} />
+            )}
 
             {/* Sharing config (owner only, non-default groups) */}
             {group.isOwner && !group.isDefault && (
