@@ -11,8 +11,9 @@ export const MAX_CANDIDATES = 30;
 
 /**
  * Liste accessible à l'utilisateur, avec le groupe qui porte les produits
- * mémorisés : celui de la liste, ou à défaut le groupe par défaut de la
- * personne (anciennes listes sans groupe).
+ * mémorisés : celui de la liste si la personne en est membre, sinon son groupe
+ * par défaut (liste sans groupe, ou dont l'auteur a quitté le groupe : il la
+ * voit toujours, voir docs/adr/0001, mais n'a plus accès aux choix du groupe).
  */
 export async function loadList(listId: string, userId: string) {
   const list = await prisma.shoppingList.findFirst({
@@ -20,7 +21,10 @@ export async function loadList(listId: string, userId: string) {
     include: { items: { where: { checked: false }, orderBy: { id: "asc" } } },
   });
   if (!list) return null;
-  const groupId = list.groupId ?? (await ensureDefaultGroup(userId)).id;
+  const member = list.groupId
+    ? await prisma.groupMember.findFirst({ where: { groupId: list.groupId, userId }, select: { id: true } })
+    : null;
+  const groupId = member ? list.groupId! : (await ensureDefaultGroup(userId)).id;
   return { list, groupId };
 }
 
