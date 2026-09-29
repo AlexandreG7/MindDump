@@ -22,7 +22,9 @@ import {
   ShoppingCart,
   Snowflake,
   Sun,
+  Thermometer,
   UtensilsCrossed,
+  Wind,
 } from "lucide-react";
 import { useAuth } from "@/lib/useAuth";
 import { cn } from "@/lib/utils";
@@ -503,39 +505,7 @@ export function Dashboard() {
           </AsideCard>
         );
       case "weather":
-        return weather ? (
-          <section aria-label={`Météo${weather.city ? ` à ${weather.city}` : ""}`} className="bg-card border border-border rounded-2xl px-5 py-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">{weather.city ?? "Météo"}</p>
-                <p className="text-sm text-muted-foreground">
-                  {getWeatherInfo(weather.current.weather_code).label}, ressenti{" "}
-                  {Math.round(weather.current.apparent_temperature)}°
-                </p>
-              </div>
-              <div className="flex gap-3">
-                {weather.daily.time.slice(1, 4).map((day, i) => {
-                  const idx = i + 1;
-                  const DayIcon = getWeatherInfo(weather.daily.weather_code[idx]).icon;
-                  return (
-                    <div key={day} className="flex flex-col items-center gap-0.5 text-xs">
-                      <span className="text-muted-foreground capitalize">
-                        {new Date(day).toLocaleDateString("fr-FR", { weekday: "short" })}
-                      </span>
-                      <DayIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                      <span className="tabular-nums">{Math.round(weather.daily.temperature_2m_max[idx])}°</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-        ) : (
-          <section aria-label="Météo" className="bg-card border border-border rounded-2xl px-5 py-4">
-            <p className="text-sm font-medium">Météo</p>
-            <p className="text-sm text-muted-foreground mt-1">Chargement de la météo…</p>
-          </section>
-        );
+        return <WeatherCard weather={weather} />;
     }
   };
 
@@ -671,6 +641,89 @@ function DayRow({
 
       <AssigneeAvatars ids={assignees} byId={byId} />
     </li>
+  );
+}
+
+function WeatherCard({ weather }: { weather: WeatherData | null }) {
+  const header = (
+    <h2 className="text-sm font-semibold flex items-center gap-2 min-w-0">
+      <CloudSun className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+      Météo
+      {weather?.city && <span className="font-normal text-muted-foreground truncate">· {weather.city}</span>}
+    </h2>
+  );
+
+  if (!weather) {
+    return (
+      <section aria-label="Météo" className="bg-card border border-border rounded-2xl px-5 py-4 space-y-3">
+        {header}
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-11 w-11 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-20" />
+            <Skeleton className="h-3.5 w-32" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const now = getWeatherInfo(weather.current.weather_code);
+  const NowIcon = now.icon;
+
+  return (
+    <section
+      aria-label={`Météo${weather.city ? ` à ${weather.city}` : ""}`}
+      className="bg-card border border-border rounded-2xl px-5 py-4 space-y-4"
+    >
+      {header}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+        <div className="flex items-center gap-4">
+          <NowIcon className="h-11 w-11 text-primary shrink-0" strokeWidth={1.75} aria-hidden="true" />
+          <div>
+            <p className="text-3xl font-bold tracking-tight tabular-nums leading-none">
+              {Math.round(weather.current.temperature_2m)}°C
+            </p>
+            <p className="text-sm text-muted-foreground mt-1.5">{now.label}</p>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Thermometer className="h-3 w-3" aria-hidden="true" />
+                Ressenti {Math.round(weather.current.apparent_temperature)}°
+              </span>
+              <span className="flex items-center gap-1">
+                <Wind className="h-3 w-3" aria-hidden="true" />
+                {Math.round(weather.current.wind_speed_10m)} km/h
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <ul className="grid grid-cols-3 gap-2 flex-1 min-w-[12rem] max-w-xs ml-auto" aria-label="Prévisions des 3 prochains jours">
+          {weather.daily.time.slice(1, 4).map((day, i) => {
+            const idx = i + 1;
+            const info = getWeatherInfo(weather.daily.weather_code[idx]);
+            const DayIcon = info.icon;
+            const max = Math.round(weather.daily.temperature_2m_max[idx]);
+            const min = Math.round(weather.daily.temperature_2m_min[idx]);
+            const weekday = new Date(day).toLocaleDateString("fr-FR", { weekday: "short" });
+            return (
+              <li
+                key={day}
+                className="flex flex-col items-center gap-1 rounded-xl bg-secondary/60 px-2 py-2"
+                aria-label={`${new Date(day).toLocaleDateString("fr-FR", { weekday: "long" })} : ${info.label}, ${max}° / ${min}°`}
+              >
+                <span className="text-xs text-muted-foreground capitalize" aria-hidden="true">{weekday}</span>
+                <DayIcon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                <span className="text-xs tabular-nums" aria-hidden="true">
+                  <span className="font-semibold">{max}°</span>
+                  <span className="text-muted-foreground"> / {min}°</span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
   );
 }
 
