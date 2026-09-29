@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
   const provider = params.get("provider");
   const challenge = params.get("challenge");
 
-  if (!provider || !enabledOAuthProviderIds().includes(provider) || !isChallenge(challenge)) {
+  // « credentials » : identifiant et mot de passe dans le navigateur système
+  // (/login), utile quand aucun fournisseur OAuth n'est configuré, en test.
+  const allowed = [...enabledOAuthProviderIds(), "credentials"];
+  if (!provider || !allowed.includes(provider) || !isChallenge(challenge)) {
     return NextResponse.json({ error: "Paramètres de connexion invalides" }, { status: 400 });
   }
 

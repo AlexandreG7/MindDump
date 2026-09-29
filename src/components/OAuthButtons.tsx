@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { getProviders, signIn, type ClientSafeProvider } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { isNativeApp } from "@/lib/native";
+import { nativeSignIn, SignInCanceled } from "@/lib/mobileSignIn";
 
 // Logos imposés par les chartes Google et Apple pour les boutons de connexion.
 export function ProviderIcon({ id, className = "h-4 w-4" }: { id: string; className?: string }) {
@@ -28,12 +30,31 @@ export function ProviderIcon({ id, className = "h-4 w-4" }: { id: string; classN
 
 export function OAuthButtons({ callbackUrl, label = "Continuer avec" }: { callbackUrl: string; label?: string }) {
   const [providers, setProviders] = useState<ClientSafeProvider[]>([]);
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     getProviders().then((all) =>
       setProviders(Object.values(all ?? {}).filter((p) => p.type === "oauth"))
     );
   }, []);
+
+  // Dans l'app, Google refuse l'OAuth dans la WebView : connexion par le
+  // navigateur système (src/lib/mobileSignIn.ts). Sur le web, NextAuth direct.
+  const connect = async (id: string) => {
+    if (!isNativeApp()) {
+      signIn(id, { callbackUrl });
+      return;
+    }
+    setPending(id);
+    setError("");
+    try {
+      window.location.replace(await nativeSignIn(id, callbackUrl));
+    } catch (e) {
+      setPending(null);
+      if (!(e instanceof SignInCanceled)) setError((e as Error).message);
+    }
+  };
 
   if (providers.length === 0) return null;
 
@@ -46,12 +67,14 @@ export function OAuthButtons({ callbackUrl, label = "Continuer avec" }: { callba
           variant="outline"
           className="w-full gap-2"
           size="lg"
-          onClick={() => signIn(p.id, { callbackUrl })}
+          disabled={pending !== null}
+          onClick={() => connect(p.id)}
         >
           <ProviderIcon id={p.id} />
           {label} {p.name}
         </Button>
       ))}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
         ou

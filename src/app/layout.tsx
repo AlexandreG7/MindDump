@@ -5,6 +5,7 @@ import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { THEME_COLORS, themeInitScript } from "@/lib/theme";
 import { devServiceWorkerCleanupScript } from "@/lib/offlineCache";
+import { nativeAppCookieScript } from "@/lib/native";
 import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 
 // next/font télécharge les polices au build et les sert depuis minddump.fr :
@@ -86,6 +87,7 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: nativeAppCookieScript }} />
         {process.env.NODE_ENV !== "production" && (
           <script dangerouslySetInnerHTML={{ __html: devServiceWorkerCleanupScript }} />
         )}

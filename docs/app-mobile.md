@@ -25,7 +25,7 @@ Web Push                 WebView                    finitions natives          f
 | 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☑ (reste : aller-retour Google / Apple réel, avec l'app) |
 | 2.2 | Appareils connectés (liste, révocation) | S | ☑ |
 | 3.1 | Projet Capacitor (iOS + Android) | M | ☑ |
-| 3.2 | Branchement de la connexion mobile | S | ☐ |
+| 3.2 | Branchement de la connexion mobile | S | ◐ connexion faite, liaison depuis le profil à faire |
 | 3.3 | Push natif (APNs / FCM) | L | ☐ |
 | 3.4 | Extension de partage iOS + intent Android | M | ☐ |
 | 3.5 | Finitions natives | M | ☐ |
@@ -304,11 +304,39 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
 
 ### 3.2 Branchement de la connexion mobile
 
-- [ ] Schéma `minddump://` (iOS `CFBundleURLTypes`, Android intent-filter).
-- [ ] Boutons Google / Apple de `LoginMethods.tsx` / `OAuthButtons.tsx` : dans
-      l'app, ouvrent le flux 2.1 via `ASWebAuthenticationSession` (iOS) / Custom
-      Tabs (Android) au lieu de la redirection NextAuth.
-- [ ] Liaison / déliaison de compte depuis `/profile` : même mécanisme.
+- [x] Schéma `minddump://` : iOS `CFBundleURLTypes`, Android intent-filter
+      (`VIEW`, `minddump://auth`).
+- [x] Boutons Google / Apple (`OAuthButtons.tsx`) : dans l'app,
+      `nativeSignIn` (`src/lib/mobileSignIn.ts`) génère le verifier PKCE,
+      ouvre `/api/mobile-auth/start` dans le navigateur système, récupère
+      `minddump://auth?code=…` et l'échange. iOS : `ASWebAuthenticationSession`
+      par un plugin local (`ios/App/App/WebAuthPlugin.swift`, enregistré par
+      `MainViewController`) ; Android : Custom Tabs (`@capacitor/browser`) et
+      `appUrlOpen` (`@capacitor/app`). Les plugins sont appelés par
+      `window.Capacitor.Plugins` : le site n'embarque pas Capacitor.
+- [x] `/api/mobile-auth/start` accepte aussi `credentials` (identifiant et mot
+      de passe dans le navigateur système), utile pour tester sans fournisseur.
+- [x] Vérifié sur Android (émulateur) de bout en bout : bouton → Custom Tabs →
+      connexion → retour dans l'app connectée, appareil enregistré. iOS
+      (simulateur) : la session système s'ouvre, l'annulation rend la main.
+      Le vrai aller-retour Google / Apple reste à faire avec les identifiants
+      de production.
+- [x] Trouvé en testant :
+      - `/login` revient vers `callbackUrl` par `router.push`, qui envoie
+        d'abord une requête RSC : elle consommait le code avant la vraie
+        navigation (« Connexion expirée »). `/api/mobile-auth/complete` ignore
+        maintenant les requêtes RSC.
+      - Appelé par `window.Capacitor.Plugins`, `addListener` ne renvoie pas une
+        promesse : le bouton restait bloqué après fermeture de l'onglet.
+      - Les requêtes du service worker ne portent pas l'agent utilisateur de
+        l'app : il mettait en cache la page de présentation sous `/`. L'app
+        pose aussi un cookie `minddump-app` (mentionné dans `/confidentialite`),
+        reconnu par le serveur comme l'agent utilisateur.
+      - iOS affichait « App » dans sa demande de connexion : `CFBundleName`
+        corrigé en « MindDump ».
+- [ ] Liaison / déliaison de compte depuis `/profile` dans l'app : même
+      mécanisme, à faire (la liaison suppose que le navigateur système soit
+      connecté au même compte).
 
 ### 3.3 Push natif
 
