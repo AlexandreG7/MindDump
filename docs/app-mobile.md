@@ -280,8 +280,8 @@ faux schéma ; code réutilisé, expiré ou avec un mauvais verifier → refusé
       (`MINDDUMP_URL` pour un serveur local), `allowNavigation` limité à ce
       domaine, `appendUserAgent: "MindDumpApp/1"`.
 - [x] `mobile/www/offline.html` : écran de repli (`server.errorPath`).
-- [x] iOS : `WKAppBoundDomains` (minddump.fr, les deux domaines Match,
-      localhost) et `limitsNavigationsToAppBoundDomains`. **Vérifié : le
+- [x] iOS : `WKAppBoundDomains` (minddump.fr, les trois domaines Match de
+      l'étape 3.6, localhost) et `limitsNavigationsToAppBoundDomains`. **Vérifié : le
       service worker tourne dans WKWebView.**
 - [x] Côté web : `src/lib/native.ts` (`isNativeApp()` côté client,
       `isNativeUserAgent()` côté serveur). Dans l'app : `/` → `/login` au lieu
@@ -384,7 +384,18 @@ partir de l'appareil. Rien de possible en PWA.
 - [ ] L'utilisateur se connecte à son compte Match dans cette WebView ; l'app
       injecte l'ajout groupé du plan au panier, puis le laisse valider et payer
       lui-même.
-- [ ] Domaines Match dans `WKAppBoundDomains` (voir 3.1).
+- [x] Domaines Match dans `WKAppBoundDomains` : `supermarchesmatch.fr`,
+      `www.supermarchesmatch.fr` (le script est injecté sur la page www ; on ne
+      compte pas sur la couverture des sous-domaines) et
+      `api-drive.drive.supermarchesmatch.fr`. `produits.supermarchesmatch.fr`
+      n'est appelé que par fetch depuis la page : pas besoin de le lister.
+      Rappel : iOS n'autorise l'injection de script que sur ces domaines, et
+      échoue sans erreur ailleurs (10 domaines maximum).
+- [ ] Écran de revue : même règle que l'extension (`MIN_CONFIDENCE` dans
+      `drive-extension/content.js`, branche `feat/drive-match`). Une suggestion
+      sous 0,5 de confiance est décochée par défaut, sauf si c'est le produit
+      habituel du groupe (« truffe blanche » ne doit pas mettre du jambon à la
+      truffe au panier).
 
 Déroulé prévu (API stable sur `feat/drive-match`, 3f341f4 ; auth par cookie de
 session, ou `Authorization: Bearer <clé API>`) :
