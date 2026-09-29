@@ -54,6 +54,7 @@ import { useFeaturesContext, type FeatureKey } from "@/components/FeaturesContex
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { ConnectedDevices } from "@/components/ConnectedDevices";
 import { useFeedback } from "@/components/ui/feedback";
+import { FamilyProfiles } from "@/components/profiles/FamilyProfiles";
 
 interface Member {
   id: string;
@@ -841,8 +842,8 @@ export default function ProfilePage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm truncate">{group.name}</span>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-semibold text-sm truncate max-w-full">{group.name}</span>
                     {group.isDefault && (
                       <span className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full shrink-0">défaut</span>
                     )}
@@ -922,6 +923,13 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
+
+            {/* Personnes du foyer : c'est ici qu'on arrive depuis le menu, la page /groups n'y figure pas. */}
+            <FamilyProfiles
+              groupId={group.id}
+              currentUserId={currentUserId}
+              isAdmin={group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin"}
+            />
 
             {/* Sharing config (owner only, non-default groups) */}
             {group.isOwner && !group.isDefault && (
