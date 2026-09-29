@@ -79,33 +79,29 @@ export function InstallPrompt() {
   if (!mode) return null;
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-sm">
+    <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
       {mode === "android" ? (
         <>
-          <Download className="h-4 w-4 text-primary shrink-0" />
-          <span className="flex-1 min-w-0 text-muted-foreground">
-            Installe MindDump pour l&apos;ouvrir comme une app, même hors ligne.
-          </span>
-          <button onClick={install} className="font-medium text-primary hover:underline shrink-0">
+          <Download className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <span>MindDump s&apos;installe comme une app, même hors ligne.</span>
+          <button onClick={install} className="font-medium text-foreground underline underline-offset-2 hover:no-underline">
             Installer
           </button>
         </>
       ) : (
         <>
-          <Share className="h-4 w-4 text-primary shrink-0" />
-          <span className="flex-1 min-w-0 text-muted-foreground">
-            Pour l&apos;installer : Partager, puis « Sur l&apos;écran d&apos;accueil ».
-          </span>
+          <Share className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <span>Pour l&apos;installer : Partager, puis « Sur l&apos;écran d&apos;accueil ».</span>
         </>
       )}
       <button
         onClick={dismiss}
         aria-label="Ne plus afficher"
         title="Ne plus afficher"
-        className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary shrink-0"
+        className="p-1 -m-0.5 rounded-md hover:text-foreground hover:bg-secondary shrink-0"
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="h-3 w-3" />
       </button>
-    </div>
+    </p>
   );
 }

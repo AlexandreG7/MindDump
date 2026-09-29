@@ -95,7 +95,7 @@ function Hero() {
         <div className="lp-in" style={{ animationDelay: "0ms" }}>
           <span className="lp-badge">
             <Sparkles className="h-3.5 w-3.5" />
-            Photographie ton frigo, l&apos;IA s&apos;occupe du dîner
+            Avec ton assistant IA, une photo du frigo devient un dîner
           </span>
         </div>
 
@@ -120,7 +120,7 @@ function Hero() {
             href="/register"
             className="rounded-xl bg-primary text-primary-foreground font-semibold px-7 py-3.5 hover:opacity-90 transition-opacity"
           >
-            Commencer gratuitement
+            Créer mon espace
           </Link>
           <Link
             href="/login"

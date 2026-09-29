@@ -50,7 +50,7 @@ interface Group {
 }
 
 export default function GroupsPage() {
-  const { confirm } = useFeedback();
+  const { confirm, toast } = useFeedback();
   const { isReady, session } = useAuth();
   const currentUserId = session?.user?.id ?? "dev-user";
 
@@ -98,13 +98,30 @@ export default function GroupsPage() {
       }))
     )
       return;
-    await fetch(`/api/groups/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/groups/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast(data.error || "Le groupe n'a pas pu être supprimé. Réessaie dans un instant.", "error");
+      return;
+    }
     fetchGroups();
   };
 
   const leaveGroup = async (groupId: string) => {
-    if (!(await confirm({ title: "Quitter ce groupe ?", confirmLabel: "Quitter", destructive: true }))) return;
-    await fetch(`/api/groups/${groupId}/members/${currentUserId}`, { method: "DELETE" });
+    if (
+      !(await confirm({
+        title: "Quitter ce groupe ?",
+        description: "Tu gardes tout ce que tu as créé, et les autres membres continuent de le voir. Toi, tu ne verras plus leurs tâches, listes et recettes. Pour revenir, il te faudra une nouvelle invitation.",
+        confirmLabel: "Quitter",
+        destructive: true,
+      }))
+    )
+      return;
+    const res = await fetch(`/api/groups/${groupId}/members/${currentUserId}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast("Impossible de quitter le groupe. Réessaie dans un instant.", "error");
+      return;
+    }
     fetchGroups();
   };
 
@@ -192,8 +209,8 @@ export default function GroupsPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label>Nom du groupe</Label>
-                <Input
+                <Label htmlFor="groups-nom-du-groupe">Nom du groupe</Label>
+                <Input id="groups-nom-du-groupe"
                   placeholder="Ex: Famille Dupont, Coloc, Équipe…"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
@@ -336,7 +353,7 @@ export default function GroupsPage() {
                     <p className="text-sm font-medium truncate">
                       {member.user.name ?? member.user.email}
                       {member.user.id === currentUserId && (
-                        <span className="text-muted-foreground font-normal"> (vous)</span>
+                        <span className="text-muted-foreground font-normal"> (toi)</span>
                       )}
                     </p>
                     {member.user.name && member.user.email && (

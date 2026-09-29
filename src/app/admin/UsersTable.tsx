@@ -10,7 +10,7 @@ const COLUMNS: { key: UserSortKey; label: string; numeric?: boolean }[] = [
   { key: "email", label: "Utilisateur" },
   { key: "createdAt", label: "Inscription" },
   { key: "recipes", label: "Recettes", numeric: true },
-  { key: "todos", label: "Todos", numeric: true },
+  { key: "todos", label: "Tâches", numeric: true },
   { key: "lists", label: "Listes", numeric: true },
   { key: "groups", label: "Groupes", numeric: true },
   { key: "apiKey", label: "Clé API" },

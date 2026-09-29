@@ -302,13 +302,14 @@ export function HouseholdSection() {
           <p className="lp-eyebrow">Partagé</p>
           <h2 className="lp-title mt-2">Une liste partagée vaut mieux que dix rappels.</h2>
           <p className="text-muted-foreground mt-4 leading-relaxed">
-            Invite ton foyer avec un lien. Pas de compte à configurer, pas de réglages. Les
-            recettes, les courses, les rendez-vous et les échéances deviennent communs — et la charge cesse de
-            reposer sur une seule personne.
+            Invite ton foyer avec un lien : chacun crée son compte et rejoint le groupe d&apos;un
+            clic. Les enfants n&apos;ont même pas besoin de compte. Les recettes, les courses, les
+            rendez-vous et les échéances deviennent communs — et la charge cesse de reposer sur
+            une seule personne.
           </p>
-          <div className="flex items-center gap-2 mt-6 text-sm font-medium text-primary">
+          <div className="flex items-center gap-2 mt-6 text-sm font-medium text-[hsl(var(--primary-soft-foreground))]">
             <Link2 className="h-4 w-4" />
-            Un lien suffit
+            Un lien, un clic
           </div>
         </Reveal>
 
@@ -321,7 +322,7 @@ export function HouseholdSection() {
               {["A", "M", "L", "T"].map((initial, i) => (
                 <span
                   key={initial}
-                  className="h-10 w-10 rounded-full border-2 border-white flex items-center justify-center text-sm font-semibold text-white"
+                  className="h-10 w-10 rounded-full border-2 border-white flex items-center justify-center text-sm font-semibold text-primary-foreground"
                   style={{ background: `hsl(${24 + i * 44} 70% 55%)` }}
                 >
                   {initial}
@@ -332,7 +333,7 @@ export function HouseholdSection() {
             <div className="mt-5 flex items-center gap-2 rounded-lg border border-border bg-[hsl(220_14%_98%)] px-3 py-2.5">
               <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <code className="text-xs text-muted-foreground truncate">
-                minddump.app/groups/join/…
+                minddump.fr/groups/join/…
               </code>
             </div>
           </div>
@@ -350,22 +351,22 @@ export function CtaSection() {
       <div className="lp-shell">
         <Reveal>
           <div className="rounded-3xl bg-gradient-to-br from-orange-500 to-amber-500 px-6 py-16 sm:px-12 sm:py-20 text-center">
-            <h2 className="text-white font-bold tracking-tight text-[clamp(1.9rem,4.6vw,3.1rem)] leading-tight">
+            <h2 className="text-primary-foreground font-bold tracking-tight text-[clamp(1.9rem,4.6vw,3.1rem)] leading-tight">
               Arrête d&apos;être le seul cerveau du foyer.
             </h2>
-            <p className="text-white/90 mt-4 max-w-lg mx-auto">
+            <p className="text-primary-foreground/85 mt-4 max-w-lg mx-auto">
               Crée ton espace, invite ta famille, et vide ta charge mentale une bonne fois.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
               <Link
                 href="/register"
-                className="rounded-xl bg-white text-[hsl(24_85%_45%)] font-semibold px-7 py-3.5 hover:bg-white/90 transition-colors"
+                className="rounded-xl bg-white text-[hsl(24_65%_33%)] font-semibold px-7 py-3.5 hover:bg-white/90 transition-colors"
               >
                 Créer un compte
               </Link>
               <Link
                 href="/login"
-                className="rounded-xl border border-white/40 text-white font-semibold px-7 py-3.5 hover:bg-white/10 transition-colors"
+                className="rounded-xl border border-primary-foreground/30 text-primary-foreground font-semibold px-7 py-3.5 hover:bg-white/15 transition-colors"
               >
                 Se connecter
               </Link>

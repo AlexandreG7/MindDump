@@ -57,16 +57,16 @@ export function SubscriptionDialog({
             )}
           </p>
           <div>
-            <Label>Nom</Label>
-            <Input
+            <Label htmlFor="subscriptions-nom">Nom</Label>
+            <Input id="subscriptions-nom"
               placeholder="Ex: Personnel, Boulot…"
               value={newSub.name}
               onChange={(e) => setNewSub({ ...newSub, name: e.target.value })}
             />
           </div>
           <div>
-            <Label>URL du calendrier</Label>
-            <Input
+            <Label htmlFor="subscriptions-url-du-calendrier">URL du calendrier</Label>
+            <Input id="subscriptions-url-du-calendrier"
               placeholder="webcal://p12-caldav.icloud.com/…"
               value={newSub.url}
               onChange={(e) => setNewSub({ ...newSub, url: e.target.value })}

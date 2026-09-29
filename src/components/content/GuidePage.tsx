@@ -121,22 +121,22 @@ export function GuidePage({ guide }: { guide: Guide }) {
         </section>
 
         <section className="mt-16 rounded-3xl bg-gradient-to-br from-orange-500 to-amber-500 px-6 py-12 sm:px-10 sm:py-14 text-center">
-          <h2 className="text-white font-bold tracking-tight text-[clamp(1.6rem,3.6vw,2.3rem)] leading-tight">
+          <h2 className="text-primary-foreground font-bold tracking-tight text-[clamp(1.6rem,3.6vw,2.3rem)] leading-tight">
             Arrête d&apos;être le seul cerveau du foyer.
           </h2>
-          <p className="text-white/90 mt-4 max-w-lg mx-auto">
+          <p className="text-primary-foreground/85 mt-4 max-w-lg mx-auto">
             Crée ton espace, invite ta famille, et vide ta charge mentale une bonne fois.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
             <Link
               href="/register"
-              className="rounded-xl bg-white text-[hsl(24_85%_45%)] font-semibold px-7 py-3.5 hover:bg-white/90 transition-colors"
+              className="rounded-xl bg-white text-[hsl(24_65%_33%)] font-semibold px-7 py-3.5 hover:bg-white/90 transition-colors"
             >
               Créer un compte
             </Link>
             <Link
               href="/"
-              className="rounded-xl border border-white/40 text-white font-semibold px-7 py-3.5 hover:bg-white/10 transition-colors"
+              className="rounded-xl border border-primary-foreground/30 text-primary-foreground font-semibold px-7 py-3.5 hover:bg-white/15 transition-colors"
             >
               Découvrir MindDump
             </Link>

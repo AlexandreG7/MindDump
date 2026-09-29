@@ -234,6 +234,7 @@ export default function TodosPage() {
               <Checkbox
                 checked={todo.completed}
                 onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
+                aria-label={`Cocher « ${todo.title} »`}
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium flex items-center gap-2">
@@ -285,6 +286,7 @@ export default function TodosPage() {
                   <Checkbox
                     checked={todo.completed}
                     onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
+                    aria-label={`Décocher « ${todo.title} »`}
                   />
                   <p className="text-sm line-through flex-1">{todo.title}</p>
                   <Button aria-label="Supprimer la tâche"
@@ -326,8 +328,9 @@ export default function TodosPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Titre</Label>
+                <Label htmlFor="todo-title">Titre</Label>
                 <Input
+                  id="todo-title"
                   value={newTodo.title}
                   onChange={(e) =>
                     setNewTodo({ ...newTodo, title: e.target.value })
@@ -336,8 +339,9 @@ export default function TodosPage() {
                 />
               </div>
               <div>
-                <Label>Description (optionnel)</Label>
+                <Label htmlFor="todo-description">Description (optionnel)</Label>
                 <Textarea
+                  id="todo-description"
                   value={newTodo.description}
                   onChange={(e) =>
                     setNewTodo({ ...newTodo, description: e.target.value })
@@ -356,14 +360,15 @@ export default function TodosPage() {
                 </div>
               )}
               <div>
-                <Label>Priorité</Label>
-                <div className="flex gap-2 mt-1">
+                <Label id="todo-priority">Priorité</Label>
+                <div className="flex gap-2 mt-1" role="group" aria-labelledby="todo-priority">
                   <Button
                     type="button"
                     variant={
                       newTodo.priority === "URGENT" ? "default" : "outline"
                     }
                     size="sm"
+                    aria-pressed={newTodo.priority === "URGENT"}
                     onClick={() =>
                       setNewTodo({ ...newTodo, priority: "URGENT" })
                     }
@@ -377,6 +382,7 @@ export default function TodosPage() {
                       newTodo.priority === "PLANNED" ? "default" : "outline"
                     }
                     size="sm"
+                    aria-pressed={newTodo.priority === "PLANNED"}
                     onClick={() =>
                       setNewTodo({ ...newTodo, priority: "PLANNED" })
                     }
@@ -389,8 +395,9 @@ export default function TodosPage() {
               {newTodo.priority === "PLANNED" && (
                 <>
                   <div>
-                    <Label>Date d&apos;échéance</Label>
+                    <Label htmlFor="todo-due">Date d&apos;échéance</Label>
                     <Input
+                      id="todo-due"
                       type="datetime-local"
                       value={newTodo.dueDate}
                       onChange={(e) =>
@@ -399,7 +406,7 @@ export default function TodosPage() {
                     />
                   </div>
                   <div>
-                    <Label>Récurrence</Label>
+                    <Label htmlFor="todo-recurrence">Récurrence</Label>
                     <Select
                       value={newTodo.recurrence}
                       onValueChange={(v) =>
@@ -409,7 +416,7 @@ export default function TodosPage() {
                         })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="todo-recurrence">
                         <SelectValue placeholder="Aucune" />
                       </SelectTrigger>
                       <SelectContent>
@@ -429,8 +436,9 @@ export default function TodosPage() {
                     )}
                   </div>
                   <div>
-                    <Label>Rappel (minutes avant)</Label>
+                    <Label htmlFor="todo-notify">Rappel (minutes avant)</Label>
                     <Input
+                      id="todo-notify"
                       type="number"
                       value={newTodo.notifyBefore}
                       onChange={(e) =>

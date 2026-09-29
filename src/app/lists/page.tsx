@@ -290,20 +290,21 @@ export default function ListsPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Nom</Label>
-                <Input
+                <Label htmlFor="lists-nom">Nom</Label>
+                <Input id="lists-nom"
                   value={newList.name}
                   onChange={(e) => setNewList({ ...newList, name: e.target.value })}
-                  placeholder="Ex: Courses semaine, Wishlist Amazon..."
+                  placeholder="Ex. : courses de la semaine, idées cadeaux…"
                 />
               </div>
               <div>
-                <Label>Type</Label>
-                <div className="flex gap-2 mt-1">
+                <Label id="list-type">Type</Label>
+                <div className="flex gap-2 mt-1" role="group" aria-labelledby="list-type">
                   <Button
                     type="button"
                     variant={newList.type === "GROCERY" ? "default" : "outline"}
                     size="sm"
+                    aria-pressed={newList.type === "GROCERY"}
                     onClick={() => setNewList({ ...newList, type: "GROCERY" })}
                   >
                     <ShoppingCart className="h-4 w-4 mr-1" />
@@ -313,6 +314,7 @@ export default function ListsPage() {
                     type="button"
                     variant={newList.type === "ONLINE" ? "default" : "outline"}
                     size="sm"
+                    aria-pressed={newList.type === "ONLINE"}
                     onClick={() => setNewList({ ...newList, type: "ONLINE" })}
                   >
                     <Globe className="h-4 w-4 mr-1" />
@@ -344,6 +346,7 @@ export default function ListsPage() {
           <ListGroup
             lists={groceryLists}
             type="GROCERY"
+            onCreate={() => { setNewList((n) => ({ ...n, type: "GROCERY" })); setDialogOpen(true); }}
             recipes={recipes}
             online={online}
             onAddItem={addItem}
@@ -360,6 +363,7 @@ export default function ListsPage() {
           <ListGroup
             lists={onlineLists}
             type="ONLINE"
+            onCreate={() => { setNewList((n) => ({ ...n, type: "ONLINE" })); setDialogOpen(true); }}
             recipes={recipes}
             online={online}
             onAddItem={addItem}
@@ -411,6 +415,7 @@ function OfflineStatus({
 function ListGroup({
   lists,
   type,
+  onCreate,
   recipes,
   online,
   onAddItem,
@@ -423,6 +428,7 @@ function ListGroup({
 }: {
   lists: ShoppingList[];
   type: "GROCERY" | "ONLINE";
+  onCreate: () => void;
   recipes: Recipe[];
   online: boolean;
   onAddItem: (listId: string, item: Omit<NewItem, "id">) => void;
@@ -460,9 +466,17 @@ function ListGroup({
 
   if (lists.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-8">
-        Aucune liste. Crée-en une !
-      </p>
+      <div className="text-center py-12 space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {type === "GROCERY"
+            ? "Pas encore de liste de courses. Crée-la ici, ou génère-la depuis une recette."
+            : "Pas encore de liste d’achats en ligne. Idées cadeaux, articles à comparer : garde le lien, le prix et le magasin."}
+        </p>
+        <Button size="sm" onClick={onCreate}>
+          <Plus className="h-4 w-4 mr-1.5" />
+          Créer une liste
+        </Button>
+      </div>
     );
   }
 
@@ -504,7 +518,7 @@ function ListGroup({
               <div className="flex items-center gap-1 shrink-0">
                 {type === "ONLINE" && total > 0 && (
                   <span className="text-sm text-muted-foreground mr-2">
-                    {total.toFixed(2)} EUR
+                    {total.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
                   </span>
                 )}
                 {online && type === "GROCERY" && recipes.length > 0 && (
@@ -738,6 +752,7 @@ function CheckedSection({
       <button
         className="grocery-checked-toggle"
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
       >
         <Check className="h-3.5 w-3.5" />
         <span>Fait ({groups.length})</span>
@@ -751,7 +766,7 @@ function CheckedSection({
         <div className="divide-y divide-border/30">
           {groups.map((group) => (
             <div key={group.key} className="grocery-checked-item group">
-              <button aria-label="Décocher l'article"
+              <button aria-label={`Décocher ${group.name}`}
                 className="grocery-checkbox-zone"
                 onClick={() => onToggle(listId, group.items)}
               >

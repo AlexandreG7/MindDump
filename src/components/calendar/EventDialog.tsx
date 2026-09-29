@@ -71,8 +71,8 @@ export function EventDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Titre</Label>
-            <Input
+            <Label htmlFor="eventdialog-titre">Titre</Label>
+            <Input id="eventdialog-titre"
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               onKeyDown={(e) => e.key === "Enter" && submit()}
@@ -80,25 +80,25 @@ export function EventDialog({
             />
           </div>
           <div>
-            <Label>Description (optionnel)</Label>
-            <Textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+            <Label htmlFor="eventdialog-description-optionnel">Description (optionnel)</Label>
+            <Textarea id="eventdialog-description-optionnel" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <Label>Date</Label>
-              <Input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
+              <Label htmlFor="eventdialog-date">Date</Label>
+              <Input id="eventdialog-date" type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
             </div>
             <div>
-              <Label>Début</Label>
-              <Input
+              <Label htmlFor="eventdialog-debut">Début</Label>
+              <Input id="eventdialog-debut"
                 type="time"
                 value={draft.time}
                 onChange={(e) => setDraft({ ...draft, time: e.target.value, endTime: e.target.value ? draft.endTime : "" })}
               />
             </div>
             <div>
-              <Label>Fin</Label>
-              <Input
+              <Label htmlFor="eventdialog-fin">Fin</Label>
+              <Input id="eventdialog-fin"
                 type="time"
                 value={draft.endTime}
                 disabled={!draft.time}
@@ -126,9 +126,9 @@ export function EventDialog({
             </div>
           )}
           <div>
-            <Label>Récurrence</Label>
+            <Label htmlFor="eventdialog-recurrence">Récurrence</Label>
             <Select value={draft.recurrence} onValueChange={(v) => setDraft({ ...draft, recurrence: v })}>
-              <SelectTrigger>
+              <SelectTrigger id="eventdialog-recurrence">
                 <SelectValue placeholder="Aucune" />
               </SelectTrigger>
               <SelectContent>
@@ -167,8 +167,8 @@ export function EventDialog({
             </div>
           </div>
           <div>
-            <Label>Rappel (minutes avant)</Label>
-            <Input
+            <Label htmlFor="eventdialog-rappel-minutes-avant">Rappel (minutes avant)</Label>
+            <Input id="eventdialog-rappel-minutes-avant"
               type="number"
               value={draft.notifyBefore}
               onChange={(e) => setDraft({ ...draft, notifyBefore: e.target.value })}

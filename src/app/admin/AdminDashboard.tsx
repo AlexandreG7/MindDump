@@ -102,7 +102,7 @@ export function AdminDashboard({
             <StatTile label="Utilisateurs" value={totals.users} icon={Users} />
             <StatTile label="Groupes" value={totals.groups} icon={UsersRound} />
             <StatTile label="Recettes" value={totals.recipes} icon={ChefHat} />
-            <StatTile label="Todos" value={totals.todos} icon={CheckSquare} />
+            <StatTile label="Tâches" value={totals.todos} icon={CheckSquare} />
             <StatTile label="Listes de courses" value={totals.shoppingLists} icon={ShoppingCart} />
           </div>
 
