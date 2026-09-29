@@ -69,6 +69,8 @@ model User {
   // Rappels (cron/notify) par e-mail ; les notifications push dépendent, elles,
   // des appareils abonnés (PushSubscription).
   notifyEmail    Boolean   @default(true)
+  // Disposition de l'accueil (modules affichés, ordre, taille) : voir src/lib/dashboardLayout.ts
+  dashboardLayout Json?
 
   accounts              Account[]
   sessions              Session[]

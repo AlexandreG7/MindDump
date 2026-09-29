@@ -22,6 +22,8 @@
   éléments personnels des membres) et ne permet que de cocher tâches et courses. Supprimer l'écran
   révoque le lien. Le navigateur de l'écran garde le dernier tableau en localStorage (`wall:snapshot`)
   pour rester lisible hors ligne ; il est effacé quand le lien est révoqué.
+- **Disposition de l'accueil** (`User.dashboardLayout`, `src/lib/dashboardLayout.ts`) : modules affichés,
+  ordre et largeur. Simple préférence d'interface, incluse dans l'export, supprimée avec le compte.
 - **Mot de passe oublié** (`src/lib/passwordReset.ts`) : table `VerificationToken` de NextAuth,
   `identifier` = adresse du compte, `token` = empreinte SHA-256 du jeton envoyé par e-mail (jamais le
   jeton lui-même). Valable une heure, à usage unique, un seul lien actif, un envoi au plus toutes les

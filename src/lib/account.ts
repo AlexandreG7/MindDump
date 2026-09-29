@@ -28,6 +28,7 @@ export async function exportUserData(userId: string) {
       weatherLat: true,
       weatherLon: true,
       weatherCity: true,
+      dashboardLayout: true,
       createdAt: true,
       lastLoginAt: true,
       consentedAt: true,
