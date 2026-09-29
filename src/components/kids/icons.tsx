@@ -402,33 +402,33 @@ export function ActivityDressup(p: IconProps) {
 // ─── OPTION ARRAYS ───────────────────────────────────
 
 export const WEATHER_OPTIONS = [
-  { id: "sunny", Icon: WeatherSunny },
-  { id: "partly-cloudy", Icon: WeatherPartlyCloudy },
-  { id: "cloudy", Icon: WeatherCloudy },
-  { id: "rainy", Icon: WeatherRainy },
-  { id: "stormy", Icon: WeatherStormy },
-  { id: "snowy", Icon: WeatherSnowy },
+  { id: "sunny", label: "Soleil", Icon: WeatherSunny },
+  { id: "partly-cloudy", label: "Éclaircies", Icon: WeatherPartlyCloudy },
+  { id: "cloudy", label: "Nuages", Icon: WeatherCloudy },
+  { id: "rainy", label: "Pluie", Icon: WeatherRainy },
+  { id: "stormy", label: "Orage", Icon: WeatherStormy },
+  { id: "snowy", label: "Neige", Icon: WeatherSnowy },
 ] as const;
 
 export const MOOD_OPTIONS = [
-  { id: "very-happy", Icon: MoodVeryHappy },
-  { id: "happy", Icon: MoodHappy },
-  { id: "neutral", Icon: MoodNeutral },
-  { id: "sad", Icon: MoodSad },
-  { id: "angry", Icon: MoodAngry },
+  { id: "very-happy", label: "Très content", Icon: MoodVeryHappy },
+  { id: "happy", label: "Content", Icon: MoodHappy },
+  { id: "neutral", label: "Bof", Icon: MoodNeutral },
+  { id: "sad", label: "Triste", Icon: MoodSad },
+  { id: "angry", label: "Fâché", Icon: MoodAngry },
 ] as const;
 
 export const ACTIVITY_OPTIONS = [
-  { id: "painting", Icon: ActivityPainting },
-  { id: "reading", Icon: ActivityReading },
-  { id: "sport", Icon: ActivitySport },
-  { id: "music", Icon: ActivityMusic },
-  { id: "puzzle", Icon: ActivityPuzzle },
-  { id: "park", Icon: ActivityPark },
-  { id: "cooking", Icon: ActivityCooking },
-  { id: "swimming", Icon: ActivitySwimming },
-  { id: "friends", Icon: ActivityFriends },
-  { id: "crafts", Icon: ActivityCrafts },
-  { id: "animals", Icon: ActivityAnimals },
-  { id: "dressup", Icon: ActivityDressup },
+  { id: "painting", label: "Peinture", Icon: ActivityPainting },
+  { id: "reading", label: "Lecture", Icon: ActivityReading },
+  { id: "sport", label: "Sport", Icon: ActivitySport },
+  { id: "music", label: "Musique", Icon: ActivityMusic },
+  { id: "puzzle", label: "Puzzle", Icon: ActivityPuzzle },
+  { id: "park", label: "Parc", Icon: ActivityPark },
+  { id: "cooking", label: "Cuisine", Icon: ActivityCooking },
+  { id: "swimming", label: "Piscine", Icon: ActivitySwimming },
+  { id: "friends", label: "Copains", Icon: ActivityFriends },
+  { id: "crafts", label: "Bricolage", Icon: ActivityCrafts },
+  { id: "animals", label: "Animaux", Icon: ActivityAnimals },
+  { id: "dressup", label: "Déguisement", Icon: ActivityDressup },
 ] as const;
