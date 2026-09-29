@@ -47,7 +47,18 @@ export async function exportUserData(userId: string) {
         select: {
           role: true,
           joinedAt: true,
-          group: { select: { id: true, name: true, isDefault: true, ownerId: true } },
+          group: {
+            select: {
+              id: true, name: true, isDefault: true, ownerId: true,
+              // Produits de drive retenus par le foyer (données du groupe).
+              driveProducts: {
+                select: {
+                  store: true, name: true, sku: true, label: true, brand: true, quantity: true,
+                  useCount: true, lastUsedAt: true, createdAt: true,
+                },
+              },
+            },
+          },
         },
       },
       todos: {
