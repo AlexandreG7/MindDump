@@ -17,13 +17,13 @@
   }
 
   let pageSeq = 0;
-  function page(action, extra = {}) {
+  function page(action, extra = {}, timeout = 20000) {
     const id = `${Date.now()}-${++pageSeq}`;
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         window.removeEventListener("message", onMessage);
         resolve({ ok: false, error: "Le site Match ne répond pas, recharge la page." });
-      }, 20000);
+      }, timeout);
       function onMessage(event) {
         if (event.source !== window || event.data?.source !== "minddump-drive:page" || event.data.id !== id) return;
         clearTimeout(timer);
@@ -294,22 +294,27 @@
     renderReview();
 
     const products = rows.map((r) => ({ sku: selected(r).product.sku, quantity: r.quantity, modeAchatVente: selected(r).product.modeAchatVente }));
-    const result = await page("addToCart", { products });
-    if (!result.ok) {
+    const result = await page("addToCart", { products }, 20000 + products.length * 8000);
+    const addedSkus = new Set(result.ok ? result.data.added : []);
+    const done = rows.filter((r) => addedSkus.has(String(selected(r).product.sku)));
+    const failed = rows.filter((r) => !addedSkus.has(String(selected(r).product.sku)));
+    if (!done.length) {
       state.busy = false;
       renderReview();
-      root.querySelector(".body")?.prepend(el("div", { class: "warn error" }, `Match a refusé l'ajout : ${result.error}`));
+      const detail = result.ok ? result.data.failed[0]?.error : result.error;
+      root.querySelector(".body")?.prepend(el("div", { class: "warn error" }, `Match a refusé l'ajout : ${detail || "aucune confirmation"}`));
       return;
     }
 
     // Mémorisé seulement une fois au panier : c'est ce qui a vraiment été choisi.
     await api("PUT", "/api/drive/match/products", {
       listId: state.list.id,
-      choices: rows.map((r) => ({ itemId: r.item.id, product: selected(r).product, quantity: r.quantity })),
+      choices: done.map((r) => ({ itemId: r.item.id, product: selected(r).product, quantity: r.quantity })),
     });
 
     render([el("div", { class: "done" },
-      el("div", {}, `${rows.length} produit${rows.length > 1 ? "s" : ""} ajouté${rows.length > 1 ? "s" : ""} au panier.`),
+      el("div", {}, `${done.length} produit${done.length > 1 ? "s" : ""} ajouté${done.length > 1 ? "s" : ""} au panier.`),
+      failed.length ? el("div", { class: "warn error" }, `Non ajouté${failed.length > 1 ? "s" : ""} : ${failed.map((r) => selected(r).product.nom).join(", ")}`) : null,
       el("div", {}, "Il te reste à choisir le créneau et à payer sur Match."),
       el("a", { href: CART_PATH }, "Voir mon panier →"))]);
   }
