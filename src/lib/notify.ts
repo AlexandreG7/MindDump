@@ -17,11 +17,31 @@ export type Reminder = {
 const RECIPIENT_SELECT = { id: true, email: true, notifyEmail: true } as const;
 
 /**
- * Destinataires d'un rappel : tous les membres du groupe auquel l'élément est
- * rattaché — ceux qui le voient sont ceux qu'il faut prévenir. Un élément sans
- * groupe ne prévient que son créateur.
+ * Destinataires d'un rappel. Par défaut, tous les membres du groupe auquel
+ * l'élément est rattaché — ceux qui le voient sont ceux qu'il faut prévenir ;
+ * un élément sans groupe ne prévient que son créateur.
+ *
+ * Si l'élément est assigné à des personnes du foyer qui ont un compte
+ * (`assigneeUserIds`, FamilyProfile.userId), seules celles-ci sont prévenues,
+ * pas même le créateur : « Foot » créé pour son conjoint ne concerne que lui.
+ * Des profils sans compte (un enfant) ne changent rien : ce sont les parents,
+ * donc tout le groupe, qui doivent y penser. Une personne assignée qui n'est
+ * plus membre du groupe n'est pas prévenue (elle ne voit plus l'élément).
  */
 export async function recipientsFor(
+  creator: Recipient,
+  groupId: string | null,
+  cache: Map<string, Recipient[]>,
+  assigneeUserIds: (string | null)[] = []
+): Promise<Recipient[]> {
+  const everyone = await groupRecipients(creator, groupId, cache);
+  const assigned = new Set(assigneeUserIds.filter((id): id is string => !!id));
+  if (assigned.size === 0) return everyone;
+  const targeted = everyone.filter((r) => assigned.has(r.id));
+  return targeted.length > 0 ? targeted : everyone;
+}
+
+async function groupRecipients(
   creator: Recipient,
   groupId: string | null,
   cache: Map<string, Recipient[]>
