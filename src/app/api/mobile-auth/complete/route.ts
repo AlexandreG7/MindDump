@@ -16,6 +16,12 @@ const SELF = "/api/mobile-auth/complete";
  * unique et renvoie vers l'app (minddump://auth?code=…).
  */
 export async function GET(req: NextRequest) {
+  // Les pages /login et /consentement reviennent ici par router.push : Next
+  // tente d'abord une requête RSC (fetch), qui ne doit rien consommer. Une
+  // réponse qui n'est pas du RSC le fait basculer en navigation complète, la
+  // seule qui émet le code.
+  if (req.headers.get("RSC") === "1") return new NextResponse(null, { status: 200 });
+
   let pending: { challenge?: unknown; provider?: unknown } = {};
   try {
     pending = JSON.parse(req.cookies.get(CHALLENGE_COOKIE.name)?.value ?? "{}");

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTPS partout (valeur par défaut d'Android), sauf vers le serveur local de
+  développement : MINDDUMP_URL=http://localhost:3110 + adb reverse
+  (docs/app-mobile-build.md). Sans effet sur minddump.fr.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

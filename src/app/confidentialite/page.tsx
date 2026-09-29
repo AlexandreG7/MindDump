@@ -252,7 +252,8 @@ export default function PrivacyPolicyPage() {
               <Row label="Cookies de session">
                 <code>next-auth.session-token</code>, <code>next-auth.csrf-token</code>,{" "}
                 <code>next-auth.callback-url</code> (préfixés <code>__Secure-</code> /{" "}
-                <code>__Host-</code> en HTTPS) : te garder connecté et protéger les formulaires.
+                <code>__Host-</code> en HTTPS) : te garder connecté et protéger les formulaires. Dans l&apos;app mobile seulement,{" "}
+                <code>minddump-app</code> : indique que la page est affichée dans l&apos;app.
               </Row>
               <Row label="Stockage local">
                 <code>theme</code> (clair ou sombre), <code>sidebarCollapsed</code> (menu replié),{" "}

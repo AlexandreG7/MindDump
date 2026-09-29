@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>MindDump</title>
+    <!--
+      Écran de repli de l'app (capacitor.config.ts, server.errorPath) : affiché
+      quand minddump.fr est injoignable et que le service worker n'a encore
+      rien en cache (premier lancement sans réseau).
+    -->
+    <style>
+      :root {
+        --bg: #f8f7f5;
+        --fg: #1c2333;
+        --muted: #717789;
+        --primary: #e68037;
+        --primary-fg: #1c2333;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #212226;
+          --fg: #e6e8ec;
+          --muted: #9a9ea8;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+      }
+      main { max-width: 320px; }
+      .logo {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 20px;
+        border-radius: 16px;
+        background: #f97316;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      h1 { font-size: 20px; margin: 0 0 8px; }
+      p { color: var(--muted); font-size: 15px; margin: 0 0 24px; }
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 20px;
+        font: inherit;
+        font-weight: 600;
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="logo" aria-hidden="true">
+        <svg width="40" height="40" viewBox="0 0 32 32">
+          <path d="M9 23V10l7 8 7-8v13" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <h1>Pas de connexion</h1>
+      <p>MindDump a besoin d'internet pour son premier lancement. Ensuite, tes listes restent disponibles hors ligne.</p>
+      <button type="button" onclick="location.href = window.MINDDUMP_URL || 'https://minddump.fr'">Réessayer</button>
+    </main>
+  </body>
+</html>

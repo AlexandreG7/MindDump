@@ -1,6 +1,13 @@
 /// <reference lib="webworker" />
 import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig, SerwistPlugin } from "serwist";
-import { CacheFirst, ExpirationPlugin, NetworkFirst, Serwist, StaleWhileRevalidate } from "serwist";
+import {
+  CacheFirst,
+  ExpirationPlugin,
+  NetworkFirst,
+  NetworkOnly,
+  Serwist,
+  StaleWhileRevalidate,
+} from "serwist";
 import { OFFLINE_CACHES } from "@/lib/offlineCache";
 
 // Service worker de la PWA, compilé en public/sw.js par @serwist/next
@@ -27,6 +34,40 @@ const skipRedirected: SerwistPlugin = {
 
 const isPage = (pathname: string) => !pathname.startsWith("/api/");
 
+// Une navigation dans l'app (onglets, liens) ne charge pas la page HTML mais
+// une charge RSC, dont l'URL porte un paramètre `_rsc` qui change à chaque
+// fois : impossible à retrouver hors ligne. Et Next précharge les liens
+// visibles, si bien qu'au clic il n'y a souvent aucune requête. Toute charge
+// RSC réussie, préchargement compris, déclenche donc le chargement de la page
+// complète en arrière-plan, pour le cache des pages, au plus une fois toutes
+// les 10 minutes par page : les onglets deviennent disponibles hors ligne.
+const PAGE_WARM_INTERVAL_MS = 10 * 60 * 1000;
+const lastWarmed = new Map<string, number>();
+
+async function warmPage(rscUrl: string) {
+  const url = new URL(rscUrl);
+  url.searchParams.delete("_rsc");
+  const key = url.href;
+  if (Date.now() - (lastWarmed.get(key) ?? 0) < PAGE_WARM_INTERVAL_MS) return;
+  lastWarmed.set(key, Date.now());
+
+  const response = await fetch(key, {
+    credentials: "same-origin",
+    headers: { Accept: "text/html" },
+  });
+  const isHtml = response.headers.get("Content-Type")?.includes("text/html");
+  if (response.status !== 200 || response.redirected || !isHtml) return;
+  const cache = await caches.open(OFFLINE_CACHES.pages);
+  await cache.put(key, response);
+}
+
+const warmPageAfterRsc: SerwistPlugin = {
+  fetchDidSucceed: async ({ request, response }) => {
+    if (response.ok) warmPage(request.url).catch(() => {});
+    return response;
+  },
+};
+
 // Lectures d'API gardées pour le hors ligne (étape 1.3) :
 // - la session, sans quoi useAuth renvoie vers /login dès que le réseau manque ;
 // - les groupes et fonctionnalités, qui construisent la navigation ;
@@ -44,18 +85,14 @@ const runtimeCaching: RuntimeCaching[] = [
       plugins: [skipRedirected, new ExpirationPlugin({ maxEntries: 32 })],
     }),
   },
-  // Charges RSC des navigations côté client (hors préchargements, trop nombreux).
+  // Charges RSC (navigations côté client et préchargements) : pas mises en
+  // cache elles-mêmes (voir warmPage), mais elles déclenchent la mise en cache
+  // de la page complète. Hors ligne, leur échec fait basculer Next sur une
+  // navigation complète, servie par le cache.
   {
     matcher: ({ request, url, sameOrigin }) =>
-      sameOrigin &&
-      request.headers.get("RSC") === "1" &&
-      request.headers.get("Next-Router-Prefetch") !== "1" &&
-      isPage(url.pathname),
-    handler: new NetworkFirst({
-      cacheName: OFFLINE_CACHES.rsc,
-      networkTimeoutSeconds: 5,
-      plugins: [skipRedirected, new ExpirationPlugin({ maxEntries: 32 })],
-    }),
+      sameOrigin && request.headers.get("RSC") === "1" && isPage(url.pathname),
+    handler: new NetworkOnly({ plugins: [warmPageAfterRsc] }),
   },
   {
     matcher: ({ url, sameOrigin }) => sameOrigin && OFFLINE_API.has(url.pathname),
@@ -87,7 +124,10 @@ const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
-  navigationPreload: true,
+  // Pas de préchargement de navigation : dans la WebView Android de l'app,
+  // l'échec de cette requête parallèle hors ligne est pris pour celui de la
+  // page (écran d'erreur de Capacitor) alors que le cache y répond.
+  navigationPreload: false,
   runtimeCaching,
   fallbacks: {
     entries: [
@@ -100,6 +140,12 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Le réglage persiste sur l'enregistrement : les appareils qui ont eu une
+// version avec préchargement doivent le désactiver explicitement.
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.registration.navigationPreload?.disable().catch(() => {}) ?? Promise.resolve());
+});
 
 // ─── Notifications push (étape 1.4, src/lib/push.ts) ───────────
 

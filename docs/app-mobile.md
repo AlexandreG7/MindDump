@@ -24,8 +24,8 @@ Web Push                 WebView                    finitions natives          f
 | 1.5 | Partage vers MindDump (Android) et invitation à installer | S | ☑ (reste : test sur Android réel) |
 | 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☑ (reste : aller-retour Google / Apple réel, avec l'app) |
 | 2.2 | Appareils connectés (liste, révocation) | S | ☑ |
-| 3.1 | Projet Capacitor (iOS + Android) | M | ☐ |
-| 3.2 | Branchement de la connexion mobile | S | ☐ |
+| 3.1 | Projet Capacitor (iOS + Android) | M | ☑ |
+| 3.2 | Branchement de la connexion mobile | S | ◐ connexion faite, liaison depuis le profil à faire |
 | 3.3 | Push natif (APNs / FCM) | L | ☐ |
 | 3.4 | Extension de partage iOS + intent Android | M | ☐ |
 | 3.5 | Finitions natives | M | ☐ |
@@ -262,37 +262,81 @@ faux schéma ; code réutilisé, expiré ou avec un mauvais verifier → refusé
 
 ### 3.1 Projet Capacitor
 
-- [ ] Dossier `mobile/` (package séparé, comme `minddump-mcp/`) : Capacitor,
-      plateformes `ios/` et `android/`.
-- [ ] `capacitor.config.ts` : `server.url = "https://minddump.fr"`,
-      `allowNavigation` limité à minddump.fr ; liens externes ouverts dans le
-      navigateur système.
-- [ ] `mobile/www/index.html` : écran de repli si le site est injoignable au
-      premier lancement.
-- [ ] iOS : `WKAppBoundDomains` (minddump.fr) et
-      `limitsNavigationsToAppBoundDomains`, **nécessaires pour que le service
-      worker fonctionne dans WKWebView**.
-      ⚠️ Dès que cette clé existe, iOS n'autorise l'injection de script
-      (`evaluateJavaScript`, user scripts, message handlers) que sur les
-      domaines listés, dans **toutes** les WebViews de l'app, et échoue sans
-      erreur ailleurs. Y ajouter `supermarchesmatch.fr` et
-      `api-drive.drive.supermarchesmatch.fr` pour l'étape 3.6 (10 domaines
-      maximum).
-- [ ] Côté web : `src/lib/native.ts` (`isNativeApp()`), pour masquer
-      l'invitation à installer, le bouton Web Push, etc.
-- [ ] Icônes et écran de lancement générés depuis l'icône existante.
-- [ ] `docs/app-mobile-build.md` : build iOS / Android en local.
+- [x] Dossier `mobile/` (package séparé, comme `minddump-mcp/`), Capacitor
+      8.5, iOS en Swift Package Manager (pas de CocoaPods). Exclu du
+      TypeScript du site (`tsconfig.json`) et de l'image Docker
+      (`.dockerignore`). Identifiant `fr.minddump.app`.
+- [x] Plateforme Android (Gradle passé à 9.2.1 pour le JDK 25 d'Android
+      Studio), icône adaptative et écran de lancement Android 12+. Vérifié sur
+      émulateur Pixel 9 (Android 16) : connexion, session conservée après
+      fermeture de l'app, puis en mode avion accueil et listes servis par le
+      cache, avec l'indicateur « Hors ligne ».
+- [x] Trouvé sur Android : le préchargement de navigation du service worker
+      (`navigationPreload`) échouait hors ligne et la WebView le prenait pour
+      l'échec de la page (écran d'erreur de Capacitor) alors que le cache
+      répondait. Désactivé dans `sw.ts`, explicitement à l'activation car le
+      réglage persiste sur les appareils déjà installés.
+- [x] `capacitor.config.ts` : `server.url = "https://minddump.fr"`
+      (`MINDDUMP_URL` pour un serveur local), `allowNavigation` limité à ce
+      domaine, `appendUserAgent: "MindDumpApp/1"`.
+- [x] `mobile/www/offline.html` : écran de repli (`server.errorPath`).
+- [x] iOS : `WKAppBoundDomains` (minddump.fr, les deux domaines Match,
+      localhost) et `limitsNavigationsToAppBoundDomains`. **Vérifié : le
+      service worker tourne dans WKWebView.**
+- [x] Côté web : `src/lib/native.ts` (`isNativeApp()` côté client,
+      `isNativeUserAgent()` côté serveur). Dans l'app : `/` → `/login` au lieu
+      de la page de présentation, pas d'invitation à installer, pas de ligne
+      Web Push dans le profil (la WebView iOS ressemble à Safari : sans ça,
+      l'app proposait de « s'ajouter à l'écran d'accueil »).
+- [x] Icône (1024 px, sans alpha) et écran de lancement générés depuis le
+      dessin du site : `mobile/scripts/generate-assets.tsx`.
+- [x] `docs/app-mobile-build.md` : build iOS en local.
+- [x] Trouvé en testant : une navigation dans l'app passe par des charges RSC
+      (`_rsc` variable, souvent préchargées) jamais retrouvées hors ligne.
+      `sw.ts` met maintenant en cache la page complète en arrière-plan après
+      toute charge RSC (préchargements compris, 10 min par page) : les onglets
+      sont disponibles hors ligne, dans l'app comme dans la PWA.
+- [x] En `next dev`, un service worker laissé par un build de production sur le
+      même port est désinscrit au chargement (script inline du layout).
 
 **Validation** : l'app tourne sur simulateur iOS et émulateur Android ;
 connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais.
 
 ### 3.2 Branchement de la connexion mobile
 
-- [ ] Schéma `minddump://` (iOS `CFBundleURLTypes`, Android intent-filter).
-- [ ] Boutons Google / Apple de `LoginMethods.tsx` / `OAuthButtons.tsx` : dans
-      l'app, ouvrent le flux 2.1 via `ASWebAuthenticationSession` (iOS) / Custom
-      Tabs (Android) au lieu de la redirection NextAuth.
-- [ ] Liaison / déliaison de compte depuis `/profile` : même mécanisme.
+- [x] Schéma `minddump://` : iOS `CFBundleURLTypes`, Android intent-filter
+      (`VIEW`, `minddump://auth`).
+- [x] Boutons Google / Apple (`OAuthButtons.tsx`) : dans l'app,
+      `nativeSignIn` (`src/lib/mobileSignIn.ts`) génère le verifier PKCE,
+      ouvre `/api/mobile-auth/start` dans le navigateur système, récupère
+      `minddump://auth?code=…` et l'échange. iOS : `ASWebAuthenticationSession`
+      par un plugin local (`ios/App/App/WebAuthPlugin.swift`, enregistré par
+      `MainViewController`) ; Android : Custom Tabs (`@capacitor/browser`) et
+      `appUrlOpen` (`@capacitor/app`). Les plugins sont appelés par
+      `window.Capacitor.Plugins` : le site n'embarque pas Capacitor.
+- [x] `/api/mobile-auth/start` accepte aussi `credentials` (identifiant et mot
+      de passe dans le navigateur système), utile pour tester sans fournisseur.
+- [x] Vérifié sur Android (émulateur) de bout en bout : bouton → Custom Tabs →
+      connexion → retour dans l'app connectée, appareil enregistré. iOS
+      (simulateur) : la session système s'ouvre, l'annulation rend la main.
+      Le vrai aller-retour Google / Apple reste à faire avec les identifiants
+      de production.
+- [x] Trouvé en testant :
+      - `/login` revient vers `callbackUrl` par `router.push`, qui envoie
+        d'abord une requête RSC : elle consommait le code avant la vraie
+        navigation (« Connexion expirée »). `/api/mobile-auth/complete` ignore
+        maintenant les requêtes RSC.
+      - Appelé par `window.Capacitor.Plugins`, `addListener` ne renvoie pas une
+        promesse : le bouton restait bloqué après fermeture de l'onglet.
+      - Les requêtes du service worker ne portent pas l'agent utilisateur de
+        l'app : il mettait en cache la page de présentation sous `/`. L'app
+        pose aussi un cookie `minddump-app` (mentionné dans `/confidentialite`),
+        reconnu par le serveur comme l'agent utilisateur.
+      - iOS affichait « App » dans sa demande de connexion : `CFBundleName`
+        corrigé en « MindDump ».
+- [ ] Liaison / déliaison de compte depuis `/profile` dans l'app : même
+      mécanisme, à faire (la liaison suppose que le navigateur système soit
+      connecté au même compte).
 
 ### 3.3 Push natif
 
