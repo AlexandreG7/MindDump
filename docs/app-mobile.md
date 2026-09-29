@@ -27,7 +27,7 @@ Web Push                 WebView                    finitions natives          f
 | 3.1 | Projet Capacitor (iOS + Android) | M | ☑ |
 | 3.2 | Branchement de la connexion mobile | S | ◐ connexion faite, liaison depuis le profil à faire |
 | 3.3 | Push natif (APNs / FCM) | L | ☐ |
-| 3.4 | Extension de partage iOS + intent Android | M | ☐ |
+| 3.4 | Extension de partage iOS + intent Android | M | ◐ Android fait, iOS à faire |
 | 3.5 | Finitions natives | M | ☐ |
 | 3.6 | Remplir le panier drive Match (WebView dédiée) | M | ☐ |
 | 4.1 | Publication App Store | M | ☐ |
@@ -355,7 +355,10 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
 
 - [ ] iOS : Share Extension (Swift) qui accepte une URL ou du texte et ouvre
       `minddump://partager?url=…` → page `/partager` (étape 1.5).
-- [ ] Android : intent-filter `ACTION_SEND` `text/plain` → même page.
+- [x] Android : intent-filter `ACTION_SEND` `text/plain` ; `MainActivity`
+      charge `/partager?text=…&title=…` (au démarrage à froid comme app
+      ouverte). Vérifié sur émulateur : partage d'un texte avec lien → page
+      « Ajouter à MindDump » → tâche créée avec le lien en description.
 
 **Validation** : Safari / app HelloFresh → Partager → MindDump importe la recette.
 
