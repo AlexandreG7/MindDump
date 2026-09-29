@@ -1,24 +1,47 @@
 {
   "manifest_version": 3,
   "name": "MindDump — Panier Match",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Remplit ton panier Supermarchés Match depuis une liste de courses MindDump. Tu valides et tu paies toi-même.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://minddump.fr/*"],
-  "optional_host_permissions": ["http://localhost/*", "https://*/*"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_popup": "popup.html", "default_title": "Remplir le panier Match" },
-  "icons": { "128": "icon.png" },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://minddump.fr/*",
+    "https://www.supermarchesmatch.fr/*"
+  ],
+  "optional_host_permissions": [
+    "http://localhost/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Remplir le panier Match"
+  },
+  "icons": {
+    "128": "icon.png"
+  },
   "content_scripts": [
     {
-      "matches": ["https://www.supermarchesmatch.fr/*"],
-      "js": ["page.js"],
+      "matches": [
+        "https://www.supermarchesmatch.fr/*"
+      ],
+      "js": [
+        "page.js"
+      ],
       "world": "MAIN",
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://www.supermarchesmatch.fr/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://www.supermarchesmatch.fr/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]

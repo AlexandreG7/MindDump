@@ -319,10 +319,17 @@
       el("a", { href: CART_PATH }, "Voir mon panier →"))]);
   }
 
+  function launch(listId) {
+    start(listId).catch((e) => renderStatus(null, e?.message || "Erreur inattendue."));
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== chrome.runtime.id || message?.type !== "fill" || typeof message.listId !== "string") return false;
-    start(message.listId).catch((e) => renderStatus(null, e?.message || "Erreur inattendue."));
+    launch(message.listId);
     sendResponse({ ok: true });
     return false;
   });
+
+  // Page ouverte (ou rechargée) par l'extension : la liste à traiter attend ici.
+  chrome.runtime.sendMessage({ type: "takeFill" }).then((res) => res?.listId && launch(res.listId)).catch(() => {});
 })();
