@@ -50,6 +50,7 @@ export const config = {
     "/groups/((?!join).*)",
     "/consentement",
     "/partager",
+    "/importer",
     // L'authentification seule ne suffit pas : la page vérifie aussi le rôle
     // en base (src/lib/admin.ts) et renvoie une 404 aux non-administrateurs.
     "/admin/:path*",

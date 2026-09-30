@@ -100,6 +100,7 @@ export function AiImportDialog({
   status,
   onStatusChange,
   onImported,
+  initialFile = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -108,6 +109,8 @@ export function AiImportDialog({
   status: AiImportStatus | null;
   onStatusChange: (status: AiImportStatus) => void;
   onImported: () => void;
+  /** Fichier déjà choisi (partage depuis une autre app). */
+  initialFile?: File | null;
 }) {
   const { toast } = useFeedback();
   const [file, setFile] = useState<File | null>(null);
@@ -133,7 +136,8 @@ export function AiImportDialog({
 
   useEffect(() => {
     if (!open) reset();
-  }, [open]);
+    else if (initialFile) setFile(initialFile);
+  }, [open, initialFile]);
 
   useEffect(() => {
     if (!file || !file.type.startsWith("image/")) {
