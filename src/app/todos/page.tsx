@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, AlertCircle, Calendar, Repeat } from "lucide-react";
+import { Plus, Trash2, AlertCircle, Calendar, Repeat, Sparkles } from "lucide-react";
 import { RECURRENCE_LABELS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
 import { TOAST_ACTION_DURATION, useFeedback } from "@/components/ui/feedback";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,6 +35,7 @@ import {
   matchesPeople,
   useFamilyProfiles,
 } from "@/components/profiles/Assignees";
+import { AiImportDialog, useAiImportStatus } from "@/components/import/AiImportDialog";
 
 interface Todo {
   id: string;
@@ -71,6 +72,8 @@ export default function TodosPage() {
   });
   const [newAssignees, setNewAssignees] = useState<string[]>([]);
   const profiles = useFamilyProfiles(currentGroupId);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiStatus, setAiStatus] = useAiImportStatus();
   const [peopleFilter, setPeopleFilter] = useState<string[]>([]);
 
   useEffect(() => {
@@ -315,6 +318,17 @@ export default function TodosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Mes tâches</h1>
+        <div className="flex items-center gap-1 sm:gap-2">
+        {aiStatus?.enabled && (
+          <button
+            onClick={() => setAiDialogOpen(true)}
+            className="p-2 touch:p-2.5 rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
+            title="Importer une photo, un PDF ou un texte avec l'IA"
+            aria-label="Importer avec l'IA"
+          >
+            <Sparkles className="h-4 w-4" />
+          </button>
+        )}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -455,6 +469,16 @@ export default function TodosPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
+        <AiImportDialog
+          open={aiDialogOpen}
+          onOpenChange={setAiDialogOpen}
+          groupId={currentGroupId}
+          profiles={profiles.assignable}
+          status={aiStatus}
+          onStatusChange={setAiStatus}
+          onImported={fetchTodos}
+        />
       </div>
 
       <PeopleFilter profiles={profiles.assignable} value={activeFilter} onChange={changePeopleFilter} />

@@ -29,7 +29,7 @@ function Contact({ email }: { email: string }) {
 
 // Texte de départ à relire. Toute modification substantielle doit
 // s'accompagner d'une nouvelle CONSENT_VERSION (src/lib/consent.ts).
-const UPDATED_AT = "27 septembre 2026";
+const UPDATED_AT = "30 septembre 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -109,6 +109,12 @@ export default function PrivacyPolicyPage() {
                 partagé avec les membres du groupe pour les courses suivantes. MindDump ne reçoit ni
                 tes identifiants Match, ni ton panier, ni ta commande : la recherche et l&apos;ajout au
                 panier se font dans ton navigateur, directement sur le site Match.
+              </Row>
+              <Row label="Import IA">
+                Si tu importes une photo, un PDF ou un texte avec l&apos;IA : le document est lu pour te
+                proposer des événements et des tâches, que tu relis avant de les ajouter. MindDump ne
+                garde ni le document ni les propositions ; seuls le type de document, la date et la
+                quantité de calcul utilisée sont notés, pour la limite quotidienne d&apos;imports.
               </Row>
               <Row label="Personnes du foyer">
                 Les personnes que tu ajoutes à un groupe sans qu&apos;elles aient de compte (un enfant,
@@ -221,6 +227,12 @@ export default function PrivacyPolicyPage() {
             Safari et l&apos;iPhone, Mozilla pour Firefox, Microsoft pour Edge) : uniquement si tu
             actives les notifications. Il achemine les rappels sans pouvoir les lire : leur contenu
             est chiffré pour ton seul appareil.
+          </li>
+          <li>
+            Anthropic (États-Unis) : uniquement quand tu lances un import IA. Le document choisi,
+            la date du jour et les prénoms des personnes du foyer lui sont envoyés pour en extraire
+            les dates. Anthropic n&apos;entraîne pas ses modèles sur ces données et ne les conserve
+            que le temps nécessaire ; le transfert est encadré par des clauses contractuelles types.
           </li>
           <li>
             Google et Apple (États-Unis) : uniquement si tu te connectes avec l&apos;un d&apos;eux ou

@@ -89,6 +89,7 @@ model User {
   familyProfiles        FamilyProfile[]
   wallDevices           WallDevice[]
   mealPlanEntries       MealPlanEntry[]
+  aiImports             AiImport[]
   pushSubscriptions     PushSubscription[]
 
   @@index([createdAt])
@@ -562,4 +563,20 @@ model MealPlanEntry {
 
   @@index([groupId, date])
   @@index([userId, date])
+}
+
+// Journal des imports IA (photo, PDF ou texte analysé par l'API Claude), pour
+// le quota quotidien et le suivi des coûts. Aucun contenu n'est conservé : ni
+// le document, ni le résultat.
+model AiImport {
+  id           String   @id @default(cuid())
+  source       String // "image" | "pdf" | "text"
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

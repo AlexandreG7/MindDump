@@ -35,6 +35,16 @@
   lui ; il reste au groupe quand un membre supprime son compte. Présent dans l'export, sous chaque
   groupe. MindDump n'envoie rien à Match et ne reçoit ni identifiants, ni panier, ni commande :
   l'extension travaille dans le navigateur de la personne (voir `docs/drive-match.md`).
+- **Import IA** (`src/app/api/import/ai`, `src/lib/ai/`) : à la demande de la personne, la photo,
+  le PDF ou le texte choisi est envoyé à l'API d'**Anthropic** (Claude), sous-traitant, avec les
+  prénoms des personnes du foyer (pour proposer « pour qui »), la date du jour et le fuseau.
+  Anthropic n'entraîne pas ses modèles sur les données de l'API et ne les garde que le temps
+  nécessaire (politique commerciale d'Anthropic ; transfert hors UE encadré par ses clauses
+  contractuelles types). MindDump ne conserve ni le document ni la réponse : rien n'est enregistré
+  avant que la personne relise et valide les propositions. Seul un journal d'usage (`AiImport` :
+  type de source, jetons consommés, date) sert au quota quotidien (`AI_IMPORT_DAILY_LIMIT`,
+  20 par défaut) ; il est dans l'export et supprimé avec le compte. Désactivé tant que
+  `ANTHROPIC_API_KEY` n'est pas défini. Mentionné dans `/confidentialite` (version `2026-09-v3`).
 - **Cookies** : uniquement des cookies strictement nécessaires (session NextAuth) et des préférences
   d'interface en localStorage (`theme`, `sidebarCollapsed`, `currentGroupId`, `kids:selectedProfile`), plus
   `nextauth.message` posé par NextAuth pour synchroniser la session entre onglets. Pas de bandeau

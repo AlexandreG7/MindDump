@@ -43,6 +43,8 @@ export async function exportUserData(userId: string) {
       // Appareils abonnés aux notifications. L'endpoint et les clés sont des
       // secrets d'envoi, pas des informations sur l'utilisateur : non exportés.
       pushSubscriptions: { select: { userAgent: true, createdAt: true, lastUsedAt: true } },
+      // Journal des imports IA (quota) : ni document ni résultat n'y sont gardés.
+      aiImports: { select: { source: true, inputTokens: true, outputTokens: true, createdAt: true } },
       groupMemberships: {
         select: {
           role: true,

@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, ChevronLeft, ChevronRight, Link2, HelpCircle } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Link2, HelpCircle, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { addDays, format, isValid, parseISO, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -19,6 +19,7 @@ import { EventDialog, emptyDraft, type EventDraft } from "@/components/calendar/
 import { FeedExportButton } from "@/components/calendar/FeedExportButton";
 import { SubscriptionChips, SubscriptionDialog } from "@/components/calendar/Subscriptions";
 import { PeopleFilter, matchesPeople, useFamilyProfiles } from "@/components/profiles/Assignees";
+import { AiImportDialog, useAiImportStatus } from "@/components/import/AiImportDialog";
 
 const VIEW_KEY = "calendar:view";
 const PEOPLE_KEY = "calendar:people";
@@ -62,6 +63,8 @@ export default function CalendarPage() {
   const [draft, setDraft] = useState<EventDraft>(() => emptyDraft());
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [subDialogOpen, setSubDialogOpen] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiStatus, setAiStatus] = useAiImportStatus();
   const requestId = useRef(0);
   const profiles = useFamilyProfiles(currentGroupId);
   const [peopleFilter, setPeopleFilter] = useState<string[]>([]);
@@ -279,6 +282,16 @@ export default function CalendarPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Agenda</h1>
         <div className="flex items-center gap-1 sm:gap-2">
+          {aiStatus?.enabled && (
+            <button
+              onClick={() => setAiDialogOpen(true)}
+              className="p-2 touch:p-2.5 rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
+              title="Importer une photo, un PDF ou un texte avec l'IA"
+              aria-label="Importer avec l'IA"
+            >
+              <Sparkles className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={() => setSubDialogOpen(true)}
             className="p-2 rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
@@ -313,6 +326,16 @@ export default function CalendarPage() {
         initial={draft}
         profiles={profiles.assignable}
         onSubmit={addEvent}
+      />
+
+      <AiImportDialog
+        open={aiDialogOpen}
+        onOpenChange={setAiDialogOpen}
+        groupId={currentGroupId}
+        profiles={profiles.assignable}
+        status={aiStatus}
+        onStatusChange={setAiStatus}
+        onImported={fetchEvents}
       />
 
       <SubscriptionChips subscriptions={subscriptions} onDelete={deleteSubscription} />
