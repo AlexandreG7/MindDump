@@ -359,6 +359,16 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
       charge `/partager?text=…&title=…` (au démarrage à froid comme app
       ouverte). Vérifié sur émulateur : partage d'un texte avec lien → page
       « Ajouter à MindDump » → tâche créée avec le lien en description.
+- [x] Android : photo ou PDF partagé → import IA. Intent-filter `ACTION_SEND`
+      `image/*` et `application/pdf` ; `MainActivity` convertit la photo en
+      JPEG (HEIC refusé par le serveur), la redresse et la réduit à 2000 px de
+      côté, la garde en attente puis charge `/importer?shared=1`, qui la prend
+      une seule fois par le plugin `SharedFile` (`take()` → `{ name, mimeType,
+      data }` en base64). Page `/importer` et API : `feat/import-ia`. Vérifié
+      sur émulateur depuis Fichiers (HEIC 6016 px, 8,7 Mo → JPEG 2000 px,
+      244 Ko). iOS : pas de partage d'image vers l'import (la relecture exige
+      l'app, qu'une extension ne peut pas ouvrir) ; bouton « Importer » dans
+      l'app.
 
 **Validation** : Safari / app HelloFresh → Partager → MindDump importe la recette.
 
@@ -374,9 +384,8 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
 
 ### 3.6 Remplir le panier drive Match
 
-Partie serveur sur la branche `feat/drive-match` (autre session) :
-correspondances article → produit Match, `GET /api/drive/match/plan?listId=…`
-(format à confirmer). L'API interne de Match est derrière Cloudflare et ne
+Partie serveur sur main (voir `docs/drive-match.md`) :
+correspondances article → produit Match, `GET /api/drive/match/plan?listId=…`. L'API interne de Match est derrière Cloudflare et ne
 répond qu'à un vrai navigateur, jamais au serveur : l'ajout au panier doit
 partir de l'appareil. Rien de possible en PWA.
 
@@ -395,12 +404,12 @@ partir de l'appareil. Rien de possible en PWA.
       Rappel : iOS n'autorise l'injection de script que sur ces domaines, et
       échoue sans erreur ailleurs (10 domaines maximum).
 - [ ] Écran de revue : même règle que l'extension (`MIN_CONFIDENCE` dans
-      `drive-extension/content.js`, branche `feat/drive-match`). Une suggestion
+      `drive-extension/content.js`). Une suggestion
       sous 0,5 de confiance est décochée par défaut, sauf si c'est le produit
       habituel du groupe (« truffe blanche » ne doit pas mettre du jambon à la
       truffe au panier).
 
-Déroulé prévu (API stable sur `feat/drive-match`, 3f341f4 ; auth par cookie de
+Déroulé prévu (API sur main, doc dans `docs/drive-match.md` ; auth par cookie de
 session, ou `Authorization: Bearer <clé API>`) :
 
 1. `GET /api/drive/match/plan?listId=…` → articles non cochés, avec `query` (texte
@@ -411,14 +420,23 @@ session, ou `Authorization: Bearer <clé API>`) :
 3. `POST /api/drive/match/rank { listId, items: [{ itemId, candidates }] }` →
    jusqu'à 5 suggestions par article (confiance, quantité, `needsReview`). Le
    classement se fait côté serveur ; limites : 30 candidats, 100 articles.
-4. Ajout au panier dans la page Match par l'action du site lui-même :
-   `useNuxtApp().$store.dispatch("panier/addProduits", [{ sku, produitQuantite, modeAchatVente }])`
-   (pas encore testé en réel).
+4. Ajout au panier dans la page Match, produit par produit, par l'action du
+   bouton « Ajouter » du site :
+   `useNuxtApp().$store.dispatch("panier/addProduit", { sku, quantite, stats: null })`,
+   puis vérification que le panier renvoyé contient bien le SKU. L'ajout groupé
+   `panier/addProduits` ne marche pas (panier vide, sans erreur). Voir
+   `drive-extension/page.js` et `docs/drive-match.md` ; validé en réel le
+   30/09.
 5. `PUT /api/drive/match/products { listId, choices }` après un ajout réussi :
    mémorise le choix pour le groupe.
 
 La WebView ne fait que le pont (recherche, ajout au panier) ; le script injecté
 est celui de l'extension desktop (`drive-extension/`), réutilisable tel quel.
+
+Liste en attente : comme l'extension (liste rangée dans `storage.session` par
+le service worker, car la popup se ferme à l'ouverture de l'onglet Match),
+l'app garde la liste à ajouter côté natif et le script injecté la récupère
+quand la page Match est prête, plutôt que de la pousser à l'ouverture.
 
 ---
 
