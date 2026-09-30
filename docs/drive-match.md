@@ -46,7 +46,7 @@ L'ajout au panier passe par l'action Vuex du site lui-même, celle du bouton « 
 (`panier/addProduit` avec `{ sku, quantite, stats: null }`, `PUT /panier/add/produit`), produit
 par produit ; elle gère le compte, l'id de panier et l'affichage. Chaque ajout est vérifié (la
 réponse doit être le panier, contenant le SKU) : seuls les produits confirmés sont annoncés et
-mémorisés. L'ajout groupé `panier/addProduits` a été abandonné : premier essai réel, panier vide
+mémorisés. **Vérifié sur un vrai compte le 30/09/2026.** L'ajout groupé `panier/addProduits` a été abandonné : premier essai réel, panier vide
 sans erreur (il attend un chargement du panier qu'il ne déclenche pas, et renvoie `{}` quand Match
 ne confirme pas).
 
