@@ -135,6 +135,19 @@
       .stepper button { color: #d6d3d1; } footer .total strong { color: #fff; }
       .product img { background: #292524; } .done { color: #d6d3d1; }
       header small, .qty-need, .meta, .none, .icon, footer .total, .status { color: #a8a29e; }
+    }
+    /* Téléphone (dont la WebView Match de l'app, qui va jusqu'aux bords) : plein
+       écran, zones sûres respectées, cibles tactiles plus grandes. */
+    @media (max-width: 600px) {
+      .panel { inset: 0; width: auto; border: 0; border-radius: 0; box-shadow: none; }
+      header { padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+      .body { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+      footer { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+      .body:has(+ footer) { padding-bottom: 8px; }
+      .icon { width: 40px; height: 40px; font-size: 20px; }
+      .stepper button { width: 40px; height: 40px; font-size: 16px; }
+      select { font-size: 16px; padding: 8px; }
+      .primary { padding: 12px 16px; font-size: 15px; }
     }`;
 
   let host = null;
