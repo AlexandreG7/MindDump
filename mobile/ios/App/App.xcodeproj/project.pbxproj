@@ -22,6 +22,7 @@
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		9582B6902FE993B00072D4E8 /* WebAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6912FE993B00072D4E8 /* WebAuthPlugin.swift */; };
 		9582B6922FE993B00072D4E8 /* ShareAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6932FE993B00072D4E8 /* ShareAuthPlugin.swift */; };
+		B3C102029793D0E3EB234F1E /* MatchDrivePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A808577BA62F6E89842827A /* MatchDrivePlugin.swift */; };
 		FCB700FF771DC4C48B76302A /* SharedKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347E42DC589DBD0457464A0E /* SharedKeychain.swift */; };
 /* End PBXBuildFile section */
 
@@ -50,6 +51,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1A808577BA62F6E89842827A /* MatchDrivePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MatchDrivePlugin.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		347E42DC589DBD0457464A0E /* SharedKeychain.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedKeychain.swift; sourceTree = "<group>"; };
 		3EFE581BAC421ED28AF88D47 /* MindDumpShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MindDumpShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -136,6 +138,7 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 				347E42DC589DBD0457464A0E /* SharedKeychain.swift */,
 				C620D78C95F8536D2F50A9FB /* App.entitlements */,
+				1A808577BA62F6E89842827A /* MatchDrivePlugin.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -272,6 +275,7 @@
 				9582B6902FE993B00072D4E8 /* WebAuthPlugin.swift in Sources */,
 				9582B6922FE993B00072D4E8 /* ShareAuthPlugin.swift in Sources */,
 				4441460B0260671AB1E3F5A0 /* SharedKeychain.swift in Sources */,
+				B3C102029793D0E3EB234F1E /* MatchDrivePlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

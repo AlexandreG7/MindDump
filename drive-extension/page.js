@@ -31,16 +31,35 @@
     };
   }
 
+  // Même chemin que le bouton « Ajouter » du site (action panier/addProduit),
+  // produit par produit : l'ajout groupé (panier/addProduits) attend un
+  // chargement du panier que rien ne déclenche hors de certaines pages, et
+  // renvoie {} sans erreur quand Match ne confirme pas. Chaque ajout est donc
+  // vérifié : la réponse doit être le panier, contenant le SKU.
+  function inCart(cart, sku) {
+    const produits = cart?.produits;
+    if (!produits) return false;
+    const list = Array.isArray(produits) ? produits : Object.values(produits);
+    return list.some((p) => String(p?.sku ?? p?.produit?.sku) === sku) || Object.prototype.hasOwnProperty.call(produits, sku);
+  }
+
   async function addToCart(products) {
     const store = nuxtApp()?.$store;
     if (!store) throw new Error("Le site Match n'est pas prêt, recharge la page.");
-    const payload = products.map((p) => ({
-      sku: String(p.sku),
-      produitQuantite: Number(p.quantity),
-      modeAchatVente: p.modeAchatVente || "unité",
-    }));
-    await store.dispatch("panier/addProduits", payload);
-    return { cartCount: store.state?.panier?.panier?.nbProduits ?? null };
+    const added = [];
+    const failed = [];
+    for (const p of products) {
+      const sku = String(p.sku);
+      try {
+        const cart = await store.dispatch("panier/addProduit", { sku, quantite: Number(p.quantity), stats: null });
+        const current = store.state?.panier?.panier;
+        if (cart && (inCart(cart, sku) || inCart(current, sku) || cart.nbProduits > 0)) added.push(sku);
+        else failed.push({ sku, error: "Match n'a pas confirmé l'ajout" });
+      } catch (e) {
+        failed.push({ sku, error: e?.detail || e?.message || "erreur inconnue" });
+      }
+    }
+    return { added, failed, cartCount: store.state?.panier?.panier?.nbProduits ?? null };
   }
 
   window.addEventListener("message", async (event) => {

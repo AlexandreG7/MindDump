@@ -1,4 +1,3 @@
-const MATCH_ORIGIN = "https://www.supermarchesmatch.fr";
 const DEFAULT_BASE_URL = "https://minddump.fr";
 const $ = (id) => document.getElementById(id);
 
@@ -29,36 +28,13 @@ async function loadLists() {
   if (!lists.length) $("fill-msg").textContent = "Aucune liste de courses dans MindDump.";
 }
 
-async function sendFill(tabId, listId) {
-  // Le script du site peut ne pas être encore chargé : quelques essais.
-  for (let attempt = 0; attempt < 20; attempt++) {
-    try {
-      await chrome.tabs.sendMessage(tabId, { type: "fill", listId });
-      return true;
-    } catch {
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  }
-  return false;
-}
-
 $("go").addEventListener("click", async () => {
   const listId = $("list").value;
   if (!listId) return;
   await chrome.storage.local.set({ lastListId: listId });
-  $("go").disabled = true;
-
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  let tabId = tab?.id;
-  if (!tab?.url?.startsWith(MATCH_ORIGIN)) {
-    tabId = (await chrome.tabs.create({ url: `${MATCH_ORIGIN}/fr` })).id;
-  }
-  const ok = await sendFill(tabId, listId);
-  if (!ok) {
-    $("fill-msg").textContent = "Le site Match ne répond pas. Recharge la page Match et réessaie.";
-    $("go").disabled = false;
-    return;
-  }
+  // Le service worker ouvre la page Match et lui transmet la liste : la popup,
+  // elle, se ferme dès qu'un onglet prend le focus.
+  await chrome.runtime.sendMessage({ type: "startFill", listId });
   window.close();
 });
 

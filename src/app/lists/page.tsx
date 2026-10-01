@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
+import { fillMatchCart, useMatchDriveAvailable } from "@/lib/matchDrive";
 import { useGroupContext } from "@/components/GroupContext";
 import {
   applyOps,
@@ -450,6 +451,8 @@ function ListGroup({
   const [itemPrice, setItemPrice] = useState("");
   const [itemStore, setItemStore] = useState("");
   const [showRecipeTags, setShowRecipeTags] = useState(false);
+  // Dans l'app seulement : remplir le panier drive Match depuis la liste.
+  const matchDrive = useMatchDriveAvailable();
 
   const handleAddItem = (listId: string) => {
     if (!itemName.trim()) return;
@@ -524,6 +527,16 @@ function ListGroup({
                   <span className="text-sm text-muted-foreground mr-2">
                     {total.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
                   </span>
+                )}
+                {matchDrive && online && type === "GROCERY" && unchecked.length > 0 && (
+                  <button
+                    className="grocery-icon-btn"
+                    title="Remplir mon panier Match"
+                    aria-label="Remplir mon panier Match"
+                    onClick={() => fillMatchCart(list.id)}
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                  </button>
                 )}
                 {online && type === "GROCERY" && recipes.length > 0 && (
                   <Dialog>
