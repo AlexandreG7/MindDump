@@ -7,3 +7,7 @@ android/.gradle/
 android/app/build/
 android/build/
 android/local.properties
+
+# Copiés depuis drive-extension/ par scripts/copy-drive-scripts.mjs
+www/drive/page.js
+www/drive/content.js

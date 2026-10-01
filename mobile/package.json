@@ -6,7 +6,8 @@
   "scripts": {
     "sync": "cap sync",
     "ios": "cap open ios",
-    "android": "cap open android"
+    "android": "cap open android",
+    "capacitor:copy:before": "node scripts/copy-drive-scripts.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

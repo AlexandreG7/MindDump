@@ -55,6 +55,7 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(WebAuthPlugin())
         bridge?.registerPluginInstance(ShareAuthPlugin())
+        bridge?.registerPluginInstance(MatchDrivePlugin())
         // Fond clair ou sombre selon le téléphone tant que la page n'est pas
         // affichée (couleur AppBackground) : pas d'éclair blanc en mode sombre.
         let background = UIColor(named: "AppBackground") ?? .systemBackground

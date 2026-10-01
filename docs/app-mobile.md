@@ -414,21 +414,32 @@ correspondances article → produit Match, `GET /api/drive/match/plan?listId=…
 répond qu'à un vrai navigateur, jamais au serveur : l'ajout au panier doit
 partir de l'appareil. Rien de possible en PWA.
 
-- [ ] Deuxième WebView dédiée à `supermarchesmatch.fr` (plugin type
-      `@capgo/inappbrowser` ou petit plugin maison), avec injection de script
-      et retour de messages vers l'app. La WebView principale reste limitée à
-      minddump.fr.
-- [ ] L'utilisateur se connecte à son compte Match dans cette WebView ; l'app
-      injecte l'ajout groupé du plan au panier, puis le laisse valider et payer
-      lui-même.
+- [x] Écran Match natif (plugin `MatchDrive`, `MatchDrivePlugin.swift` et
+      `.java`) : seconde WebView plein écran sur `www.supermarchesmatch.fr`,
+      boutons « Fermer » et « Remplir le panier ». Les liens hors Match
+      partent dans le navigateur. La WebView principale reste sur minddump.fr.
+      Bouton panier (dans l'app seulement) dans l'en-tête d'une liste de
+      courses.
+- [x] Scripts injectés : `drive-extension/page.js` et `content.js` tels
+      quels (copiés dans `mobile/www/drive/` par le hook
+      `capacitor:copy:before`), plus `www/drive/bridge.js` qui remplace
+      `chrome.runtime` : `api` remonte au natif puis à la page MindDump de
+      l'app (`src/lib/matchDrive.ts`, session de l'utilisateur, liste blanche
+      plan / rank / products pour la liste lancée), `takeFill` rend la liste
+      en attente gardée côté natif, `fill` relance. L'utilisateur choisit son
+      magasin (et se connecte à Match s'il veut retrouver le panier sur son
+      compte), valide la revue, puis paie lui-même sur Match.
+      Vérifié sur émulateur Android et simulateur iOS (magasin choisi,
+      recherche, revue, 4 produits ajoutés au panier, choix mémorisés).
 - [x] Domaines Match dans `WKAppBoundDomains` : `supermarchesmatch.fr`,
       `www.supermarchesmatch.fr` (le script est injecté sur la page www ; on ne
-      compte pas sur la couverture des sous-domaines) et
-      `api-drive.drive.supermarchesmatch.fr`. `produits.supermarchesmatch.fr`
-      n'est appelé que par fetch depuis la page : pas besoin de le lister.
+      compte pas sur la couverture des sous-domaines),
+      `api-drive.drive.supermarchesmatch.fr` et
+      `produits.supermarchesmatch.fr` (recherche Prediggo, appelée par fetch
+      depuis la page ; ajouté après un premier essai iOS sans aucun résultat).
       Rappel : iOS n'autorise l'injection de script que sur ces domaines, et
       échoue sans erreur ailleurs (10 domaines maximum).
-- [ ] Écran de revue : même règle que l'extension (`MIN_CONFIDENCE` dans
+- [x] Écran de revue : celui de l'extension (plein écran sous 600 px), même règle (`MIN_CONFIDENCE` dans
       `drive-extension/content.js`). Une suggestion
       sous 0,5 de confiance est décochée par défaut, sauf si c'est le produit
       habituel du groupe (« truffe blanche » ne doit pas mettre du jambon à la

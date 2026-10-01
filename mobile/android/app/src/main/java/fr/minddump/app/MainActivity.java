@@ -27,6 +27,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SharedFilePlugin.class);
+        registerPlugin(MatchDrivePlugin.class);
         super.onCreate(savedInstanceState);
         // Fond clair ou sombre selon le téléphone tant que la page n'est pas
         // affichée (res/values*/colors.xml) : pas d'éclair blanc en mode sombre.
