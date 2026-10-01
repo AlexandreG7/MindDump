@@ -7,6 +7,10 @@
 type CapacitorGlobal = {
   isNativePlatform?: () => boolean;
   getPlatform?: () => string;
+  Plugins?: {
+    SystemBars?: { setStyle(options: { style: "DARK" | "LIGHT" }): Promise<void> };
+    Haptics?: { impact(options: { style: "LIGHT" | "MEDIUM" | "HEAVY" }): Promise<void> };
+  };
 };
 
 function capacitor(): CapacitorGlobal | undefined {
@@ -43,4 +47,23 @@ export function isNativeApp(): boolean {
 /** "ios", "android" ou "web". */
 export function nativePlatform(): string {
   return capacitor()?.getPlatform?.() ?? "web";
+}
+
+/**
+ * Icônes de la barre d'état assorties au thème affiché, y compris quand
+ * l'utilisateur force un thème différent de celui du téléphone (ThemeContext).
+ */
+export function setNativeSystemBars(dark: boolean) {
+  if (!isNativeApp()) return;
+  capacitor()
+    ?.Plugins?.SystemBars?.setStyle({ style: dark ? "DARK" : "LIGHT" })
+    .catch(() => {});
+}
+
+/** Petit retour haptique dans l'app (cocher une tâche, un article). */
+export function nativeHaptic() {
+  if (!isNativeApp()) return;
+  capacitor()
+    ?.Plugins?.Haptics?.impact({ style: "LIGHT" })
+    .catch(() => {});
 }

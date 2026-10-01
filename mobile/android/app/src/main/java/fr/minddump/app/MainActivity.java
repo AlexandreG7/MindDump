@@ -10,6 +10,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.webkit.CookieManager;
+import androidx.activity.OnBackPressedCallback;
+import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -19,10 +21,29 @@ import java.io.OutputStream;
 
 public class MainActivity extends BridgeActivity {
 
+    private static final String GO_BACK_SCRIPT =
+        "(function(){var n=window.navigation;if(n&&n.canGoBack){history.back();return true}return false})()";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SharedFilePlugin.class);
         super.onCreate(savedInstanceState);
+        // Fond clair ou sombre selon le téléphone tant que la page n'est pas
+        // affichée (res/values*/colors.xml) : pas d'éclair blanc en mode sombre.
+        bridge.getWebView().setBackgroundColor(ContextCompat.getColor(this, R.color.app_background));
+        // Bouton retour : page précédente du site, sinon l'app passe en
+        // arrière-plan comme toute app Android. WebView.canGoBack() ignore les
+        // navigations internes du site (history.pushState) : on demande à la
+        // Navigation API de la page. Le gestionnaire du plugin App est
+        // désactivé (capacitor.config.ts) : il ne faisait rien à la racine.
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                bridge.getWebView().evaluateJavascript(GO_BACK_SCRIPT, (wentBack) -> {
+                    if (!"true".equals(wentBack)) moveTaskToBack(true);
+                });
+            }
+        });
         openShared(getIntent());
     }
 

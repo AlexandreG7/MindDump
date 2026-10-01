@@ -27,6 +27,7 @@ import {
   Wind,
 } from "lucide-react";
 import { useAuth } from "@/lib/useAuth";
+import { nativeHaptic } from "@/lib/native";
 import { cn } from "@/lib/utils";
 import { useFeaturesContext } from "@/components/FeaturesContext";
 import { useGroupContext } from "@/components/GroupContext";
@@ -310,6 +311,7 @@ export function Dashboard() {
     .filter((l) => l.remaining > 0);
 
   const completeTodo = async (todo: Todo) => {
+    nativeHaptic();
     setDone((d) => new Set(d).add(todo.id));
     const patch = (completed: boolean) =>
       fetch(`/api/todos/${todo.id}`, {

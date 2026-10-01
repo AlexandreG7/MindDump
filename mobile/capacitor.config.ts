@@ -28,14 +28,15 @@ const config: CapacitorConfig = {
     allowNavigation: [host],
     errorPath: "offline.html",
   },
+  // Fond avant le chargement de la page : défini côté natif, clair ou sombre
+  // selon le téléphone (MainViewController, MainActivity).
+  plugins: {
+    // Bouton retour Android géré par MainActivity.
+    App: { disableBackButtonHandler: true },
+  },
   ios: {
-    // Fond derrière la barre d'état tant que la page n'a pas chargé.
-    backgroundColor: "#F8F7F5",
     // WKAppBoundDomains (Info.plist) : nécessaire pour le service worker.
     limitsNavigationsToAppBoundDomains: true,
-  },
-  android: {
-    backgroundColor: "#F8F7F5",
   },
 };
 

@@ -16,7 +16,10 @@ Object.assign(globalThis, { React });
 const IOS_ASSETS = "mobile/ios/App/App/Assets.xcassets";
 const ANDROID_RES = "mobile/android/app/src/main/res";
 const ICON_COLOR = "#F97316";
+// --background du site, clair et sombre (couleur AppBackground côté iOS,
+// app_background côté Android).
 const SPLASH_BACKGROUND = "#F8F7F5";
+const SPLASH_BACKGROUND_DARK = "#212226";
 
 /** Le « M » blanc de l'icône, carré de `size` pixels. */
 function Glyph({ size }: { size: number }) {
@@ -63,8 +66,8 @@ function adaptiveForeground(size: number) {
   );
 }
 
-/** Écran de lancement : fond clair, icône arrondie au centre. */
-function splash(width: number, height: number) {
+/** Écran de lancement : fond clair (ou sombre), icône arrondie au centre. */
+function splash(width: number, height: number, background = SPLASH_BACKGROUND) {
   const logo = Math.round(Math.min(width, height) * 0.3);
   return new ImageResponse(
     (
@@ -75,7 +78,7 @@ function splash(width: number, height: number) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: SPLASH_BACKGROUND,
+          background,
         }}
       >
         <div style={{ width: logo, height: logo, display: "flex", borderRadius: logo / 4, background: ICON_COLOR }}>
@@ -103,9 +106,11 @@ async function save(response: Response, path: string, { opaque = false } = {}) {
 async function ios() {
   // 1024 px, fond plein, sans transparence (iOS arrondit lui-même les coins).
   await save(icon(1024, 0), `${IOS_ASSETS}/AppIcon.appiconset/AppIcon-512@2x.png`, { opaque: true });
-  for (const name of ["splash-2732x2732.png", "splash-2732x2732-1.png", "splash-2732x2732-2.png"]) {
-    await save(splash(2732, 2732), `${IOS_ASSETS}/Splash.imageset/${name}`, { opaque: true });
-  }
+  // Échelle unique, clair et sombre (Contents.json : apparence « dark »).
+  await save(splash(2732, 2732), `${IOS_ASSETS}/Splash.imageset/splash-2732x2732.png`, { opaque: true });
+  await save(splash(2732, 2732, SPLASH_BACKGROUND_DARK), `${IOS_ASSETS}/Splash.imageset/splash-2732x2732-dark.png`, {
+    opaque: true,
+  });
 }
 
 // Densités Android : taille de l'icône classique (48 dp) et du premier plan
