@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { prisma } from "./prisma";
 import { ensureDefaultGroup } from "./defaultGroup";
 import { isAuthBypassEnabled } from "./devAuth";
+import { SHARE_TOKEN_PREFIX, shareTokenUser } from "./mobileAuth";
 
 const DEV_USER = {
   id: "dev-user",
@@ -43,6 +44,9 @@ async function getApiKeyUser() {
 
     const key = authorization.slice(7);
     if (!key) return null;
+
+    // Jeton de l'extension de partage iOS, lié à un appareil (mobileAuth.ts).
+    if (key.startsWith(SHARE_TOKEN_PREFIX)) return await shareTokenUser(key);
 
     const apiKey = await prisma.apiKey.findUnique({
       where: { key },

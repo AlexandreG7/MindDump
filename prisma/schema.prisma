@@ -158,6 +158,9 @@ model MobileDevice {
   platform   String
   createdAt  DateTime  @default(now())
   lastSeenAt DateTime  @default(now())
+  // Jeton de l'extension de partage iOS (étape 3.4), qui n'a pas les cookies
+  // de l'app : seul son SHA-256 est stocké, il meurt avec l'appareil.
+  shareTokenHash String? @unique
 
   @@index([userId])
 }

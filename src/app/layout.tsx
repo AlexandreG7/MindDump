@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { THEME_COLORS, themeInitScript } from "@/lib/theme";
 import { devServiceWorkerCleanupScript } from "@/lib/offlineCache";
 import { nativeAppCookieScript } from "@/lib/native";
+import { NativeDeviceSync } from "@/components/NativeDeviceSync";
 import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 
 // next/font télécharge les polices au build et les sert depuis minddump.fr :
@@ -94,6 +95,7 @@ export default function RootLayout({
       </head>
       <body className={`${sans.className} ${sans.variable} ${caveat.variable}`}>
         <Providers>
+          <NativeDeviceSync />
           <div className="flex h-dvh overflow-hidden">
             <Navbar />
             <main className="flex-1 md:p-8 p-4 pt-[calc(5rem+env(safe-area-inset-top))] md:pt-8 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-[calc(2rem+env(safe-area-inset-bottom))] overflow-y-auto">
