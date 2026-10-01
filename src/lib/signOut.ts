@@ -2,6 +2,7 @@ import { signOut, type SignOutParams } from "next-auth/react";
 import { clearOfflineCaches } from "./offlineCache";
 import { clearPendingOps } from "./offlineLists";
 import { unsubscribeFromPush } from "./pushClient";
+import { clearShareToken } from "./nativeDevice";
 
 /**
  * signOut de NextAuth, précédé de ce qui ne doit pas survivre à la session sur
@@ -14,6 +15,7 @@ export async function signOutAndClear(options?: SignOutParams<true>) {
   // (abonnement push, et appareil de l'app mobile le cas échéant).
   await unsubscribeFromPush();
   await fetch("/api/users/me/devices/current", { method: "DELETE" }).catch(() => {});
+  await clearShareToken();
   clearPendingOps();
   await clearOfflineCaches();
   return signOut(options);

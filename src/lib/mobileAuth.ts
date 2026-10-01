@@ -138,7 +138,20 @@ export async function exchangeMobileAuthCode(code: unknown, verifier: unknown, d
   const mobileDevice = await prisma.mobileDevice.create({
     data: { userId: user.id, ...deviceInfo(device) },
   });
+  return sessionCookieFor(user, mobileDevice.id);
+}
 
+type SessionUser = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+  role: string;
+  consentedAt: Date | null;
+};
+
+/** Cookie de session NextAuth d'un appareil de l'app (même jeton que NextAuth). */
+async function sessionCookieFor(user: SessionUser, deviceId: string) {
   // Même contenu que le jeton posé par NextAuth (callbacks jwt de src/lib/auth.ts).
   const token = await encode({
     token: {
@@ -148,7 +161,7 @@ export async function exchangeMobileAuthCode(code: unknown, verifier: unknown, d
       picture: user.image,
       role: user.role,
       consented: !!user.consentedAt,
-      deviceId: mobileDevice.id,
+      deviceId,
     },
     secret: process.env.NEXTAUTH_SECRET as string,
     maxAge: SESSION_MAX_AGE_S,
@@ -165,4 +178,73 @@ export async function exchangeMobileAuthCode(code: unknown, verifier: unknown, d
       maxAge: SESSION_MAX_AGE_S,
     },
   };
+}
+
+// ─── Jeton de partage (extension de partage iOS, étape 3.4) ────────
+//
+// L'extension de partage n'a pas accès aux cookies de l'app : elle s'authentifie
+// par `Authorization: Bearer mdt_…` (src/lib/session.ts). Le jeton appartient à
+// un appareil : il meurt quand l'appareil est révoqué ou se déconnecte.
+
+export const SHARE_TOKEN_PREFIX = "mdt_";
+
+/**
+ * Appareil de la session en cours, créé s'il n'existe pas (connexion par mot
+ * de passe dans l'app, qui ne passe pas par l'échange de code), et nouveau
+ * jeton de partage. Renvoie aussi le cookie de session à reposer quand
+ * l'appareil vient d'être créé, pour que la déconnexion le supprime.
+ */
+export async function ensureDeviceWithShareToken(
+  userId: string,
+  currentDeviceId: string | null,
+  device: unknown
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, image: true, role: true, consentedAt: true },
+  });
+  if (!user) return null;
+
+  let deviceId = currentDeviceId;
+  if (deviceId && !(await prisma.mobileDevice.findFirst({ where: { id: deviceId, userId } }))) {
+    deviceId = null;
+  }
+  const created = !deviceId;
+  if (!deviceId) {
+    deviceId = (await prisma.mobileDevice.create({ data: { userId, ...deviceInfo(device) } })).id;
+  }
+
+  const shareToken = SHARE_TOKEN_PREFIX + randomBytes(32).toString("base64url");
+  await prisma.mobileDevice.update({
+    where: { id: deviceId },
+    data: { shareTokenHash: sha256(shareToken) },
+  });
+
+  return {
+    shareToken,
+    cookie: created ? await sessionCookieFor(user, deviceId) : null,
+  };
+}
+
+/** Utilisateur d'un jeton de partage valide, ou null. */
+export async function shareTokenUser(token: string) {
+  if (!token.startsWith(SHARE_TOKEN_PREFIX)) return null;
+  const device = await prisma.mobileDevice.findUnique({
+    where: { shareTokenHash: sha256(token) },
+    select: {
+      id: true,
+      lastSeenAt: true,
+      userId: true,
+    },
+  });
+  if (!device) return null;
+  if (Date.now() - device.lastSeenAt.getTime() > LAST_SEEN_THROTTLE_MS) {
+    await prisma.mobileDevice
+      .update({ where: { id: device.id }, data: { lastSeenAt: new Date() } })
+      .catch(() => {});
+  }
+  return prisma.user.findUnique({
+    where: { id: device.userId },
+    select: { id: true, name: true, email: true, image: true },
+  });
 }
