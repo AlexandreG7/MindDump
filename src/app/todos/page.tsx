@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/useAuth";
+import { nativeHaptic } from "@/lib/native";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,6 +136,7 @@ export default function TodosPage() {
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
+    if (!completed) nativeHaptic();
     setTodos((all) => all?.map((t) => (t.id === id ? { ...t, completed: !completed } : t)) ?? all);
     const res = await fetch(`/api/todos/${id}`, {
       method: "PATCH",

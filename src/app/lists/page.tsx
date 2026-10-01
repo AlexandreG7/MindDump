@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/useAuth";
+import { nativeHaptic } from "@/lib/native";
 import { useGroupContext } from "@/components/GroupContext";
 import {
   applyOps,
@@ -251,11 +252,14 @@ export default function ListsPage() {
     fetchLists();
   };
 
-  const toggleItem = (listId: string, itemId: string, checked: boolean) =>
-    runOps([{ type: "check", listId, itemId, checked: !checked }]);
+  const toggleItem = (listId: string, itemId: string, checked: boolean) => {
+    if (!checked) nativeHaptic();
+    return runOps([{ type: "check", listId, itemId, checked: !checked }]);
+  };
 
   const toggleGroup = (listId: string, items: ShoppingItem[]) => {
     const checked = !items[0].checked;
+    if (checked) nativeHaptic();
     return runOps(items.map((item) => ({ type: "check", listId, itemId: item.id, checked })));
   };
 

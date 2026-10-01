@@ -386,12 +386,25 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
 
 ### 3.5 Finitions natives
 
-- [ ] Barre d'état et écran de lancement suivant le thème clair / sombre.
-- [ ] Bouton retour Android (historique WebView, puis sortie).
-- [ ] Retour haptique en cochant un todo ou un article.
-- [ ] Photo de recette : `<input type="file" accept="image/*" capture>` (ou
-      plugin Camera) dans `RecipeView.tsx`.
-- [ ] Clavier : pas de zoom sur les champs (police ≥ 16 px), champs non masqués.
+- [x] Barre d'état et écran de lancement suivant le thème clair / sombre.
+      Icônes de la barre d'état réglées par `SystemBars.setStyle` depuis
+      `ThemeContext`, y compris quand l'utilisateur force un thème différent
+      de celui du téléphone. Fond avant chargement et écran de lancement :
+      couleur `AppBackground` et image `Splash` claire / sombre (iOS),
+      `@color/app_background` avec `values-night` (Android 12+ ; parent
+      `Theme.SplashScreen.IconBackground` pour garder le disque orange).
+- [x] Bouton retour Android : page précédente du site, sinon l'app passe en
+      arrière-plan (`MainActivity`). `WebView.canGoBack()` ignore les
+      navigations internes de Next (history.pushState) : on interroge
+      `navigation.canGoBack` dans la page. Gestionnaire du plugin App désactivé.
+- [x] Retour haptique en cochant une tâche (page Tâches, accueil) ou un
+      article (`nativeHaptic()`, plugin `@capacitor/haptics`).
+- [x] Photo de recette : les champs `accept="image/*"` existants suffisent ;
+      iOS propose appareil photo ou photothèque (`NSCameraUsageDescription`
+      ajouté, sans quoi l'app plantait), Android ouvre le sélecteur de photos.
+- [x] Clavier : champs à 16 px sur écran tactile (globals.css, pas de zoom
+      iOS) ; Android redimensionne la WebView et garde le champ visible
+      (vérifié sur émulateur).
 - [ ] Plus tard, si besoin : widget « liste de courses ».
 
 ### 3.6 Remplir le panier drive Match

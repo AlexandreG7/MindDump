@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fond du lancement et de la WebView avant chargement : la couleur de fond
+         du site, clair ici, sombre dans values-night. -->
+    <color name="app_background">#F8F7F5</color>
+</resources>

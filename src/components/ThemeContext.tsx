@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { THEME_COLORS, THEME_STORAGE_KEY as STORAGE_KEY, type ThemePreference } from "@/lib/theme";
+import { setNativeSystemBars } from "@/lib/native";
 
 type ThemeContextValue = {
   theme: ThemePreference;
@@ -45,6 +46,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const dark = theme === "dark" || (theme === "system" && systemPrefersDark());
       document.documentElement.classList.toggle("dark", dark);
       applyThemeColor(dark);
+      setNativeSystemBars(dark);
       setResolvedTheme(dark ? "dark" : "light");
     };
     apply();
