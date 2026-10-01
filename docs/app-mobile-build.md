@@ -24,6 +24,12 @@ npx cap sync ios          # copie la config et www/ dans le projet Xcode
 npx cap open ios          # ouvre Xcode, puis ▶︎ sur un simulateur ou un iPhone
 ```
 
+Signature : choisis ton équipe (Signing & Capabilities) sur les deux cibles,
+**App** et **MindDumpShare**, sans committer la ligne `DEVELOPMENT_TEAM` que
+Xcode ajoute au projet. L'équipe est nécessaire même sur simulateur : le
+groupe de trousseau partagé (`$(AppIdentifierPrefix)fr.minddump.shared`) en
+dépend.
+
 En ligne de commande, pour un simulateur :
 
 ```bash
@@ -100,6 +106,12 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
   (`src/lib/native.ts`) ; `/` renvoie alors vers `/login` au lieu de la page de
   présentation. Côté client, `isNativeApp()` masque l'invitation à installer et
   les notifications Web Push (remplacées par le push natif à l'étape 3.3).
+- Cible `MindDumpShare` (`fr.minddump.app.share`) : extension « Partager →
+  MindDump », qui importe une recette ou crée une tâche sans ouvrir l'app.
+  Elle s'authentifie avec le jeton que l'app range dans le trousseau partagé
+  (`SharedKeychain.swift`, compilé dans les deux cibles ; plugin
+  `ShareAuth`). Entitlements : `App/App.entitlements` et
+  `MindDumpShare/MindDumpShare.entitlements`.
 - `www/offline.html` : écran de repli (`server.errorPath`) si le site est
   injoignable et que le service worker n'a encore rien en cache.
 

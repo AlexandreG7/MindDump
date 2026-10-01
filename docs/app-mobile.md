@@ -353,8 +353,20 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
 
 ### 3.4 Extension de partage iOS et intent Android
 
-- [ ] iOS : Share Extension (Swift) qui accepte une URL ou du texte et ouvre
-      `minddump://partager?url=…` → page `/partager` (étape 1.5).
+- [x] iOS : extension de partage `MindDumpShare` (Swift, cible
+      `fr.minddump.app.share`) qui travaille seule, sans ouvrir l'app (Apple
+      ne prévoit pas qu'une extension de partage ouvre son app) : un lien
+      HelloFresh / Jow / Quitoque est importé (« Recette importée ✓ »), tout
+      autre lien ou texte devient une tâche (« Tâche créée ✓ »), mêmes règles
+      que `src/lib/share.ts`. Authentification : jeton `mdt_` lié au
+      `MobileDevice`, demandé par l'app une fois connectée
+      (`POST /api/mobile-auth/device`, réservé à l'app) et rangé dans le
+      trousseau partagé `$(AppIdentifierPrefix)fr.minddump.shared` (plugin
+      `ShareAuth`, capacité Keychain Sharing des deux cibles) ; seule son
+      empreinte est en base, il est renouvelé à chaque lancement, effacé à la
+      déconnexion et révoqué avec l'appareil. Sans jeton : « Connecte-toi dans
+      l'app ». Vérifié sur simulateur depuis Safari (lien → tâche, lien
+      HelloFresh → recette).
 - [x] Android : intent-filter `ACTION_SEND` `text/plain` ; `MainActivity`
       charge `/partager?text=…&title=…` (au démarrage à froid comme app
       ouverte). Vérifié sur émulateur : partage d'un texte avec lien → page
