@@ -31,7 +31,7 @@ Les produits ajoutés sont retenus pour le foyer : la fois suivante, ils sont pr
 | `manifest.json` | Manifest V3 |
 | `background.js` | Seul point d'appel à MindDump (clé API, liste blanche de routes) |
 | `content.js` | Sur le site Match : recherche, panneau de revue, enchaînement |
-| `page.js` | Dans la page Match (monde principal) : contexte du site et ajout au panier par l'action `panier/addProduits` du site |
+| `page.js` | Dans la page Match (monde principal) : contexte du site et ajout au panier par l'action `panier/addProduit` du site (celle du bouton « Ajouter »), produit par produit |
 | `popup.html`, `popup.js` | Réglages (clé, adresse) et choix de la liste |
 
 Pour un serveur MindDump de test, indiquer son adresse dans les réglages (`http://localhost:3000`

@@ -32,7 +32,7 @@ Extension (supermarchesmatch.fr)                  MindDump
  │ recherche Match pour chaque article (Prediggo)   │
  │ POST /api/drive/match/rank { candidats } ──────▶│ classement, quantités, confiance
  │ écran de revue (la personne ajuste)              │
- │ $store.dispatch("panier/addProduits")  (site)    │
+ │ $store.dispatch("panier/addProduit")   (site)    │
  │ PUT /api/drive/match/products { choix } ───────▶│ mémorisé pour le groupe
  │ → /fr/panier : créneau et paiement sur Match     │
 ```
@@ -42,10 +42,13 @@ La recherche prend le corps `{ moduleVersion: "drive", region: "fr_FR", sessionI
 sortingCode: null } }` et renvoie `{ slots }` (garder `_type === "produit"`). Le magasin `9999` est
 le catalogue web par défaut : l'extension demande de choisir un vrai magasin avant de chercher.
 
-L'ajout au panier passe par l'action Vuex du site lui-même (`panier/addProduits` avec
-`[{ sku, produitQuantite, modeAchatVente }]`), qui gère le compte, l'id de panier et l'affichage.
-Elle appelle `PUT /panier/additions/produits`. **Pas encore vérifié sur un vrai compte** : à tester
-à la première utilisation.
+L'ajout au panier passe par l'action Vuex du site lui-même, celle du bouton « Ajouter »
+(`panier/addProduit` avec `{ sku, quantite, stats: null }`, `PUT /panier/add/produit`), produit
+par produit ; elle gère le compte, l'id de panier et l'affichage. Chaque ajout est vérifié (la
+réponse doit être le panier, contenant le SKU) : seuls les produits confirmés sont annoncés et
+mémorisés. **Vérifié sur un vrai compte le 30/09/2026.** L'ajout groupé `panier/addProduits` a été abandonné : premier essai réel, panier vide
+sans erreur (il attend un chargement du panier qu'il ne déclenche pas, et renvoie `{}` quand Match
+ne confirme pas).
 
 ## API MindDump
 
