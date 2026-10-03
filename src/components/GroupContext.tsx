@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { useSession } from "next-auth/react";
@@ -26,6 +27,8 @@ interface GroupContextValue {
   currentGroup: GroupInfo | null;
   setCurrentGroupId: (id: string | null) => void;
   loading: boolean;
+  /** Le groupe courant est connu : les pages peuvent charger leurs données. */
+  ready: boolean;
   refresh: () => void;
 }
 
@@ -35,8 +38,19 @@ const GroupContext = createContext<GroupContextValue>({
   currentGroup: null,
   setCurrentGroupId: () => {},
   loading: false,
+  ready: false,
   refresh: () => {},
 });
+
+const STORAGE_KEY = "currentGroupId";
+
+function savedGroupId(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 export function GroupProvider({ children }: { children: ReactNode }) {
   const { status } = useSession();
@@ -44,6 +58,18 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   const [currentGroupId, setCurrentGroupIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const firstLoad = useRef(true);
+
+  // Le groupe choisi la dernière fois est repris tout de suite, sans attendre
+  // /api/groups : les pages chargent leurs données une seule fois, avec le bon
+  // groupe, au lieu d'un premier chargement sans groupe suivi d'un second.
+  useEffect(() => {
+    const saved = savedGroupId();
+    if (saved) {
+      setCurrentGroupIdState(saved);
+      setReady(true);
+    }
+  }, []);
 
   const fetchGroups = useCallback(async () => {
     const isAuthed = skipAuth || status === "authenticated";
@@ -61,29 +87,26 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       ];
       setGroups(allGroups);
 
-      if (!ready) {
-        // Première charge : restaurer depuis localStorage ou prendre le groupe par défaut
-        const saved =
-          typeof window !== "undefined"
-            ? localStorage.getItem("currentGroupId")
-            : null;
-
-        const validSaved = saved && allGroups.find((g) => g.id === saved);
-        if (validSaved) {
-          setCurrentGroupIdState(saved);
-        } else {
+      if (firstLoad.current) {
+        firstLoad.current = false;
+        // Groupe enregistré quitté ou supprimé : on prend le groupe par défaut.
+        const saved = savedGroupId();
+        if (!saved || !allGroups.some((g) => g.id === saved)) {
           const defaultGroup = allGroups.find((g) => g.isDefault);
-          if (defaultGroup) {
-            setCurrentGroupIdState(defaultGroup.id);
-            localStorage.setItem("currentGroupId", defaultGroup.id);
-          }
+          setCurrentGroupIdState(defaultGroup?.id ?? null);
+          try {
+            if (defaultGroup) localStorage.setItem(STORAGE_KEY, defaultGroup.id);
+            else localStorage.removeItem(STORAGE_KEY);
+          } catch {}
         }
-        setReady(true);
       }
+    } catch {
+      // Réseau indisponible : on garde le groupe enregistré.
     } finally {
       setLoading(false);
+      setReady(true);
     }
-  }, [status, ready]);
+  }, [status]);
 
   useEffect(() => {
     fetchGroups();
@@ -92,8 +115,8 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   const setCurrentGroupId = (id: string | null) => {
     setCurrentGroupIdState(id);
     if (typeof window !== "undefined") {
-      if (id) localStorage.setItem("currentGroupId", id);
-      else localStorage.removeItem("currentGroupId");
+      if (id) localStorage.setItem(STORAGE_KEY, id);
+      else localStorage.removeItem(STORAGE_KEY);
     }
   };
 
@@ -101,7 +124,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
 
   return (
     <GroupContext.Provider
-      value={{ groups, currentGroupId, currentGroup, setCurrentGroupId, loading, refresh: fetchGroups }}
+      value={{ groups, currentGroupId, currentGroup, setCurrentGroupId, loading, ready, refresh: fetchGroups }}
     >
       {children}
     </GroupContext.Provider>

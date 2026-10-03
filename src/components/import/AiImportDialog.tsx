@@ -16,6 +16,7 @@ import type { FamilyProfile } from "@/components/profiles/ProfileAvatar";
 import { RECURRENCE_LABELS } from "@/lib/recurrence";
 import type { ProposedEvent, ProposedTodo } from "@/lib/ai/importPlanning";
 import { cn } from "@/lib/utils";
+import { prepareImage } from "@/lib/image";
 
 export interface AiImportStatus {
   enabled: boolean;
@@ -36,39 +37,6 @@ export function useAiImportStatus() {
 }
 
 type Row<T> = T & { key: number; selected: boolean };
-
-const MAX_IMAGE_SIDE = 2000;
-
-/**
- * Réduit une photo (2000 px de côté au plus) et la réencode en JPEG : envoi
- * plus léger, et les formats que l'API ne lit pas (HEIC d'iPhone sous Safari)
- * sont convertis au passage.
- */
-async function prepareImage(file: File): Promise<Blob> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error("unreadable"));
-      el.src = url;
-    });
-    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(img.naturalWidth * scale);
-    canvas.height = Math.round(img.naturalHeight * scale);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("unreadable");
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("unreadable"))), "image/jpeg", 0.85)
-    );
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 function localToday(): string {
   return format(new Date(), "yyyy-MM-dd");

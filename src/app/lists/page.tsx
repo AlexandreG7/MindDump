@@ -66,7 +66,7 @@ interface ShoppingList {
 interface Recipe {
   id: string;
   title: string;
-  ingredients: { id: string; name: string; quantity: string; unit: string | null }[];
+  ingredientCount: number;
 }
 
 interface GroupedItem {
@@ -181,7 +181,9 @@ export default function ListsPage() {
   }, []);
 
   const fetchRecipes = useCallback(() => {
-    fetch("/api/recipes")
+    // Le choix « ajouter une recette » n'affiche que le titre et le nombre
+    // d'ingrédients : inutile de charger les recettes complètes.
+    fetch("/api/recipes?fields=summary")
       .then((r) => r.json())
       .then(setRecipes)
       .catch(() => {});
@@ -560,7 +562,7 @@ function ListGroup({
                               <ChefHat className="h-4 w-4 mr-2 shrink-0" />
                               <span className="truncate">{recipe.title}</span>
                               <span className="text-xs text-muted-foreground ml-auto pl-2">
-                                {recipe.ingredients.length} ing.
+                                {recipe.ingredientCount} ing.
                               </span>
                             </Button>
                           </DialogClose>

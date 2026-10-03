@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
-  const groupId = new URL(req.url).searchParams.get("groupId");
+  const params = new URL(req.url).searchParams;
+  const groupId = params.get("groupId");
 
   if (groupId) {
     const err = await assertGroupMember(groupId, user.id);
@@ -19,6 +20,19 @@ export async function GET(req: NextRequest) {
   }
 
   const where = await buildResourceWhere(user.id, groupId);
+
+  // ?fields=summary : titre et nombre d'ingrédients seulement (choix d'une
+  // recette depuis les listes), sans étapes ni ingrédients détaillés.
+  if (params.get("fields") === "summary") {
+    const summaries = await prisma.recipe.findMany({
+      where,
+      select: { id: true, title: true, _count: { select: { ingredients: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json(
+      summaries.map(({ _count, ...r }) => ({ ...r, ingredientCount: _count.ingredients }))
+    );
+  }
 
   const recipes = await prisma.recipe.findMany({
     where,
