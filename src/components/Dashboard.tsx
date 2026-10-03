@@ -201,14 +201,29 @@ export function Dashboard() {
         params.set("lat", lat.toString());
         params.set("lon", lon.toString());
       }
-      getJson<WeatherData | null>(`/api/weather?${params}`, null).then((d) => d && setWeather(d));
+      return getJson<(WeatherData & { city?: string | null }) | null>(`/api/weather?${params}`, null).then((d) => {
+        if (d) setWeather(d);
+        return d;
+      });
     };
     getJson<{ weatherLat?: number; weatherLon?: number } | null>("/api/users/me", null).then((me) => {
       if (me?.weatherLat != null && me?.weatherLon != null) {
         fetchWeather(me.weatherLat, me.weatherLon);
       } else if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+          (pos) => {
+            // Position acceptée : on la garde (arrondie à ~1 km, la météo n'a pas besoin
+            // de plus) pour ne plus redemander l'autorisation à chaque ouverture.
+            const lat = Math.round(pos.coords.latitude * 100) / 100;
+            const lon = Math.round(pos.coords.longitude * 100) / 100;
+            fetchWeather(lat, lon).then((d) =>
+              fetch("/api/users/me", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ weatherLat: lat, weatherLon: lon, weatherCity: d?.city ?? "Ma position" }),
+              }).catch(() => null)
+            );
+          },
           () => fetchWeather(),
           { timeout: 3000 }
         );

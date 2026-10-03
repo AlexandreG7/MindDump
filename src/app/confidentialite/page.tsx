@@ -134,8 +134,10 @@ export default function PrivacyPolicyPage() {
                 familial.
               </Row>
               <Row label="Localisation">
-                Seulement si tu règles la météo : la ville choisie et ses coordonnées, ou ta position
-                si tu autorises le navigateur à la partager.
+                Seulement pour la météo : la ville choisie et ses coordonnées, ou ta position (arrondie
+                à environ 1 km sur l&apos;accueil) si tu autorises le navigateur à la partager. Elle est
+                conservée pour ne pas te redemander l&apos;autorisation ; tu peux la changer ou
+                l&apos;effacer dans ton profil.
               </Row>
               <Row label="Connexions">
                 Date et mode (e-mail ou Google) de chaque connexion, et date de la dernière connexion.
