@@ -218,13 +218,27 @@ export default function ProfilePage() {
     }
   };
 
-  const deleteApiKey = async (id: string) => {
-    await fetch("/api/auth/api-key", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    fetchApiKeys();
+  const deleteApiKey = async (id: string, name: string) => {
+    if (
+      !(await confirm({
+        title: `Supprimer la clé « ${name} » ?`,
+        description: "Les outils qui l'utilisent (ton assistant MCP) ne pourront plus se connecter à MindDump avec cette clé.",
+        confirmLabel: "Supprimer",
+        destructive: true,
+      }))
+    )
+      return;
+    try {
+      const res = await fetch("/api/auth/api-key", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error();
+      fetchApiKeys();
+    } catch {
+      toast("La clé n'a pas pu être supprimée. Réessaie dans un instant.", "error");
+    }
   };
 
   const copyApiKey = () => {
@@ -330,18 +344,37 @@ export default function ProfilePage() {
     refreshGroups();
   };
 
-  const removeMember = async (groupId: string, userId: string) => {
-    await fetch(`/api/groups/${groupId}/members/${userId}`, { method: "DELETE" });
-    fetchGroups();
+  const removeMember = async (groupId: string, userId: string, memberName: string) => {
+    if (
+      !(await confirm({
+        title: `Retirer ${memberName} du groupe ?`,
+        description: `${memberName} perd l'accès aux tâches, listes et recettes partagées de ce groupe. Ce qu'${memberName} a créé reste à ${memberName}, et redevient visible si tu l'invites à nouveau.`,
+        confirmLabel: "Retirer",
+        destructive: true,
+      }))
+    )
+      return;
+    try {
+      const res = await fetch(`/api/groups/${groupId}/members/${userId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      fetchGroups();
+    } catch {
+      toast("Impossible de retirer ce membre. Réessaie dans un instant.", "error");
+    }
   };
 
   const toggleRole = async (groupId: string, userId: string, currentRole: string) => {
-    await fetch(`/api/groups/${groupId}/members/${userId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: currentRole === "admin" ? "member" : "admin" }),
-    });
-    fetchGroups();
+    try {
+      const res = await fetch(`/api/groups/${groupId}/members/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: currentRole === "admin" ? "member" : "admin" }),
+      });
+      if (!res.ok) throw new Error();
+      fetchGroups();
+    } catch {
+      toast("Le rôle n'a pas pu être changé. Réessaie dans un instant.", "error");
+    }
   };
 
   const renameGroup = async (id: string) => {
@@ -687,10 +720,15 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-1">
                       <button onClick={() => toggleRole(group.id, member.user.id, member.role)}
                         title={member.role === "admin" ? "Rétrograder" : "Promouvoir admin"}
+                        aria-label={member.role === "admin" ? "Rétrograder en membre" : "Promouvoir admin"}
                         className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
                         <Shield className="h-3.5 w-3.5" />
                       </button>
-                      <button aria-label="Retirer du groupe" onClick={() => removeMember(group.id, member.user.id)}
+                      <button
+                        aria-label={`Retirer ${member.user.name ?? member.user.email ?? "ce membre"} du groupe`}
+                        onClick={() =>
+                          removeMember(group.id, member.user.id, member.user.name ?? member.user.email ?? "ce membre")
+                        }
                         className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -989,7 +1027,7 @@ export default function ProfilePage() {
                   <span className="text-xs text-muted-foreground">
                     {new Date(k.createdAt).toLocaleDateString("fr-FR")}
                   </span>
-                  <button aria-label="Supprimer la clé API" onClick={() => deleteApiKey(k.id)}
+                  <button aria-label={`Supprimer la clé « ${k.name} »`} onClick={() => deleteApiKey(k.id, k.name)}
                     className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

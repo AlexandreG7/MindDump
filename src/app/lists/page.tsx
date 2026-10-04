@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
 import { fillMatchCart, useMatchDriveAvailable } from "@/lib/matchDrive";
@@ -42,6 +42,7 @@ import {
   WifiOff,
   RefreshCw,
 } from "lucide-react";
+import { TOAST_ACTION_DURATION, useFeedback } from "@/components/ui/feedback";
 
 interface ShoppingItem {
   id: string;
@@ -165,11 +166,16 @@ function groupItems(items: ShoppingItem[]): GroupedItem[] {
 export default function ListsPage() {
   const { isReady } = useAuth();
   const { currentGroupId } = useGroupContext();
+  const { toast, dismiss } = useFeedback();
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newList, setNewList] = useState({ name: "", type: "GROCERY" as "GROCERY" | "ONLINE" });
   const { online, pending } = useOfflineStatus();
+  // Suppression de liste avec annulation : la liste est masquée tout de suite,
+  // la requête DELETE part à la fin du délai (comme pour les tâches).
+  const pendingDeletes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; toastId: number }>());
+  const [hiddenLists, setHiddenLists] = useState<Set<string>>(new Set());
 
   // Hors ligne, /api/lists vient du cache du service worker (src/app/sw.ts) :
   // on y rejoue les modifications en attente pour ne pas les faire disparaître.
@@ -236,10 +242,53 @@ export default function ListsPage() {
     fetchLists();
   };
 
-  const deleteList = async (id: string) => {
-    await fetch(`/api/lists/${id}`, { method: "DELETE" });
-    fetchLists();
+  const sendDeleteList = (id: string) => {
+    pendingDeletes.current.delete(id);
+    return fetch(`/api/lists/${id}`, { method: "DELETE", keepalive: true }).catch(() => null);
   };
+
+  const deleteList = (list: ShoppingList) => {
+    setHiddenLists((h) => new Set(h).add(list.id));
+    const timer = setTimeout(async () => {
+      const res = await sendDeleteList(list.id);
+      if (!res?.ok) {
+        toast("La liste n'a pas pu être supprimée.", "error");
+        setHiddenLists((h) => {
+          const next = new Set(h);
+          next.delete(list.id);
+          return next;
+        });
+        return;
+      }
+      fetchLists();
+    }, TOAST_ACTION_DURATION);
+    const toastId = toast(`« ${list.name} » supprimée`, "info", {
+      label: "Annuler",
+      onClick: () => {
+        clearTimeout(pendingDeletes.current.get(list.id)?.timer);
+        pendingDeletes.current.delete(list.id);
+        setHiddenLists((h) => {
+          const next = new Set(h);
+          next.delete(list.id);
+          return next;
+        });
+      },
+    });
+    pendingDeletes.current.set(list.id, { timer, toastId });
+  };
+
+  // En quittant la page, les suppressions en attente partent tout de suite.
+  useEffect(() => {
+    const pending = pendingDeletes.current;
+    return () => {
+      pending.forEach(({ timer, toastId }, id) => {
+        clearTimeout(timer);
+        dismiss(toastId);
+        sendDeleteList(id);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addItem = (listId: string, item: Omit<NewItem, "id">) =>
     runOps([{ type: "add", listId, item: { ...item, id: newItemId() } }]);
@@ -272,8 +321,9 @@ export default function ListsPage() {
 
   if (!isReady) return null;
 
-  const groceryLists = lists.filter((l) => l.type === "GROCERY");
-  const onlineLists = lists.filter((l) => l.type === "ONLINE");
+  const visibleLists = lists.filter((l) => !hiddenLists.has(l.id));
+  const groceryLists = visibleLists.filter((l) => l.type === "GROCERY");
+  const onlineLists = visibleLists.filter((l) => l.type === "ONLINE");
 
   return (
     <div className="space-y-6">
@@ -442,7 +492,7 @@ function ListGroup({
   onToggleItem: (listId: string, itemId: string, checked: boolean) => void;
   onDeleteGroup: (listId: string, items: ShoppingItem[]) => void;
   onDeleteItem: (listId: string, itemId: string) => void;
-  onDeleteList: (id: string) => void;
+  onDeleteList: (list: ShoppingList) => void;
 }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [itemName, setItemName] = useState("");
@@ -579,13 +629,17 @@ function ListGroup({
                   </button>
                 )}
                 {online && (
-                  <button
-                    className="grocery-icon-btn grocery-icon-btn-danger"
-                    onClick={() => onDeleteList(list.id)}
-                    title="Supprimer la liste"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <>
+                    <span className="grocery-icon-divider" aria-hidden="true" />
+                    <button
+                      className="grocery-icon-btn grocery-icon-btn-danger grocery-icon-btn-delete"
+                      onClick={() => onDeleteList(list)}
+                      title="Supprimer la liste"
+                      aria-label={`Supprimer la liste « ${list.name} »`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
