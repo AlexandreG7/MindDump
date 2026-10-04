@@ -128,11 +128,22 @@ export default function RecipesPage() {
 
   const fetchRecipes = useCallback(() => {
     const url = currentGroupId ? `/api/recipes?groupId=${currentGroupId}` : "/api/recipes";
-    fetch(url).then((r) => r.json()).then(setRecipes);
+    // Groupe enregistré devenu invalide (403) : on garde la liste précédente
+    // au lieu d'écraser l'état avec l'objet d'erreur, la correction côté
+    // GroupContext relance ensuite le chargement avec le bon groupe.
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setRecipes(data);
+      });
   }, [currentGroupId]);
 
   const fetchLists = useCallback(() => {
-    fetch("/api/lists").then((r) => r.json()).then(setLists);
+    fetch("/api/lists")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setLists(data);
+      });
   }, []);
 
   useEffect(() => {
