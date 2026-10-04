@@ -348,7 +348,7 @@ export default function ProfilePage() {
     if (
       !(await confirm({
         title: `Retirer ${memberName} du groupe ?`,
-        description: `${memberName} perd l'accès aux tâches, listes et recettes partagées de ce groupe. Ce qu'${memberName} a créé reste à ${memberName}, et redevient visible si tu l'invites à nouveau.`,
+        description: `${memberName} perd l'accès aux tâches, listes et recettes partagées de ce groupe, et ses assignations sont retirées. Tout ce que ${memberName} a créé lui reste, et redevient visible si tu l'invites à nouveau.`,
         confirmLabel: "Retirer",
         destructive: true,
       }))
