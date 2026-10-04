@@ -79,6 +79,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Pour prendre en photo une recette ou un document à importer.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Pour afficher la météo de l'endroit où tu te trouves.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>WKAppBoundDomains</key>
