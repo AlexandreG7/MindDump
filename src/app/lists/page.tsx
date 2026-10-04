@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
 import { fillMatchCart, useMatchDriveAvailable } from "@/lib/matchDrive";
 import { useGroupContext } from "@/components/GroupContext";
+import { useDeferredDelete } from "@/lib/useDeferredDelete";
 import {
   applyOps,
   flushPendingOps,
@@ -42,7 +43,7 @@ import {
   WifiOff,
   RefreshCw,
 } from "lucide-react";
-import { TOAST_ACTION_DURATION, useFeedback } from "@/components/ui/feedback";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface ShoppingItem {
   id: string;
@@ -166,7 +167,7 @@ function groupItems(items: ShoppingItem[]): GroupedItem[] {
 export default function ListsPage() {
   const { isReady } = useAuth();
   const { currentGroupId } = useGroupContext();
-  const { toast, dismiss } = useFeedback();
+  const { toast } = useFeedback();
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -174,8 +175,7 @@ export default function ListsPage() {
   const { online, pending } = useOfflineStatus();
   // Suppression de liste avec annulation : la liste est masquée tout de suite,
   // la requête DELETE part à la fin du délai (comme pour les tâches).
-  const pendingDeletes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; toastId: number }>());
-  const [hiddenLists, setHiddenLists] = useState<Set<string>>(new Set());
+  const { hidden: hiddenLists, requestDelete } = useDeferredDelete();
 
   // Hors ligne, /api/lists vient du cache du service worker (src/app/sw.ts) :
   // on y rejoue les modifications en attente pour ne pas les faire disparaître.
@@ -242,53 +242,15 @@ export default function ListsPage() {
     fetchLists();
   };
 
-  const sendDeleteList = (id: string) => {
-    pendingDeletes.current.delete(id);
-    return fetch(`/api/lists/${id}`, { method: "DELETE", keepalive: true }).catch(() => null);
-  };
-
   const deleteList = (list: ShoppingList) => {
-    setHiddenLists((h) => new Set(h).add(list.id));
-    const timer = setTimeout(async () => {
-      const res = await sendDeleteList(list.id);
-      if (!res?.ok) {
-        toast("La liste n'a pas pu être supprimée.", "error");
-        setHiddenLists((h) => {
-          const next = new Set(h);
-          next.delete(list.id);
-          return next;
-        });
-        return;
-      }
-      fetchLists();
-    }, TOAST_ACTION_DURATION);
-    const toastId = toast(`« ${list.name} » supprimée`, "info", {
-      label: "Annuler",
-      onClick: () => {
-        clearTimeout(pendingDeletes.current.get(list.id)?.timer);
-        pendingDeletes.current.delete(list.id);
-        setHiddenLists((h) => {
-          const next = new Set(h);
-          next.delete(list.id);
-          return next;
-        });
-      },
+    requestDelete({
+      id: list.id,
+      url: `/api/lists/${list.id}`,
+      confirmMessage: `« ${list.name} » supprimée`,
+      errorMessage: "La liste n'a pas pu être supprimée.",
+      refresh: fetchLists,
     });
-    pendingDeletes.current.set(list.id, { timer, toastId });
   };
-
-  // En quittant la page, les suppressions en attente partent tout de suite.
-  useEffect(() => {
-    const pending = pendingDeletes.current;
-    return () => {
-      pending.forEach(({ timer, toastId }, id) => {
-        clearTimeout(timer);
-        dismiss(toastId);
-        sendDeleteList(id);
-      });
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const addItem = (listId: string, item: Omit<NewItem, "id">) =>
     runOps([{ type: "add", listId, item: { ...item, id: newItemId() } }]);
