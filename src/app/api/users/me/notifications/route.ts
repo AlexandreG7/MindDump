@@ -12,10 +12,11 @@ export async function GET() {
 
   const full = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { notifyEmail: true },
+    select: { notifyEmail: true, notifyReminders: true },
   });
   return NextResponse.json({
     notifyEmail: full?.notifyEmail ?? true,
+    notifyReminders: full?.notifyReminders ?? true,
     pushPublicKey: pushPublicKey(),
   });
 }
@@ -25,14 +26,17 @@ export async function PATCH(req: NextRequest) {
   if (!user) return unauthorized();
 
   const body = await req.json().catch(() => null);
-  if (typeof body?.notifyEmail !== "boolean") {
-    return NextResponse.json({ error: "notifyEmail requis" }, { status: 400 });
+  const data: { notifyEmail?: boolean; notifyReminders?: boolean } = {};
+  if (typeof body?.notifyEmail === "boolean") data.notifyEmail = body.notifyEmail;
+  if (typeof body?.notifyReminders === "boolean") data.notifyReminders = body.notifyReminders;
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "notifyEmail ou notifyReminders requis" }, { status: 400 });
   }
 
   const full = await prisma.user.update({
     where: { id: user.id },
-    data: { notifyEmail: body.notifyEmail },
-    select: { notifyEmail: true },
+    data,
+    select: { notifyEmail: true, notifyReminders: true },
   });
   return NextResponse.json(full);
 }

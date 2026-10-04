@@ -340,6 +340,66 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
 
 ### 3.3 Push natif
 
+#### Rappels locaux (sans Firebase)
+
+Avant le push natif (APNs/FCM) ci-dessous, une première étape sans dépendance
+externe : l'app programme elle-même des notifications **locales**
+(`@capacitor/local-notifications`), à partir d'une API qui réutilise
+exactement la règle du cron existant (e-mail + push web).
+
+- `src/lib/reminders.ts` : extrait du cron (`src/app/api/cron/notify`) la
+  logique « quels rappels, à quelle heure, pour qui », pour que le cron et la
+  nouvelle route s'appuient sur une seule règle. `recipientsFor`
+  (`src/lib/notify.ts`) reste la source de vérité des destinataires : une
+  personne qui n'est plus membre du groupe n'est jamais prévenue, l'auteur le
+  reste toujours (docs/adr/0001-les-elements-restent-attaches-a-leur-auteur.md).
+- `GET /api/reminders/upcoming` (session de l'utilisateur, cookie de la
+  WebView) : les rappels des 30 prochains jours qui concernent l'utilisateur
+  connecté, triés par `fireAt`, coupés à 60 (plafond iOS de 64 notifications
+  locales en attente). Réponse :
+  ```json
+  {
+    "reminders": [
+      {
+        "key": "todo-abc123",
+        "kind": "todo",
+        "itemId": "abc123",
+        "title": "Courses",
+        "body": "Échéance le 05/10/2026 à 18:00",
+        "fireAt": "2026-10-05T16:00:00.000Z",
+        "url": "/todos"
+      },
+      {
+        "key": "event-def456-1728000000000",
+        "kind": "event",
+        "itemId": "def456",
+        "title": "Réunion hebdo",
+        "body": "Le 12/10/2026 à 09:00",
+        "fireAt": "2026-10-12T06:50:00.000Z",
+        "url": "/calendar?view=day&date=2026-10-12"
+      }
+    ],
+    "generatedAt": "2026-10-04T21:00:00.000Z"
+  }
+  ```
+  `key` est stable (type + id + date d'occurrence) : le client en dérive un
+  id numérique de notification locale, pour pouvoir l'annuler/remplacer sans
+  tout reprogrammer à chaque rafraîchissement. `url` est la page à ouvrir au
+  tap, identique au lien du push web existant.
+- Réglage global `User.notifyReminders` (migration
+  `20261004211659_reminders_notify_setting`, additive) : `false` renvoie une
+  liste vide. Exposé par `GET`/`PATCH /api/users/me/notifications` (même
+  endpoint que `notifyEmail`). Pas encore de réglage par type (todo/événement).
+- Tests : `tests/reminders.test.mjs` (`npm run test:reminders`), bloquant au
+  déploiement comme `test:ownership` (stage `test` du Dockerfile).
+
+**Reste à faire (agent `mobile`)** : plugin `@capacitor/local-notifications`,
+programmation des notifications au démarrage/retour au premier plan de l'app
+à partir de cette liste, tap → navigation vers `url`. Cocher cette
+sous-partie seulement après vérification sur simulateur.
+
+#### Push natif (APNs / FCM)
+
 - [ ] Prisma : `DeviceToken` (`userId`, `token` unique, `platform`,
       `mobileDeviceId`), supprimé à la révocation de l'appareil.
 - [ ] Plugin `@capacitor/push-notifications` ; enregistrement du jeton via

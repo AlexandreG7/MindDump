@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { recipientsFor, sendReminder, type Recipient } from "@/lib/notify";
-import { occurrencesBetween } from "@/lib/recurrence";
+import { sendReminder, type Recipient } from "@/lib/notify";
+import {
+  listTodoCandidates,
+  listEventCandidates,
+  recipientsForTodo,
+  recipientsForEvent,
+  todoReminderContent,
+  eventReminderContent,
+  formatDate,
+  formatTime,
+  TODO_REMINDER_WHERE,
+  EVENT_REMINDER_WHERE,
+} from "@/lib/reminders";
 
 // Comparaison à temps constant pour éviter les fuites temporelles sur le secret.
 function safeEqual(a: string, b: string): boolean {
@@ -22,44 +33,11 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// Une occurrence récurrente reste rappelable un moment après son heure, pour
-// ne pas la manquer entre deux passages du cron (toutes les 5 minutes).
-const OCCURRENCE_GRACE_MS = 60 * 60 * 1000;
-
 function sharedLine(groupName: string | undefined, creatorName: string | null) {
   if (!groupName) return "";
   const by = creatorName ? `, ajouté par ${escapeHtml(creatorName)}` : "";
   return `<p style="color:#666">Partagé avec « ${escapeHtml(groupName)} »${by}.</p>`;
 }
-
-/**
- * Première occurrence d'une série encore à rappeler (pas déjà notifiée, pas
- * passée depuis plus d'OCCURRENCE_GRACE_MS), si son rappel est dû d'ici
- * `horizon` ; sinon null. Calculée depuis la date d'origine (occurrencesBetween) :
- * un événement du 31 ne glisse pas au 3 du mois suivant, et une série ancienne
- * est rattrapée d'un saut.
- */
-function upcomingOccurrence(
-  start: Date,
-  recurrence: string,
-  alreadyNotified: Date | null,
-  now: Date,
-  horizon: Date
-): Date | null {
-  let from = now.getTime() - OCCURRENCE_GRACE_MS;
-  if (alreadyNotified) from = Math.max(from, alreadyNotified.getTime() + 1);
-  const [first] = occurrencesBetween(start, null, recurrence, new Date(from), horizon);
-  return first?.date ?? null;
-}
-
-// Le serveur tourne en UTC : les dates des rappels s'affichent à l'heure de
-// Paris, comme sur le site.
-const TIME_ZONE = "Europe/Paris";
-const formatDate = (d: Date) => d.toLocaleDateString("fr-FR", { timeZone: TIME_ZONE });
-const formatTime = (d: Date) =>
-  d.toLocaleTimeString("fr-FR", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
-/** AAAA-MM-JJ à l'heure de Paris, pour le lien /calendar?view=day&date=… */
-const dayParam = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: TIME_ZONE });
 
 // This endpoint is called by the cron job to send notifications.
 // Protégé par un secret dédié CRON_SECRET (retombe sur NEXTAUTH_SECRET pour
@@ -76,35 +54,13 @@ export async function POST(req: NextRequest) {
   let sent = 0;
 
   // Check todos with notifications
-  const todos = await prisma.todo.findMany({
-    where: {
-      completed: false,
-      notified: false,
-      dueDate: { not: null },
-      notifyBefore: { not: null },
-    },
-    include: {
-      user: true,
-      group: { select: { name: true } },
-      assignees: { select: { profile: { select: { userId: true } } } },
-    },
-  });
+  const todoCandidates = (await listTodoCandidates(now)).filter((c) => now >= c.fireAt);
 
-  for (const todo of todos) {
-    if (!todo.dueDate || !todo.notifyBefore) continue;
-    const notifyAt = new Date(
-      todo.dueDate.getTime() - todo.notifyBefore * 60 * 1000
-    );
-    if (now < notifyAt) continue;
-
-    const recipients = await recipientsFor(
-      todo.user,
-      todo.groupId,
-      groupMembers,
-      todo.assignees.map((a) => a.profile.userId)
-    );
-    const date = formatDate(todo.dueDate);
-    const time = formatTime(todo.dueDate);
+  for (const { todo } of todoCandidates) {
+    const recipients = await recipientsForTodo(todo, groupMembers);
+    const content = todoReminderContent(todo);
+    const date = formatDate(todo.dueDate!);
+    const time = formatTime(todo.dueDate!);
     const { attempted, delivered } = await sendReminder(recipients, {
       email: {
         subject: `Rappel: ${todo.title}`,
@@ -113,13 +69,13 @@ export async function POST(req: NextRequest) {
         ${todo.description ? `<p>${escapeHtml(todo.description)}</p>` : ""}
         <p>Echeance: ${date} a ${time}</p>
         ${recipients.length > 1 ? sharedLine(todo.group?.name, todo.user.name) : ""}
-        <p><a href="${process.env.NEXTAUTH_URL}/todos">Voir les taches</a></p>`,
+        <p><a href="${process.env.NEXTAUTH_URL}${content.url}">Voir les taches</a></p>`,
       },
       push: {
-        title: todo.title,
-        body: `Échéance le ${date} à ${time}`,
-        url: "/todos",
-        tag: `todo-${todo.id}`,
+        title: content.title,
+        body: content.body,
+        url: content.url,
+        tag: content.key,
       },
     });
     // Si tout a échoué (SMTP ou service push indisponible), on retentera au
@@ -134,72 +90,43 @@ export async function POST(req: NextRequest) {
 
   // Check calendar events with notifications. Un événement récurrent n'est
   // jamais marqué `notified` : chaque occurrence a son propre rappel.
-  const events = await prisma.calendarEvent.findMany({
-    where: {
-      notifyBefore: { not: null },
-      OR: [{ notified: false }, { recurrence: { not: null } }],
-    },
-    include: {
-      user: true,
-      group: { select: { name: true } },
-      assignees: { select: { profile: { select: { userId: true } } } },
-    },
-  });
+  const eventCandidates = (await listEventCandidates(now, now, false)).filter(
+    (c) => now >= c.fireAt
+  );
 
-  for (const event of events) {
-    if (!event.notifyBefore) continue;
-
-    const occurrence = event.recurrence
-      ? upcomingOccurrence(
-          event.date,
-          event.recurrence,
-          event.notifiedOccurrence,
-          now,
-          new Date(now.getTime() + event.notifyBefore * 60 * 1000)
-        )
-      : event.date;
-    if (!occurrence) continue;
-
-    const notifyAt = new Date(occurrence.getTime() - event.notifyBefore * 60 * 1000);
-    if (now < notifyAt) continue;
-
-    const recipients = await recipientsFor(
-      event.user,
-      event.groupId,
-      groupMembers,
-      event.assignees.map((a) => a.profile.userId)
-    );
-    // Ouvre le calendrier sur le jour de l'occurrence.
-    const dayLink = `/calendar?view=day&date=${dayParam(occurrence)}`;
-    const when = event.allDay
-      ? `Le ${formatDate(occurrence)}`
-      : `Le ${formatDate(occurrence)} à ${formatTime(occurrence)}`;
+  for (const { event, occurrenceAt } of eventCandidates) {
+    const recipients = await recipientsForEvent(event, groupMembers);
+    const content = eventReminderContent(event, occurrenceAt);
     const { attempted, delivered } = await sendReminder(recipients, {
       email: {
         subject: `Rappel: ${event.title}`,
         html: `<h2>Rappel d'evenement</h2>
         <p><strong>${escapeHtml(event.title)}</strong></p>
         ${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}
-        <p>Date: ${formatDate(occurrence)}${!event.allDay ? ` a ${formatTime(occurrence)}` : ""}</p>
+        <p>Date: ${formatDate(occurrenceAt)}${!event.allDay ? ` a ${formatTime(occurrenceAt)}` : ""}</p>
         ${recipients.length > 1 ? sharedLine(event.group?.name, event.user.name) : ""}
-        <p><a href="${process.env.NEXTAUTH_URL}${dayLink}">Voir le calendrier</a></p>`,
+        <p><a href="${process.env.NEXTAUTH_URL}${content.url}">Voir le calendrier</a></p>`,
       },
       push: {
-        title: event.title,
-        body: when,
-        url: dayLink,
-        tag: `event-${event.id}-${occurrence.getTime()}`,
+        title: content.title,
+        body: content.body,
+        url: content.url,
+        tag: content.key,
       },
     });
     if (attempted > 0 && delivered === 0) continue;
     await prisma.calendarEvent.update({
       where: { id: event.id },
-      data: event.recurrence
-        ? { notifiedOccurrence: occurrence }
-        : { notified: true },
+      data: event.recurrence ? { notifiedOccurrence: occurrenceAt } : { notified: true },
     });
     sent += delivered;
   }
 
-  return NextResponse.json({ sent, checked: todos.length + events.length });
+  // Diagnostic : nombre de tâches/événements examinés, dus ou pas (comme
+  // avant le partage de cette logique avec src/lib/reminders.ts).
+  const checked =
+    (await prisma.todo.count({ where: TODO_REMINDER_WHERE })) +
+    (await prisma.calendarEvent.count({ where: EVENT_REMINDER_WHERE }));
+
+  return NextResponse.json({ sent, checked });
 }

@@ -69,6 +69,10 @@ model User {
   // Rappels (cron/notify) par e-mail ; les notifications push dépendent, elles,
   // des appareils abonnés (PushSubscription).
   notifyEmail    Boolean   @default(true)
+  // Rappels locaux programmés par l'app mobile (src/lib/reminders.ts,
+  // /api/reminders/upcoming) : désactivation globale, indépendante de
+  // notifyEmail. Pas encore de réglage par type (todo/événement).
+  notifyReminders Boolean  @default(true)
   // Disposition de l'accueil (modules affichés, ordre, taille) : voir src/lib/dashboardLayout.ts
   dashboardLayout Json?
 

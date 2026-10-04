@@ -12,6 +12,7 @@
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate",
     "test:ownership": "sh scripts/test-ownership.sh",
+    "test:reminders": "sh scripts/test-reminders.sh",
     "test:drive": "tsx --test src/lib/drive/drive.test.ts",
     "test:ai-import": "tsx --test src/lib/ai/importPlanning.test.ts"
   },
