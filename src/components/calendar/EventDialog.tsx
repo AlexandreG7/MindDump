@@ -83,8 +83,8 @@ export function EventDialog({
             <Label htmlFor="eventdialog-description-optionnel">Description (optionnel)</Label>
             <Textarea id="eventdialog-description-optionnel" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="col-span-2 sm:col-span-1">
               <Label htmlFor="eventdialog-date">Date</Label>
               <Input id="eventdialog-date" type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
             </div>
