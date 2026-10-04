@@ -356,7 +356,15 @@ export default function GroupsPage() {
 
             {/* Members list */}
             <div className="border-t border-border">
-              {group.members.map((member) => (
+              {group.members.map((member) => {
+                const isCurrentUserAdmin =
+                  group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin";
+                const canPromote = group.isOwner && member.user.id !== currentUserId;
+                const canRemove =
+                  member.user.id !== currentUserId &&
+                  member.user.id !== group.ownerId &&
+                  (group.isOwner || (isCurrentUserAdmin && member.role !== "admin"));
+                return (
                 <div key={member.id} className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/30 transition-colors">
                   {/* Avatar */}
                   {member.user.image ? (
@@ -393,30 +401,35 @@ export default function GroupsPage() {
                     )}
                   </span>
 
-                  {/* Member actions (owner only, not on self) */}
-                  {group.isOwner && member.user.id !== currentUserId && (
+                  {/* Member actions : promotion réservée au propriétaire, retrait ouvert aux admins (hors autre admin/propriétaire) */}
+                  {(canPromote || canRemove) && (
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => toggleRole(group.id, member.user.id, member.role)}
-                        className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                        title={member.role === "admin" ? "Rétrograder en membre" : "Promouvoir admin"}
-                        aria-label={member.role === "admin" ? "Rétrograder en membre" : "Promouvoir admin"}
-                      >
-                        <Shield className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        aria-label={`Retirer ${member.user.name ?? member.user.email ?? "ce membre"} du groupe`}
-                        onClick={() =>
-                          removeMember(group.id, member.user.id, member.user.name ?? member.user.email ?? "ce membre")
-                        }
-                        className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      {canPromote && (
+                        <button
+                          onClick={() => toggleRole(group.id, member.user.id, member.role)}
+                          className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                          title={member.role === "admin" ? "Rétrograder en membre" : "Promouvoir admin"}
+                          aria-label={member.role === "admin" ? "Rétrograder en membre" : "Promouvoir admin"}
+                        >
+                          <Shield className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {canRemove && (
+                        <button
+                          aria-label={`Retirer ${member.user.name ?? member.user.email ?? "ce membre"} du groupe`}
+                          onClick={() =>
+                            removeMember(group.id, member.user.id, member.user.name ?? member.user.email ?? "ce membre")
+                          }
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <FamilyProfiles
