@@ -32,6 +32,25 @@ export function extractRecipeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+/**
+ * Une URL HelloFresh pointe une recette précise seulement si le segment qui
+ * suit "/recipes/" porte l'identifiant hexadécimal : "/recipes/<slug>-<id>".
+ * Les pages de liste ("/recipes/", "/recipes/under-30-minutes"…), l'accueil
+ * ou toute autre page du site ne sont pas des recettes.
+ */
+export function isHelloFreshRecipeUrl(url: string): boolean {
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  const segments = pathname.split("/").filter(Boolean);
+  const idx = segments.indexOf("recipes");
+  if (idx === -1 || idx === segments.length - 1) return false;
+  return /-[0-9a-f]{20,}$/i.test(segments[idx + 1]);
+}
+
 export interface ParsedRecipe {
   title: string;
   description: string | null;

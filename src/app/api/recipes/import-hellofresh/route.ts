@@ -37,6 +37,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Page de liste, d'accueil... : pas de recette à créer.
+    if (enriched.ingredients.length === 0 && enriched.steps.length === 0) {
+      return NextResponse.json(
+        { error: "Ce lien n'est pas une recette HelloFresh" },
+        { status: 422 }
+      );
+    }
+
     // Extract title from URL slug or API data
     let title = "Recette HelloFresh";
     const slugMatch = targetUrl.match(/\/recipes\/([^/]+?)(?:-[0-9a-f]{20,})?$/);

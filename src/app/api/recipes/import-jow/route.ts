@@ -30,6 +30,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Page de liste, d'accueil... : pas de recette à créer.
+    if (parsed.ingredients.length === 0 && parsed.steps.length === 0) {
+      return NextResponse.json(
+        { error: "Ce lien n'est pas une recette Jow" },
+        { status: 422 }
+      );
+    }
+
     const groupId = await resolveGroupId(user.id, body.groupId);
     const groupErr = await assertGroupMember(groupId, user.id);
     if (groupErr) return groupErr;

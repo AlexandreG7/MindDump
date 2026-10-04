@@ -1,7 +1,13 @@
 import { type EnrichedData } from "./hellofresh";
 
+/**
+ * Une URL Jow pointe une recette précise seulement si le dernier segment de
+ * "/recipes/" porte un identifiant ("/recipes/<slug>-<id>"). Les pages de
+ * liste ("/recipes/", "/recipes"), l'accueil ou toute autre page du site ne
+ * sont pas des recettes.
+ */
 export function isJowUrl(url: string): boolean {
-  return /jow\.fr\/(en\/)?recipes\//.test(url);
+  return extractJowSlugId(url) !== null;
 }
 
 export function extractJowSlugId(url: string): string | null {
@@ -164,7 +170,20 @@ export function parseJowRecipe(html: string, targetServings?: number): EnrichedD
 
   // Fallback: JSON-LD
   const jsonLd = parseJsonLd(html);
-  if (!jsonLd) throw new Error("Impossible de parser la page Jow");
+  if (!jsonLd) {
+    // Page sans données de recette (liste, accueil…) : pas d'ingrédients ni
+    // d'étapes, à l'appelant de refuser la création plutôt que de planter.
+    return {
+      title: "Recette Jow",
+      description: null,
+      prepTime: null,
+      cookTime: null,
+      servings: targetServings || 4,
+      ingredients: [],
+      steps: [],
+      heroImage: null,
+    };
+  }
 
   const ingredients = (jsonLd.recipeIngredient || []).map(parseIngredientString);
   const steps = (jsonLd.recipeInstructions || []).map((s) => ({

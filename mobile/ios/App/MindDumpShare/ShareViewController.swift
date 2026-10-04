@@ -112,15 +112,55 @@ class ShareViewController: UIViewController {
         return String(text[range])
     }
 
+    /// Mêmes règles que `recipeSource` dans src/lib/share.ts : seule une URL de
+    /// recette précise compte. Une page de liste, l'accueil ou une autre page
+    /// du site retombe sur "autre lien" (donc une tâche).
+    ///
+    /// Pas de cible XCTest dans ce module : la table ci-dessous reprend les
+    /// mêmes cas que le test `npm run test:import-url`
+    /// (src/lib/importUrl.test.ts). À tenir à jour ensemble.
+    ///
+    /// URL                                                                              → résultat
+    /// https://www.hellofresh.fr/recipes/poulet-roti-au-citron-6192a1f3a6b8c9001234abcd  → .hellofresh
+    /// https://www.hellofresh.co.uk/recipes/chicken-pie-6192a1f3a6b8c9001234abcd?x=1     → .hellofresh
+    /// https://www.hellofresh.fr/recipes/                                               → nil (page de liste)
+    /// https://www.hellofresh.fr/recipes/under-30-minutes                               → nil (collection, pas d'id)
+    /// https://www.hellofresh.fr/                                                        → nil (accueil)
+    /// https://hellofresh.fr.evil.com/recipes/x-6192a1f3a6b8c9001234abcd                 → nil (domaine usurpé)
+    /// https://jow.fr/recipes/crepes-maison-83jq25q5innb780q0wzk                         → .jow
+    /// https://jow.fr/en/recipes/pancakes-83jq25q5innb780q0wzk                           → .jow
+    /// https://jow.fr/recipes/                                                           → nil (page de liste)
+    /// https://jow.fr/                                                                   → nil (accueil)
+    /// https://www.quitoque.fr/recettes/poulet-tikka-masala                              → .quitoque
+    /// https://www.quitoque.fr/recettes                                                  → nil (page de liste)
+    /// https://www.quitoque.fr/recettes/recettes-de-saison                               → nil (collection)
+    /// https://www.quitoque.fr/                                                          → nil (accueil)
+    /// https://www.marmiton.org/recettes/poulet.aspx                                     → nil (autre site)
     private func recipeSource(_ url: String?) -> RecipeSource? {
-        guard let url = url, let host = URL(string: url)?.host?.lowercased() else { return nil }
+        guard let url = url, let parsedUrl = URL(string: url), let host = parsedUrl.host?.lowercased() else { return nil }
+        let path = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)?.path ?? parsedUrl.path
         func matches(_ pattern: String, _ value: String) -> Bool {
             value.range(of: pattern, options: .regularExpression) != nil
         }
         // hellofresh.fr, .com, .be, .co.uk… mais pas hellofresh.fr.autre-site.com
-        if matches(#"(^|\.)hellofresh\.([a-z]{2,3}|co\.uk|com\.au)$"#, host) { return .hellofresh }
-        if matches(#"(^|\.)jow\.fr$"#, host) && matches(#"jow\.fr/(en/)?recipes/"#, url) { return .jow }
-        if matches(#"(^|\.)quitoque\.fr$"#, host) { return .quitoque }
+        // Il faut un identifiant hexadécimal après "/recipes/" : "/recipes/<slug>-<id>".
+        if matches(#"(^|\.)hellofresh\.([a-z]{2,3}|co\.uk|com\.au)$"#, host),
+           matches(#"/recipes/[^/?#]+-[0-9a-f]{20,}(?:[/?#]|$)"#, path) {
+            return .hellofresh
+        }
+        // jow.fr/(en/)recipes/<slug>-<id>
+        if matches(#"(^|\.)jow\.fr$"#, host),
+           matches(#"/(en/)?recipes/[^?#]+-[a-z0-9]{16,}(?:[?#]|$)"#, url) {
+            return .jow
+        }
+        // quitoque.fr/recettes/<slug> uniquement (pas /recettes seul, ni
+        // /recettes/recettes-de-saison qui est une collection).
+        if matches(#"(^|\.)quitoque\.fr$"#, host) {
+            let segments = path.split(separator: "/").map(String.init)
+            if segments.count == 2, segments[0] == "recettes", segments[1] != "recettes-de-saison" {
+                return .quitoque
+            }
+        }
         return nil
     }
 

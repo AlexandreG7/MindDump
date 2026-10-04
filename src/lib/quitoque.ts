@@ -1,5 +1,27 @@
 import { stripHtml, type ParsedRecipe } from "./hellofresh";
 
+// Cartes qui pointent une collection et non une recette précise, même si
+// leur URL a la forme "/recettes/<slug>" (ex: lien "Recettes de saison").
+const QUITOQUE_COLLECTION_SLUGS = new Set(["recettes-de-saison"]);
+
+/**
+ * Une URL Quitoque pointe une recette précise seulement si son chemin est
+ * exactement "/recettes/<slug>" : la liste ("/recettes", "/recettes/"),
+ * l'accueil, l'abonnement ou une collection ne sont pas des recettes.
+ */
+export function isQuitoqueRecipeUrl(url: string): boolean {
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length !== 2 || segments[0] !== "recettes") return false;
+  const slug = segments[1];
+  return slug.length > 0 && !QUITOQUE_COLLECTION_SLUGS.has(slug);
+}
+
 interface QuitoqueJsonLdRecipe {
   "@type"?: string;
   name?: string;
