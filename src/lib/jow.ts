@@ -10,16 +10,33 @@ export function isJowHost(url: string): boolean {
 }
 
 /**
- * Une URL Jow pointe une recette précise seulement si le dernier segment de
- * "/recipes/" porte un identifiant ("/recipes/<slug>-<id>"). Les pages de
- * liste ("/recipes/", "/recipes"), l'accueil ou toute autre page du site ne
- * sont pas des recettes. L'hôte est vérifié via `new URL()` (ancré), jamais
- * par une recherche de sous-chaîne dans l'URL complète.
+ * Une URL Jow est une recette *candidate* si son chemin est
+ * "/recipes/<slug non vide>" (slug complet, id compris ou pas). Rien ne
+ * garantit que l'id Jow fait une longueur ou une casse donnée (deux exemples
+ * réels font 20 caractères) : on ne filtre donc plus sur sa forme. Les pages
+ * de liste nue ("/recipes/", "/recipes"), l'accueil ou toute autre page du
+ * site ne sont pas des candidates. C'est ensuite le contenu (ni ingrédients
+ * ni étapes → 422) qui tranche, comme pour HelloFresh et Quitoque. L'hôte
+ * est vérifié via `new URL()` (ancré), jamais par une recherche de
+ * sous-chaîne dans l'URL complète.
  */
 export function isJowUrl(url: string): boolean {
-  return extractJowSlugId(url) !== null;
+  if (!isJowHost(url)) return false;
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  return /^\/(?:en\/)?recipes\/[^/?#]+\/?$/i.test(pathname);
 }
 
+/**
+ * Extrait l'id Jow (hash hexadécimal) quand le dernier segment de
+ * "/recipes/" en porte un ("/recipes/<slug>-<id>"). Utile si un appelant a
+ * vraiment besoin de l'id ; ne sert plus de porte d'entrée pour accepter ou
+ * refuser une URL (voir `isJowUrl`).
+ */
 export function extractJowSlugId(url: string): string | null {
   if (!isJowHost(url)) return null;
   let pathname: string;

@@ -36,6 +36,11 @@ test("recipeSource : HelloFresh", () => {
 test("recipeSource : Jow", () => {
   assert.equal(recipeSource("https://jow.fr/recipes/crepes-maison-83jq25q5innb780q0wzk"), "jow");
   assert.equal(recipeSource("https://jow.fr/en/recipes/pancakes-83jq25q5innb780q0wzk"), "jow");
+  // Un id court ou en majuscules reste une recette candidate : rien ne
+  // garantit la longueur ou la casse de l'id Jow, c'est le contenu qui tranche.
+  assert.equal(recipeSource("https://jow.fr/recipes/crepes-maison-ABC123"), "jow");
+  assert.equal(recipeSource("https://jow.fr/recipes/crepes-maison"), "jow");
+  // Liste nue : toujours refusée.
   assert.equal(recipeSource("https://jow.fr/recipes/"), null);
   assert.equal(recipeSource("https://jow.fr/recipes"), null);
   assert.equal(recipeSource("https://jow.fr/"), null);
@@ -65,7 +70,9 @@ test("helpers de reconnaissance d'URL cohérents avec recipeSource", () => {
   assert.equal(isHelloFreshRecipeUrl(`https://www.hellofresh.fr/recipes/x-${HF_ID}`), true);
   assert.equal(isHelloFreshRecipeUrl("https://www.hellofresh.fr/recipes/"), false);
   assert.equal(isJowUrl("https://jow.fr/recipes/crepes-maison-83jq25q5innb780q0wzk"), true);
+  assert.equal(isJowUrl("https://jow.fr/recipes/crepes-maison-ABC123"), true);
   assert.equal(isJowUrl("https://jow.fr/recipes/"), false);
+  assert.equal(isJowUrl("https://jow.fr/recipes"), false);
   assert.equal(isQuitoqueRecipeUrl("https://www.quitoque.fr/recettes/poulet-tikka-masala"), true);
   assert.equal(isQuitoqueRecipeUrl("https://www.quitoque.fr/recettes"), false);
 });
