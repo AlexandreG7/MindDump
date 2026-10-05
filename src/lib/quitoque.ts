@@ -1,8 +1,17 @@
 import { stripHtml, type ParsedRecipe } from "./hellofresh";
+import { fetchAllowedUrl, isAllowedUrl } from "./safeFetch";
 
 // Cartes qui pointent une collection et non une recette précise, même si
 // leur URL a la forme "/recettes/<slug>" (ex: lien "Recettes de saison").
 const QUITOQUE_COLLECTION_SLUGS = new Set(["recettes-de-saison"]);
+
+// quitoque.fr uniquement (ni sous-domaine arbitraire, ni "quitoque.fr.evil.com").
+const QUITOQUE_HOST = /^(?:www\.)?quitoque\.fr$/i;
+
+/** Vrai si l'URL pointe le site Quitoque (hôte autorisé), recette ou pas. */
+export function isQuitoqueHost(url: string): boolean {
+  return isAllowedUrl(url, QUITOQUE_HOST);
+}
 
 /**
  * Une URL Quitoque pointe une recette précise seulement si son chemin est
@@ -10,6 +19,7 @@ const QUITOQUE_COLLECTION_SLUGS = new Set(["recettes-de-saison"]);
  * l'accueil, l'abonnement ou une collection ne sont pas des recettes.
  */
 export function isQuitoqueRecipeUrl(url: string): boolean {
+  if (!isQuitoqueHost(url)) return false;
   let pathname: string;
   try {
     pathname = new URL(url).pathname;
@@ -165,12 +175,12 @@ export function parseQuitoqueHtml(html: string): ParsedRecipe {
 }
 
 export async function fetchQuitoquePage(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  if (!isQuitoqueHost(url)) {
+    throw new Error("URL Quitoque non autorisée");
+  }
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
+    const res = await fetchAllowedUrl(url, QUITOQUE_HOST, {
+      timeoutMs: 15000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -178,7 +188,6 @@ export async function fetchQuitoquePage(url: string): Promise<string> {
         "Accept-Language": "fr-FR,fr;q=0.9",
       },
     });
-    clearTimeout(timeout);
     if (!res.ok)
       throw new Error(`Quitoque a retourné une erreur ${res.status}`);
     const html = await res.text();
@@ -186,8 +195,7 @@ export async function fetchQuitoquePage(url: string): Promise<string> {
       throw new Error("Page Quitoque trop courte (probablement bloquée)");
     return html;
   } catch (err) {
-    clearTimeout(timeout);
-    if (err instanceof Error && err.name === "AbortError") {
+    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
       throw new Error("Timeout: Quitoque n'a pas répondu en 15s");
     }
     throw err;

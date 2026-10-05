@@ -55,6 +55,23 @@ const nextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // src/lib/jow.ts, hellofresh.ts et quitoque.ts exportent à la fois des
+  // helpers purs utilisés côté client (partage, src/lib/share.ts) et des
+  // fonctions de fetch serveur (src/lib/safeFetch.ts, protection SSRF) qui
+  // importent "dns/promises" et "net" : absents du navigateur, jamais
+  // appelés côté client, mais le bundle client doit quand même pouvoir
+  // résoudre ces imports (à vide).
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        dns: false,
+        "dns/promises": false,
+        net: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default withSerwist(nextConfig);

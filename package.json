@@ -14,7 +14,8 @@
     "test:ownership": "sh scripts/test-ownership.sh",
     "test:drive": "tsx --test src/lib/drive/drive.test.ts",
     "test:ai-import": "tsx --test src/lib/ai/importPlanning.test.ts",
-    "test:import-url": "tsx --test src/lib/importUrl.test.ts"
+    "test:import-url": "tsx --test src/lib/importUrl.test.ts",
+    "test:safe-fetch": "tsx --test src/lib/safeFetch.test.ts"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",

@@ -6,6 +6,8 @@ import {
   extractRecipeId,
   fetchHelloFreshPage,
   parseHelloFreshPage,
+  isHelloFreshHost,
+  isHelloFreshRecipeUrl,
 } from "@/lib/hellofresh";
 import { resolveGroupId, assertGroupMember } from "@/lib/groupAuth";
 
@@ -17,15 +19,31 @@ export async function POST(req: NextRequest) {
     if (!user) return unauthorized();
 
     const body = await req.json().catch(() => null);
-    if (!body?.url || !String(body.url).includes("hellofresh")) {
+    if (!body?.url || typeof body.url !== "string") {
       return NextResponse.json(
         { error: "URL HelloFresh invalide" },
         { status: 400 }
       );
     }
+    const rawUrl: string = body.url;
+    // L'hôte doit être HelloFresh (et seulement lui) avant tout fetch.
+    if (!isHelloFreshHost(rawUrl)) {
+      return NextResponse.json(
+        { error: "Lien non pris en charge" },
+        { status: 400 }
+      );
+    }
 
-    const targetUrl = String(body.url).split("?")[0];
+    const targetUrl = rawUrl.split("?")[0];
     const servings = body.servings || 4;
+
+    // Bon site, mais pas une recette (liste, accueil…) : pas de fetch à faire.
+    if (!isHelloFreshRecipeUrl(targetUrl)) {
+      return NextResponse.json(
+        { error: "Ce lien n'est pas une recette HelloFresh" },
+        { status: 422 }
+      );
+    }
 
     // Try API first (works from Hetzner), fall back to HTML scraping
     const enriched = await fetchEnrichedData(targetUrl, servings, body.hfToken);
@@ -108,9 +126,7 @@ export async function POST(req: NextRequest) {
       stepImages: enriched.steps.filter((s) => s.image).length,
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: `Erreur serveur: ${e instanceof Error ? e.message : "inconnue"}` },
-      { status: 500 }
-    );
+    console.error("[import-hellofresh]", e);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

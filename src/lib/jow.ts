@@ -1,17 +1,34 @@
 import { type EnrichedData } from "./hellofresh";
+import { fetchAllowedUrl, isAllowedUrl } from "./safeFetch";
+
+// jow.fr uniquement (ni sous-domaine arbitraire, ni "jow.fr.evil.com").
+const JOW_HOST = /^(?:www\.)?jow\.fr$/i;
+
+/** Vrai si l'URL pointe le site Jow (hôte autorisé), recette ou pas. */
+export function isJowHost(url: string): boolean {
+  return isAllowedUrl(url, JOW_HOST);
+}
 
 /**
  * Une URL Jow pointe une recette précise seulement si le dernier segment de
  * "/recipes/" porte un identifiant ("/recipes/<slug>-<id>"). Les pages de
  * liste ("/recipes/", "/recipes"), l'accueil ou toute autre page du site ne
- * sont pas des recettes.
+ * sont pas des recettes. L'hôte est vérifié via `new URL()` (ancré), jamais
+ * par une recherche de sous-chaîne dans l'URL complète.
  */
 export function isJowUrl(url: string): boolean {
   return extractJowSlugId(url) !== null;
 }
 
 export function extractJowSlugId(url: string): string | null {
-  const match = url.match(/jow\.fr\/(?:en\/)?recipes\/[^?#]+-([a-z0-9]{16,})(?:[?#]|$)/i);
+  if (!isJowHost(url)) return null;
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return null;
+  }
+  const match = pathname.match(/^\/(?:en\/)?recipes\/[^/?#]+-([a-z0-9]{16,})\/?$/i);
   return match ? match[1] : null;
 }
 
@@ -111,12 +128,12 @@ function parseIngredientString(s: string): { name: string; quantity: string; uni
 }
 
 export async function fetchJowPage(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  if (!isJowHost(url)) {
+    throw new Error("URL Jow non autorisée");
+  }
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
+    const res = await fetchAllowedUrl(url, JOW_HOST, {
+      timeoutMs: 15000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -125,14 +142,12 @@ export async function fetchJowPage(url: string): Promise<string> {
         "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
       },
     });
-    clearTimeout(timeout);
     if (!res.ok) throw new Error(`Jow a retourné une erreur ${res.status}`);
     const html = await res.text();
     if (html.length < 500) throw new Error("Page Jow trop courte");
     return html;
   } catch (err) {
-    clearTimeout(timeout);
-    if (err instanceof Error && err.name === "AbortError") {
+    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
       throw new Error("Timeout: Jow n'a pas répondu en 15s");
     }
     throw err;

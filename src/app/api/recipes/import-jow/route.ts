@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
-import { fetchJowRecipe, isJowUrl } from "@/lib/jow";
+import { fetchJowRecipe, isJowUrl, isJowHost } from "@/lib/jow";
 import { resolveGroupId, assertGroupMember } from "@/lib/groupAuth";
 
 export const dynamic = "force-dynamic";
@@ -12,21 +12,29 @@ export async function POST(req: NextRequest) {
     if (!user) return unauthorized();
 
     const body = await req.json().catch(() => null);
-    if (body?.url && !isJowUrl(String(body.url)) && /^https?:\/\/(www\.)?jow\.fr(\/|$)/i.test(String(body.url))) {
+    if (!body?.url || typeof body.url !== "string") {
+      return NextResponse.json(
+        { error: "URL Jow invalide" },
+        { status: 400 }
+      );
+    }
+    const rawUrl: string = body.url;
+    // L'hôte doit être Jow (et seulement lui) avant tout fetch.
+    if (!isJowHost(rawUrl)) {
+      return NextResponse.json(
+        { error: "Lien non pris en charge" },
+        { status: 400 }
+      );
+    }
+    if (!isJowUrl(rawUrl)) {
       // Page Jow qui n'est pas une recette (liste, accueil) : même contrat que HelloFresh/Quitoque.
       return NextResponse.json(
         { error: "Ce lien n'est pas une recette Jow" },
         { status: 422 }
       );
     }
-    if (!body?.url || !isJowUrl(String(body.url))) {
-      return NextResponse.json(
-        { error: "URL Jow invalide" },
-        { status: 400 }
-      );
-    }
 
-    const targetUrl = String(body.url).split("?")[0];
+    const targetUrl = rawUrl.split("?")[0];
     const servings = body.servings || 4;
 
     const parsed = await fetchJowRecipe(targetUrl, servings);
@@ -84,9 +92,7 @@ export async function POST(req: NextRequest) {
       hasImage: !!parsed.heroImage,
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: `Erreur serveur: ${e instanceof Error ? e.message : "inconnue"}` },
-      { status: 500 }
-    );
+    console.error("[import-jow]", e);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
