@@ -12,6 +12,13 @@ export async function POST(req: NextRequest) {
     if (!user) return unauthorized();
 
     const body = await req.json().catch(() => null);
+    if (body?.url && !isJowUrl(String(body.url)) && /^https?:\/\/(www\.)?jow\.fr(\/|$)/i.test(String(body.url))) {
+      // Page Jow qui n'est pas une recette (liste, accueil) : même contrat que HelloFresh/Quitoque.
+      return NextResponse.json(
+        { error: "Ce lien n'est pas une recette Jow" },
+        { status: 422 }
+      );
+    }
     if (!body?.url || !isJowUrl(String(body.url))) {
       return NextResponse.json(
         { error: "URL Jow invalide" },
