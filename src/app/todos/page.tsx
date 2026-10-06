@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
 import { notifyRemindersChanged } from "@/lib/localReminders";
 import { useGroupContext } from "@/components/GroupContext";
+import { useDeferredDelete } from "@/lib/useDeferredDelete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2, AlertCircle, Calendar, Repeat, Sparkles } from "lucide-react";
 import { RECURRENCE_LABELS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
-import { TOAST_ACTION_DURATION, useFeedback } from "@/components/ui/feedback";
+import { useFeedback } from "@/components/ui/feedback";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AssigneeAvatars,
@@ -56,13 +57,12 @@ const PEOPLE_KEY = "todos:people";
 export default function TodosPage() {
   const { status, isReady } = useAuth();
   const { currentGroupId } = useGroupContext();
-  const { toast, dismiss } = useFeedback();
+  const { toast } = useFeedback();
   // null tant que le premier chargement n'est pas revenu.
   const [todos, setTodos] = useState<Todo[] | null>(null);
   // Suppressions en attente : la tâche disparaît tout de suite, la requête part
   // à la fin du délai d'annulation.
-  const pendingDeletes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; toastId: number }>());
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const { hidden, requestDelete } = useDeferredDelete();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newTodo, setNewTodo] = useState({
     title: "",
@@ -161,47 +161,18 @@ export default function TodosPage() {
     notifyRemindersChanged();
   };
 
-  const sendDelete = (id: string) => {
-    pendingDeletes.current.delete(id);
-    return fetch(`/api/todos/${id}`, { method: "DELETE", keepalive: true })
-      .catch(() => null)
-      .finally(() => notifyRemindersChanged());
-  };
-
   const deleteTodo = (todo: Todo) => {
-    setHidden((h) => new Set(h).add(todo.id));
-    const timer = setTimeout(async () => {
-      const res = await sendDelete(todo.id);
-      if (!res?.ok) toast("La tâche n'a pas pu être supprimée.", "error");
-      fetchTodos();
-    }, TOAST_ACTION_DURATION);
-    const toastId = toast(`« ${todo.title} » supprimée`, "info", {
-      label: "Annuler",
-      onClick: () => {
-        clearTimeout(pendingDeletes.current.get(todo.id)?.timer);
-        pendingDeletes.current.delete(todo.id);
-        setHidden((h) => {
-          const next = new Set(h);
-          next.delete(todo.id);
-          return next;
-        });
+    requestDelete({
+      id: todo.id,
+      url: `/api/todos/${todo.id}`,
+      confirmMessage: `« ${todo.title} » supprimée`,
+      errorMessage: "La tâche n'a pas pu être supprimée.",
+      refresh: () => {
+        fetchTodos();
+        notifyRemindersChanged();
       },
     });
-    pendingDeletes.current.set(todo.id, { timer, toastId });
   };
-
-  // En quittant la page, les suppressions en attente partent tout de suite.
-  useEffect(() => {
-    const pending = pendingDeletes.current;
-    return () => {
-      pending.forEach(({ timer, toastId }, id) => {
-        clearTimeout(timer);
-        dismiss(toastId);
-        sendDelete(id);
-      });
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Quick add with Enter
   const [quickAdd, setQuickAdd] = useState("");

@@ -8,6 +8,7 @@ import {
   fetchFromHelloFreshAPI,
   parseAPIResponse,
   extractRecipeId,
+  isHelloFreshHost,
   type EnrichedData,
 } from "@/lib/hellofresh";
 import { isJowUrl, fetchJowRecipe } from "@/lib/jow";
@@ -26,7 +27,7 @@ export async function POST(
     const body = await req.json().catch(() => null);
     const url = String(body?.url || "");
     const isJow = isJowUrl(url);
-    const isHF = url.includes("hellofresh");
+    const isHF = isHelloFreshHost(url);
     if (!body?.url || (!isJow && !isHF)) {
       return NextResponse.json(
         { error: "URL invalide — Jow ou HelloFresh attendu" },

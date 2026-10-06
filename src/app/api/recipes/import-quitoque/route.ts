@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
-import { parseQuitoqueRecipe } from "@/lib/quitoque";
+import { parseQuitoqueRecipe, isQuitoqueHost, isQuitoqueRecipeUrl } from "@/lib/quitoque";
 import { resolveGroupId, assertGroupMember } from "@/lib/groupAuth";
 
 export const dynamic = "force-dynamic";
@@ -12,15 +12,31 @@ export async function POST(req: NextRequest) {
     if (!user) return unauthorized();
 
     const body = await req.json().catch(() => null);
-    if (!body?.url || !String(body.url).includes("quitoque")) {
+    if (!body?.url || typeof body.url !== "string") {
       return NextResponse.json(
         { error: "URL Quitoque invalide" },
         { status: 400 }
       );
     }
+    const rawUrl: string = body.url;
+    // L'hôte doit être Quitoque (et seulement lui) avant tout fetch.
+    if (!isQuitoqueHost(rawUrl)) {
+      return NextResponse.json(
+        { error: "Lien non pris en charge" },
+        { status: 400 }
+      );
+    }
 
-    const targetUrl = String(body.url).split("?")[0];
+    const targetUrl = rawUrl.split("?")[0];
     const servings = body.servings || 2;
+
+    // Bon site, mais pas une recette (liste, accueil, abonnement…).
+    if (!isQuitoqueRecipeUrl(targetUrl)) {
+      return NextResponse.json(
+        { error: "Ce lien n'est pas une recette Quitoque" },
+        { status: 422 }
+      );
+    }
 
     const parsed = await parseQuitoqueRecipe(targetUrl);
 
@@ -28,6 +44,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Impossible de récupérer la recette Quitoque." },
         { status: 502 }
+      );
+    }
+
+    // Page de liste, d'accueil... : pas de recette à créer.
+    if (parsed.ingredients.length === 0 && parsed.steps.length === 0) {
+      return NextResponse.json(
+        { error: "Ce lien n'est pas une recette Quitoque" },
+        { status: 422 }
       );
     }
 
@@ -70,9 +94,7 @@ export async function POST(req: NextRequest) {
       hasImage: !!parsed.heroImage,
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: `Erreur serveur: ${e instanceof Error ? e.message : "inconnue"}` },
-      { status: 500 }
-    );
+    console.error("[import-quitoque]", e);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

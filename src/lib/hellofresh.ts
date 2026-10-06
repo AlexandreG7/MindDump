@@ -1,3 +1,14 @@
+import { fetchAllowedUrl, isAllowedUrl } from "./safeFetch";
+
+// hellofresh.fr, .com, .de, .co.uk, .com.au… mais pas hellofresh.fr.evil.com
+// ni un sous-domaine arbitraire : seuls www. et le nu sont acceptés.
+const HELLOFRESH_HOST = /^(?:www\.)?hellofresh\.(?:[a-z]{2,3}|co\.uk|com\.au)$/i;
+
+/** Vrai si l'URL pointe le site HelloFresh (hôte autorisé), recette ou pas. */
+export function isHelloFreshHost(url: string): boolean {
+  return isAllowedUrl(url, HELLOFRESH_HOST);
+}
+
 function decodeHtml(text: string): string {
   return text
     .replace(/&amp;/g, "&")
@@ -30,6 +41,26 @@ export function stripHtml(text: string): string {
 export function extractRecipeId(url: string): string | null {
   const match = url.match(/([0-9a-f]{20,})(?:\?|$)/);
   return match ? match[1] : null;
+}
+
+/**
+ * Une URL HelloFresh pointe une recette précise seulement si le segment qui
+ * suit "/recipes/" porte l'identifiant hexadécimal : "/recipes/<slug>-<id>".
+ * Les pages de liste ("/recipes/", "/recipes/under-30-minutes"…), l'accueil
+ * ou toute autre page du site ne sont pas des recettes.
+ */
+export function isHelloFreshRecipeUrl(url: string): boolean {
+  if (!isHelloFreshHost(url)) return false;
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  const segments = pathname.split("/").filter(Boolean);
+  const idx = segments.indexOf("recipes");
+  if (idx === -1 || idx === segments.length - 1) return false;
+  return /-[0-9a-f]{20,}$/i.test(segments[idx + 1]);
 }
 
 export interface ParsedRecipe {
@@ -386,12 +417,12 @@ export function parseHelloFreshPage(html: string): ParsedRecipe {
 }
 
 export async function fetchHelloFreshPage(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  if (!isHelloFreshHost(url)) {
+    throw new Error("URL HelloFresh non autorisée");
+  }
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
+    const res = await fetchAllowedUrl(url, HELLOFRESH_HOST, {
+      timeoutMs: 15000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -409,7 +440,6 @@ export async function fetchHelloFreshPage(url: string): Promise<string> {
         Connection: "keep-alive",
       },
     });
-    clearTimeout(timeout);
     if (!res.ok)
       throw new Error(`HelloFresh a retourne une erreur ${res.status}`);
     const html = await res.text();
@@ -417,8 +447,7 @@ export async function fetchHelloFreshPage(url: string): Promise<string> {
       throw new Error("Page HelloFresh trop courte (probablement bloquee)");
     return html;
   } catch (err) {
-    clearTimeout(timeout);
-    if (err instanceof Error && err.name === "AbortError") {
+    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
       throw new Error("Timeout: HelloFresh n'a pas repondu en 15s");
     }
     throw err;

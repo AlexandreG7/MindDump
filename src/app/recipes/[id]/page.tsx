@@ -14,6 +14,7 @@ import {
 import { RecipeView, type RecipeViewData } from "@/components/recipes/RecipeView";
 import { ShareRecipeDialog } from "@/components/recipes/ShareRecipeDialog";
 import { useFeedback } from "@/components/ui/feedback";
+import { prepareRecipePhoto } from "@/lib/image";
 
 interface Recipe extends RecipeViewData {
   id: string;
@@ -111,7 +112,7 @@ export default function RecipeDetailPage() {
   const uploadImage = async (file: File) => {
     setUploadingImage(true);
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", await prepareRecipePhoto(file), "photo.jpg");
     const res = await fetch(`/api/recipes/${id}/image`, {
       method: "POST",
       body: formData,

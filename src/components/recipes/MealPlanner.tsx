@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { cn } from "@/lib/utils";
 import { TOAST_ACTION_DURATION, useFeedback } from "@/components/ui/feedback";
 import { MEAL_SLOTS, type MealSlot } from "@/lib/meals";
+import { thumbnailUrl } from "@/lib/image";
 
 export interface PlannerRecipe {
   id: string;
@@ -342,7 +343,7 @@ export function MealPlanner({
                   >
                     {r.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={r.image} alt="" className="w-10 h-10 rounded-md object-cover shrink-0" />
+                      <img src={thumbnailUrl(r.image, 120)} alt="" loading="lazy" decoding="async" className="w-10 h-10 rounded-md object-cover shrink-0" />
                     ) : (
                       <span className="w-10 h-10 rounded-md bg-muted shrink-0" />
                     )}

@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
 import { fillMatchCart, useMatchDriveAvailable } from "@/lib/matchDrive";
 import { useGroupContext } from "@/components/GroupContext";
+import { useDeferredDelete } from "@/lib/useDeferredDelete";
 import {
   applyOps,
   flushPendingOps,
@@ -42,6 +43,7 @@ import {
   WifiOff,
   RefreshCw,
 } from "lucide-react";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface ShoppingItem {
   id: string;
@@ -66,7 +68,7 @@ interface ShoppingList {
 interface Recipe {
   id: string;
   title: string;
-  ingredients: { id: string; name: string; quantity: string; unit: string | null }[];
+  ingredientCount: number;
 }
 
 interface GroupedItem {
@@ -165,25 +167,37 @@ function groupItems(items: ShoppingItem[]): GroupedItem[] {
 export default function ListsPage() {
   const { isReady } = useAuth();
   const { currentGroupId } = useGroupContext();
+  const { toast } = useFeedback();
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newList, setNewList] = useState({ name: "", type: "GROCERY" as "GROCERY" | "ONLINE" });
   const { online, pending } = useOfflineStatus();
+  // Suppression de liste avec annulation : la liste est masquée tout de suite,
+  // la requête DELETE part à la fin du délai (comme pour les tâches).
+  const { hidden: hiddenLists, requestDelete } = useDeferredDelete();
 
   // Hors ligne, /api/lists vient du cache du service worker (src/app/sw.ts) :
   // on y rejoue les modifications en attente pour ne pas les faire disparaître.
   const fetchLists = useCallback(() => {
+    // Réponse en erreur (groupe enregistré invalide, etc.) : on garde les
+    // listes précédentes plutôt que d'écraser l'état avec l'objet d'erreur.
     fetch("/api/lists")
-      .then((r) => r.json())
-      .then((data: ShoppingList[]) => setLists(withPending(data)))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: ShoppingList[] | null) => {
+        if (data) setLists(withPending(data));
+      })
       .catch(() => {});
   }, []);
 
   const fetchRecipes = useCallback(() => {
-    fetch("/api/recipes")
-      .then((r) => r.json())
-      .then(setRecipes)
+    // Le choix « ajouter une recette » n'affiche que le titre et le nombre
+    // d'ingrédients : inutile de charger les recettes complètes.
+    fetch("/api/recipes?fields=summary")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setRecipes(data);
+      })
       .catch(() => {});
   }, []);
 
@@ -236,9 +250,14 @@ export default function ListsPage() {
     fetchLists();
   };
 
-  const deleteList = async (id: string) => {
-    await fetch(`/api/lists/${id}`, { method: "DELETE" });
-    fetchLists();
+  const deleteList = (list: ShoppingList) => {
+    requestDelete({
+      id: list.id,
+      url: `/api/lists/${list.id}`,
+      confirmMessage: `« ${list.name} » supprimée`,
+      errorMessage: "La liste n'a pas pu être supprimée.",
+      refresh: fetchLists,
+    });
   };
 
   const addItem = (listId: string, item: Omit<NewItem, "id">) =>
@@ -272,8 +291,9 @@ export default function ListsPage() {
 
   if (!isReady) return null;
 
-  const groceryLists = lists.filter((l) => l.type === "GROCERY");
-  const onlineLists = lists.filter((l) => l.type === "ONLINE");
+  const visibleLists = lists.filter((l) => !hiddenLists.has(l.id));
+  const groceryLists = visibleLists.filter((l) => l.type === "GROCERY");
+  const onlineLists = visibleLists.filter((l) => l.type === "ONLINE");
 
   return (
     <div className="space-y-6">
@@ -442,7 +462,7 @@ function ListGroup({
   onToggleItem: (listId: string, itemId: string, checked: boolean) => void;
   onDeleteGroup: (listId: string, items: ShoppingItem[]) => void;
   onDeleteItem: (listId: string, itemId: string) => void;
-  onDeleteList: (id: string) => void;
+  onDeleteList: (list: ShoppingList) => void;
 }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [itemName, setItemName] = useState("");
@@ -560,7 +580,7 @@ function ListGroup({
                               <ChefHat className="h-4 w-4 mr-2 shrink-0" />
                               <span className="truncate">{recipe.title}</span>
                               <span className="text-xs text-muted-foreground ml-auto pl-2">
-                                {recipe.ingredients.length} ing.
+                                {recipe.ingredientCount} ing.
                               </span>
                             </Button>
                           </DialogClose>
@@ -579,13 +599,17 @@ function ListGroup({
                   </button>
                 )}
                 {online && (
-                  <button
-                    className="grocery-icon-btn grocery-icon-btn-danger"
-                    onClick={() => onDeleteList(list.id)}
-                    title="Supprimer la liste"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <>
+                    <span className="grocery-icon-divider" aria-hidden="true" />
+                    <button
+                      className="grocery-icon-btn grocery-icon-btn-danger grocery-icon-btn-delete"
+                      onClick={() => onDeleteList(list)}
+                      title="Supprimer la liste"
+                      aria-label={`Supprimer la liste « ${list.name} »`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
