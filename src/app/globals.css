@@ -345,6 +345,22 @@
     color: hsl(var(--destructive));
   }
 
+  /* Suppression de liste : cible tactile ≥ 44px, séparée des icônes voisines
+     (ajout de recette…) pour éviter les appuis accidentels. */
+  .grocery-icon-btn-delete {
+    width: 44px;
+    height: 44px;
+    margin-left: 0.25rem;
+  }
+
+  .grocery-icon-divider {
+    width: 1px;
+    height: 20px;
+    margin: 0 0.125rem;
+    background: hsl(var(--border));
+    flex-shrink: 0;
+  }
+
   .grocery-add-section {
     padding: 0.5rem 0.75rem;
   }

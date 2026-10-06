@@ -187,6 +187,42 @@ async function main() {
   await expectVisible(bob, bobInShared, bob.defaultGroupId, "après départ");
   await expectVisible(carol, bobInShared, shared.json.id, "après départ (reste au groupe)");
 
+  console.log("6. Un admin (non propriétaire) retire un membre simple");
+  const dave = await makeUser("dave");
+  const eve = await makeUser("eve");
+  const frank = await makeUser("frank");
+  // Dave est admin du foyer d'Alice, Eve et Frank y sont membres simples.
+  await prisma.groupMember.create({ data: { groupId: alice.defaultGroupId, userId: dave.id, role: "admin" } });
+  await prisma.groupMember.create({ data: { groupId: alice.defaultGroupId, userId: eve.id, role: "member" } });
+  await prisma.groupMember.create({ data: { groupId: alice.defaultGroupId, userId: frank.id, role: "member" } });
+  const eveInAlice = await createAll(eve, alice.defaultGroupId, "eve-chez-alice");
+
+  const adminRemovesMember = await api(dave, "DELETE", `/api/groups/${alice.defaultGroupId}/members/${eve.id}`);
+  check(adminRemovesMember.status === 200, `un admin retire un membre simple (${adminRemovesMember.status})`);
+  await expectVisible(eve, eveInAlice, eve.defaultGroupId, "retirée par un admin");
+  await expectVisible(alice, eveInAlice, alice.defaultGroupId, "retirée par un admin (reste au foyer)");
+
+  console.log("7. Un admin ne peut retirer ni un autre admin, ni le propriétaire");
+  // Promouvons Frank admin pour tester le cas « admin retire un autre admin ».
+  await prisma.groupMember.update({
+    where: { groupId_userId: { groupId: alice.defaultGroupId, userId: frank.id } },
+    data: { role: "admin" },
+  });
+  const adminRemovesOtherAdmin = await api(dave, "DELETE", `/api/groups/${alice.defaultGroupId}/members/${frank.id}`);
+  check(adminRemovesOtherAdmin.status === 403, `un admin ne peut pas retirer un autre admin (${adminRemovesOtherAdmin.status})`);
+  const adminRemovesOwner = await api(dave, "DELETE", `/api/groups/${alice.defaultGroupId}/members/${alice.id}`);
+  check(adminRemovesOwner.status === 400, `un admin ne peut pas retirer le propriétaire (${adminRemovesOwner.status})`);
+
+  console.log("8. Un membre simple ne peut pas retirer un autre membre");
+  await prisma.groupMember.update({
+    where: { groupId_userId: { groupId: alice.defaultGroupId, userId: frank.id } },
+    data: { role: "member" },
+  });
+  const grace = await makeUser("grace");
+  await prisma.groupMember.create({ data: { groupId: alice.defaultGroupId, userId: grace.id, role: "member" } });
+  const memberRemovesMember = await api(frank, "DELETE", `/api/groups/${alice.defaultGroupId}/members/${grace.id}`);
+  check(memberRemovesMember.status === 403, `un membre simple ne peut pas retirer un autre membre (${memberRemovesMember.status})`);
+
   console.log(`\n${checks - failures}/${checks} vérifications OK`);
 }
 

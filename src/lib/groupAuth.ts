@@ -17,6 +17,21 @@ export async function assertGroupMember(groupId: string, userId: string) {
 }
 
 /**
+ * Vérifie si l'utilisateur est admin du groupe (propriétaire ou membre au rôle "admin").
+ */
+export async function isGroupAdmin(
+  groupId: string,
+  userId: string,
+  ownerId?: string
+): Promise<boolean> {
+  if (ownerId !== undefined && ownerId === userId) return true;
+  const member = await prisma.groupMember.findFirst({
+    where: { groupId, userId, role: "admin" },
+  });
+  return !!member;
+}
+
+/**
  * Résout le groupId pour une création de ressource.
  * Si groupId fourni → le retourne tel quel.
  * Sinon → retourne le groupe par défaut de l'utilisateur.
