@@ -9,7 +9,8 @@
     "start:sse": "MCP_TRANSPORT=sse tsx src/index.ts",
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
-    "dev:sse": "MCP_TRANSPORT=sse tsx watch src/index.ts"
+    "dev:sse": "MCP_TRANSPORT=sse tsx watch src/index.ts",
+    "test:safe-fetch": "tsx --test src/safeFetch.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

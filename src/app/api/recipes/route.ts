@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
-import { fetchEnrichedData } from "@/lib/hellofresh";
+import { fetchEnrichedData, isHelloFreshHost } from "@/lib/hellofresh";
 import { isJowUrl, fetchJowRecipe } from "@/lib/jow";
 
 export const dynamic = "force-dynamic";
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
         };
       }
     } catch { /* Enrichment failed silently */ }
-  } else if (sourceUrl && String(sourceUrl).includes("hellofresh")) {
+  } else if (sourceUrl && isHelloFreshHost(String(sourceUrl))) {
     try {
       const data = await fetchEnrichedData(
         String(sourceUrl),

@@ -3,6 +3,7 @@ import { homedir } from "os";
 import path from "path";
 import { config } from "./config.js";
 import { client } from "./client.js";
+import { safeFetch, UnsafeUrlError } from "./safeFetch.js";
 
 /**
  * Chargement d'une photo depuis une URL, du base64 ou un fichier local,
@@ -29,22 +30,24 @@ function checkSize(size: number) {
 }
 
 async function fromUrl(raw: string): Promise<Buffer> {
-  let url: URL;
+  let response: Response;
   try {
-    url = new URL(raw);
-  } catch {
-    throw new Error(`URL d'image invalide : ${raw}`);
+    response = await safeFetch(raw, {
+      timeoutMs: FETCH_TIMEOUT_MS,
+      headers: { "User-Agent": "MindDump-MCP/1.0" },
+    });
+  } catch (err) {
+    if (err instanceof UnsafeUrlError) {
+      throw new Error(`URL d'image non autorisée : ${err.message}`);
+    }
+    throw err;
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error("Seules les URL http(s) sont acceptées");
-  }
-
-  const response = await fetch(url, {
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    headers: { "User-Agent": "MindDump-MCP/1.0" },
-  });
   if (!response.ok) {
     throw new Error(`Téléchargement de l'image impossible (${response.status})`);
+  }
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().startsWith("image/")) {
+    throw new Error(`Ce lien ne pointe pas une image (content-type: ${contentType || "absent"})`);
   }
   const declared = Number(response.headers.get("content-length") || 0);
   if (declared) checkSize(declared);

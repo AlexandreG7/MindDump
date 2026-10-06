@@ -13,6 +13,27 @@ const imageSourceShape = {
     .describe("Chemin d'un fichier image local (uniquement quand le MCP tourne en local)"),
 };
 
+// Aiguillage vers la bonne route d'import : sur le nom d'hôte (ancré), pas sur
+// une recherche dans toute l'URL. Le serveur MindDump revalide de toute façon
+// l'hôte avant de fetcher ; ceci évite seulement un mauvais routage.
+type RecipeSource = "hellofresh" | "quitoque" | "jow";
+
+function recipeSourceOf(raw: string | undefined): RecipeSource | null {
+  if (!raw) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  const host = url.hostname.toLowerCase();
+  if (/^(?:www\.)?hellofresh\.(?:[a-z]{2,3}|co\.uk|com\.au)$/.test(host)) return "hellofresh";
+  if (/^(?:www\.)?quitoque\.fr$/.test(host)) return "quitoque";
+  if (/^(?:www\.)?jow\.fr$/.test(host) && /^\/(?:en\/)?recipes\//.test(url.pathname)) return "jow";
+  return null;
+}
+
 export function registerRecipeTools(server: McpServer) {
   // ─── Créer une recette ──────────────────────────────────────
   server.tool(
@@ -42,7 +63,8 @@ export function registerRecipeTools(server: McpServer) {
     },
     async (params) => {
       try {
-        if (params.url && params.url.includes("hellofresh")) {
+        const source = recipeSourceOf(params.url);
+        if (source === "hellofresh") {
           const result = await client.post("/api/recipes/import-hellofresh", {
             url: params.url,
             servings: params.servings,
@@ -60,7 +82,7 @@ export function registerRecipeTools(server: McpServer) {
           };
         }
 
-        if (params.url && params.url.includes("quitoque")) {
+        if (source === "quitoque") {
           const result = await client.post("/api/recipes/import-quitoque", {
             url: params.url,
             servings: params.servings,
@@ -78,7 +100,7 @@ export function registerRecipeTools(server: McpServer) {
           };
         }
 
-        if (params.url && /jow\.fr\/(en\/)?recipes\//.test(params.url)) {
+        if (source === "jow") {
           const result = await client.post("/api/recipes/import-jow", {
             url: params.url,
             servings: params.servings,

@@ -4,6 +4,7 @@ import { getSessionUser, unauthorized } from "@/lib/session";
 import { buildItemAccessWhere } from "@/lib/groupAuth";
 import {
   fetchEnrichedData,
+  isHelloFreshHost,
   type EnrichedData,
 } from "@/lib/hellofresh";
 
@@ -144,7 +145,7 @@ export async function PUT(
     if (!user) return unauthorized();
 
     const body = await req.json().catch(() => null);
-    if (!body?.url || !String(body.url).includes("hellofresh")) {
+    if (!body?.url || !isHelloFreshHost(String(body.url))) {
       return NextResponse.json(
         { error: "URL HelloFresh invalide" },
         { status: 400 }

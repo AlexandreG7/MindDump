@@ -1,4 +1,6 @@
+import { isHelloFreshRecipeUrl } from "./hellofresh";
 import { isJowUrl } from "./jow";
+import { isQuitoqueRecipeUrl } from "./quitoque";
 
 /**
  * Contenu reçu par le menu Partager (share_target du manifest, page /partager).
@@ -38,9 +40,13 @@ export function recipeSource(url: string | null): RecipeSource | null {
     return null;
   }
   // hellofresh.fr, .com, .be, .co.uk… mais pas hellofresh.fr.autre-site.com
-  if (/(^|\.)hellofresh\.(?:[a-z]{2,3}|co\.uk|com\.au)$/.test(host)) return "hellofresh";
+  // Seule une URL de recette précise ("/recipes/<slug>-<id>") compte : une
+  // page de liste, l'accueil ou une autre page du site retombe sur "autre
+  // lien" (donc une tâche), comme pour les autres sources.
+  if (/(^|\.)hellofresh\.(?:[a-z]{2,3}|co\.uk|com\.au)$/.test(host) && isHelloFreshRecipeUrl(url))
+    return "hellofresh";
   if (/(^|\.)jow\.fr$/.test(host) && isJowUrl(url)) return "jow";
-  if (/(^|\.)quitoque\.fr$/.test(host)) return "quitoque";
+  if (/(^|\.)quitoque\.fr$/.test(host) && isQuitoqueRecipeUrl(url)) return "quitoque";
   return null;
 }
 

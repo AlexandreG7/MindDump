@@ -1,12 +1,34 @@
 import { type EnrichedData } from "./hellofresh";
+import { fetchAllowedUrl, isAllowedUrl } from "./safeFetch";
 
-export function isJowUrl(url: string): boolean {
-  return /jow\.fr\/(en\/)?recipes\//.test(url);
+// jow.fr uniquement (ni sous-domaine arbitraire, ni "jow.fr.evil.com").
+const JOW_HOST = /^(?:www\.)?jow\.fr$/i;
+
+/** Vrai si l'URL pointe le site Jow (hôte autorisé), recette ou pas. */
+export function isJowHost(url: string): boolean {
+  return isAllowedUrl(url, JOW_HOST);
 }
 
-export function extractJowSlugId(url: string): string | null {
-  const match = url.match(/jow\.fr\/(?:en\/)?recipes\/[^?#]+-([a-z0-9]{16,})(?:[?#]|$)/i);
-  return match ? match[1] : null;
+/**
+ * Une URL Jow est une recette *candidate* si son chemin est
+ * "/recipes/<slug non vide>" (slug complet, id compris ou pas). Rien ne
+ * garantit que l'id Jow fait une longueur ou une casse donnée (deux exemples
+ * réels font 20 caractères) : on ne filtre donc plus sur sa forme. Les pages
+ * de liste nue ("/recipes/", "/recipes"), l'accueil ou toute autre page du
+ * site ne sont pas des candidates. C'est ensuite le contenu (ni ingrédients
+ * ni étapes → 422) qui tranche, comme pour HelloFresh et Quitoque. L'hôte
+ * est vérifié via `new URL()` (ancré), jamais par une recherche de
+ * sous-chaîne dans l'URL complète.
+ */
+export function isJowUrl(url: string): boolean {
+  if (!isJowHost(url)) return false;
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  return /^\/(?:en\/)?recipes\/[^/?#]+\/?$/i.test(pathname);
 }
 
 interface JowConstituent {
@@ -105,12 +127,12 @@ function parseIngredientString(s: string): { name: string; quantity: string; uni
 }
 
 export async function fetchJowPage(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  if (!isJowHost(url)) {
+    throw new Error("URL Jow non autorisée");
+  }
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
+    const res = await fetchAllowedUrl(url, JOW_HOST, {
+      timeoutMs: 15000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -119,14 +141,12 @@ export async function fetchJowPage(url: string): Promise<string> {
         "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
       },
     });
-    clearTimeout(timeout);
     if (!res.ok) throw new Error(`Jow a retourné une erreur ${res.status}`);
     const html = await res.text();
     if (html.length < 500) throw new Error("Page Jow trop courte");
     return html;
   } catch (err) {
-    clearTimeout(timeout);
-    if (err instanceof Error && err.name === "AbortError") {
+    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
       throw new Error("Timeout: Jow n'a pas répondu en 15s");
     }
     throw err;
@@ -164,7 +184,20 @@ export function parseJowRecipe(html: string, targetServings?: number): EnrichedD
 
   // Fallback: JSON-LD
   const jsonLd = parseJsonLd(html);
-  if (!jsonLd) throw new Error("Impossible de parser la page Jow");
+  if (!jsonLd) {
+    // Page sans données de recette (liste, accueil…) : pas d'ingrédients ni
+    // d'étapes, à l'appelant de refuser la création plutôt que de planter.
+    return {
+      title: "Recette Jow",
+      description: null,
+      prepTime: null,
+      cookTime: null,
+      servings: targetServings || 4,
+      ingredients: [],
+      steps: [],
+      heroImage: null,
+    };
+  }
 
   const ingredients = (jsonLd.recipeIngredient || []).map(parseIngredientString);
   const steps = (jsonLd.recipeInstructions || []).map((s) => ({
