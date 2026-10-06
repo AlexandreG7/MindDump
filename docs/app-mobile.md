@@ -430,6 +430,25 @@ production local, base de test) :
 | Événement récurrent : occurrences programmées | OK (31 alarmes) | non testé |
 | Tap sur une notification d'événement : jour du calendrier | non testé | non testé |
 
+**Limites connues**
+
+- Rappel fantôme : si une tâche ou un événement est modifié ou supprimé hors de
+  l'app (MCP, mur, autre appareil, autre membre du groupe), le rappel local
+  déjà programmé reste actif jusqu'à la prochaine ouverture ou retour au
+  premier plan de l'app, qui resynchronise.
+- Une échéance trop proche (`fireAt` déjà passé) n'a pas de notification locale
+  (jamais programmée dans le passé) ; le push web et l'e-mail partent quand même.
+- Les titres s'affichent sur l'écran verrouillé, selon les réglages de
+  l'utilisateur pour les aperçus de notification.
+- Android : alarmes inexactes (retard de 1 à 4 min mesuré, fenêtre jusqu'à
+  environ 1 h), choix fait pour éviter `USE_EXACT_ALARM` / `SCHEDULE_EXACT_ALARM`
+  (permission spéciale déclarée à Play Console).
+- L'autorisation système est demandée à l'activation de l'interrupteur, ou par
+  `schedule()` à la première synchronisation après connexion s'il existe des
+  rappels (statut indéterminé).
+- Déconnexion, session expirée et changement de compte annulent tous les
+  rappels en attente (`cancelAllLocalReminders`, sérialisé avec la synchro).
+
 Non vérifié : appareils réels, redémarrage du téléphone (les alarmes Android
 survivent via `LocalNotificationReceiver` ; à confirmer sur appareil).
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
 import { notifyRemindersChanged } from "@/lib/localReminders";
@@ -54,7 +55,16 @@ interface Todo {
 
 const PEOPLE_KEY = "todos:people";
 
+// useSearchParams exige une frontière Suspense pour le rendu statique.
 export default function TodosPage() {
+  return (
+    <Suspense fallback={null}>
+      <TodosPageContent />
+    </Suspense>
+  );
+}
+
+function TodosPageContent() {
   const { status, isReady } = useAuth();
   const { currentGroupId } = useGroupContext();
   const { toast } = useFeedback();
@@ -88,10 +98,13 @@ export default function TodosPage() {
     } catch {}
   }, []);
 
+  // Lu à chaque changement d'URL : un rappel touché alors que l'app est déjà
+  // sur /todos (router.push vers /todos?task=…) met aussi la tâche en évidence.
+  const searchParams = useSearchParams();
+  const taskParam = searchParams.get("task");
   useEffect(() => {
-    const task = new URLSearchParams(window.location.search).get("task");
-    if (task) setHighlightId(task);
-  }, []);
+    if (taskParam) setHighlightId(taskParam);
+  }, [taskParam]);
 
   const [activeTab, setActiveTab] = useState<"urgent" | "planned">("urgent");
 
@@ -190,22 +203,24 @@ export default function TodosPage() {
   };
 
   const highlightedTodo = highlightId ? (todos ?? []).find((t) => t.id === highlightId) : undefined;
+  const highlightedTodoId = highlightedTodo?.id;
+  const highlightedPriority = highlightedTodo?.priority;
 
   // Dès que la tâche visée est chargée : bon onglet, puis défilement et
   // coup de projecteur, qui s'efface après un instant (l'URL garde `?task=`
   // sans effet si on revient sur la page).
   useEffect(() => {
-    if (!highlightedTodo) return;
-    setActiveTab(highlightedTodo.priority === "URGENT" ? "urgent" : "planned");
+    if (!highlightedTodoId) return;
+    setActiveTab(highlightedPriority === "URGENT" ? "urgent" : "planned");
     const id = window.setTimeout(() => {
-      document.getElementById(`todo-${highlightedTodo.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById(`todo-${highlightedTodoId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 50);
     const clear = window.setTimeout(() => setHighlightId(null), 3000);
     return () => {
       window.clearTimeout(id);
       window.clearTimeout(clear);
     };
-  }, [highlightedTodo]);
+  }, [highlightedTodoId, highlightedPriority]);
 
   if (!isReady) return null;
 

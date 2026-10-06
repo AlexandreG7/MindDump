@@ -8,6 +8,7 @@ import { registerMatchDriveRelay } from "@/lib/matchDrive";
 import {
   REMINDERS_CHANGED_EVENT,
   localRemindersAvailable,
+  cancelAllLocalReminders,
   onReminderNotificationTapped,
   syncLocalReminders,
 } from "@/lib/localReminders";
@@ -36,6 +37,12 @@ export function NativeDeviceSync() {
   const router = useRouter();
 
   useEffect(() => {
+    if (status === "unauthenticated") {
+      // Session expirée ou changement de compte : les rappels de l'ancien
+      // compte ne doivent pas survivre sur ce téléphone.
+      if (localRemindersAvailable()) cancelAllLocalReminders();
+      return;
+    }
     if (status !== "authenticated") return;
     syncShareToken();
     registerMatchDriveRelay();
@@ -51,15 +58,19 @@ export function NativeDeviceSync() {
     window.addEventListener(REMINDERS_CHANGED_EVENT, onForeground);
 
     let appListener: { remove: () => Promise<void> } | undefined;
+    let cleanedUp = false;
     Promise.resolve(nativeAppPlugin()?.addListener("resume", onForeground))
       .then((handle) => {
+        if (!handle) return;
         appListener = handle;
+        if (cleanedUp) handle.remove().catch(() => {});
       })
       .catch(() => {});
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener(REMINDERS_CHANGED_EVENT, onForeground);
+      cleanedUp = true;
       appListener?.remove().catch(() => {});
     };
   }, [status]);
@@ -67,8 +78,9 @@ export function NativeDeviceSync() {
   // Appui sur un rappel local : navigue vers la tâche ou l'événement
   // (démarrage à froid inclus, le plugin met l'action en attente jusqu'ici).
   useEffect(() => {
-    onReminderNotificationTapped((url) => router.push(url));
-  }, [router]);
+    if (status !== "authenticated") return;
+    return onReminderNotificationTapped((url) => router.push(url));
+  }, [router, status]);
 
   return null;
 }

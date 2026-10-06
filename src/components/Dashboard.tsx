@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFeedback } from "@/components/ui/feedback";
+import { notifyRemindersChanged } from "@/lib/localReminders";
 import { InstallPrompt } from "./InstallPrompt";
 import { ModuleGrid } from "./dashboard/ModuleGrid";
 import { DEFAULT_LAYOUT, normalizeLayout, type ModuleId, type ModuleSlot } from "@/lib/dashboardLayout";
@@ -345,10 +346,12 @@ export function Dashboard() {
       toast("La tâche n'a pas pu être cochée.", "error");
       return;
     }
+    notifyRemindersChanged();
     toast(`« ${todo.title} » : fait`, "success", {
       label: "Annuler",
       onClick: async () => {
         await patch(false);
+        notifyRemindersChanged();
         setDone((d) => {
           const next = new Set(d);
           next.delete(todo.id);

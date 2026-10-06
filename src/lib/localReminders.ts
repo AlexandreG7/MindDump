@@ -133,8 +133,17 @@ async function fetchUpcomingReminders(): Promise<UpcomingReminder[] | null> {
   }
 }
 
-let syncing = false;
-let syncAgain = false;
+// Verrou commun : synchronisation et annulation totale ne se chevauchent
+// jamais (sinon une synchro déjà en cours pourrait reprogrammer des rappels
+// juste après qu'on les a annulés, par exemple en désactivant l'interrupteur).
+let lock: Promise<unknown> = Promise.resolve();
+let syncQueued = false;
+
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = lock.then(fn, fn);
+  lock = run.catch(() => {});
+  return run;
+}
 
 /**
  * Reprogramme les rappels locaux pour refléter `/api/reminders/upcoming` :
@@ -143,79 +152,79 @@ let syncAgain = false;
  * si l'utilisateur a désactivé les rappels (`notifyReminders`) : l'API renvoie
  * alors `reminders: []`.
  *
- * Sérialisé : un appel pendant qu'un autre tourne (ouverture + retour au
- * premier plan proches) attend la fin puis relance une fois, plutôt que de
- * se chevaucher.
+ * Sérialisé : un appel pendant qu'un autre tourne attend la fin, et les appels
+ * en attente se regroupent en une seule exécution.
  */
-export async function syncLocalReminders(): Promise<void> {
-  const p = plugin();
-  if (!localRemindersAvailable() || !p) return;
-
-  if (syncing) {
-    syncAgain = true;
-    return;
-  }
-  syncing = true;
-  try {
-    const reminders = await fetchUpcomingReminders();
-    if (reminders === null) return; // pas de session, ou réseau indisponible : on ne touche à rien.
-
-    const now = Date.now();
-    const desired = reminders
-      .map((r) => ({ reminder: r, id: reminderNotificationId(r.key), at: new Date(r.fireAt).getTime() }))
-      .filter((d) => d.at > now);
-
-    const pending = (await p.getPending().catch(() => ({ notifications: [] as PendingNotification[] })))
-      .notifications;
-    const pendingById = new Map(pending.map((n) => [n.id, n]));
-
-    const toCancel = pending
-      .filter((n) => !desired.some((d) => d.id === n.id))
-      .map((n) => ({ id: n.id }));
-
-    const toSchedule = desired
-      .filter((d) => {
-        const existing = pendingById.get(d.id);
-        if (!existing) return true;
-        const sameTime = new Date(existing.schedule?.at ?? 0).getTime() === d.at;
-        const sameContent = existing.title === d.reminder.title && existing.body === d.reminder.body;
-        return !(sameTime && sameContent);
-      })
-      .map((d) => ({
-        id: d.id,
-        title: d.reminder.title,
-        body: d.reminder.body,
-        schedule: { at: new Date(d.at) },
-        extra: { url: d.reminder.url, key: d.reminder.key },
-        // Android : une alarme inexacte suffit pour un rappel (voir
-        // docs/app-mobile-build.md) ; sans ça, le plugin ouvrirait les
-        // réglages système « Alarmes et rappels » au premier rappel programmé.
-        isExactNotification: false,
-      }));
-
-    if (toCancel.length) await p.cancel({ notifications: toCancel }).catch(() => {});
-    // schedule() (re)programme par id, donc aussi bien les nouveaux rappels
-    // que ceux déjà en attente dont l'heure ou le texte ont changé ; il ne
-    // demande l'autorisation système que la première fois (statut
-    // « indéterminé »), jamais en boucle si elle a été refusée.
-    if (toSchedule.length) await p.schedule({ notifications: toSchedule }).catch(() => {});
-  } finally {
-    syncing = false;
-    if (syncAgain) {
-      syncAgain = false;
-      await syncLocalReminders();
-    }
-  }
+export function syncLocalReminders(): Promise<void> {
+  if (!localRemindersAvailable()) return Promise.resolve();
+  if (syncQueued) return lock as Promise<void>;
+  syncQueued = true;
+  return withLock(async () => {
+    syncQueued = false;
+    await doSync();
+  });
 }
 
-/** Annule tout, par exemple juste après avoir désactivé l'interrupteur. */
-export async function cancelAllLocalReminders(): Promise<void> {
+async function doSync(): Promise<void> {
   const p = plugin();
   if (!p) return;
-  const pending = await p.getPending().catch(() => ({ notifications: [] as PendingNotification[] }));
-  if (pending.notifications.length) {
-    await p.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) }).catch(() => {});
-  }
+  const reminders = await fetchUpcomingReminders();
+  if (reminders === null) return; // pas de session, ou réseau indisponible : on ne touche à rien.
+
+  const now = Date.now();
+  const desired = reminders
+    .map((r) => ({ reminder: r, id: reminderNotificationId(r.key), at: new Date(r.fireAt).getTime() }))
+    .filter((d) => d.at > now);
+
+  const pending = (await p.getPending().catch(() => ({ notifications: [] as PendingNotification[] })))
+    .notifications;
+  const pendingById = new Map(pending.map((n) => [n.id, n]));
+
+  const toCancel = pending
+    .filter((n) => !desired.some((d) => d.id === n.id))
+    .map((n) => ({ id: n.id }));
+
+  const toSchedule = desired
+    .filter((d) => {
+      const existing = pendingById.get(d.id);
+      if (!existing) return true;
+      const sameTime = new Date(existing.schedule?.at ?? 0).getTime() === d.at;
+      const sameContent = existing.title === d.reminder.title && existing.body === d.reminder.body;
+      return !(sameTime && sameContent);
+    })
+    .map((d) => ({
+      id: d.id,
+      title: d.reminder.title,
+      body: d.reminder.body,
+      schedule: { at: new Date(d.at) },
+      extra: { url: d.reminder.url, key: d.reminder.key },
+      // Android : une alarme inexacte suffit pour un rappel (voir
+      // docs/app-mobile-build.md) ; sans ça, le plugin ouvrirait les
+      // réglages système « Alarmes et rappels » au premier rappel programmé.
+      isExactNotification: false,
+    }));
+
+  if (toCancel.length) await p.cancel({ notifications: toCancel }).catch(() => {});
+  // schedule() (re)programme par id. Il demande lui-même l'autorisation
+  // système quand elle est encore « indéterminée » : l'invite peut donc
+  // apparaître à la première synchronisation après connexion, s'il existe des
+  // rappels à programmer. Jamais en boucle si elle a été refusée.
+  if (toSchedule.length) await p.schedule({ notifications: toSchedule }).catch(() => {});
+}
+
+/**
+ * Annule tout : désactivation de l'interrupteur, déconnexion, changement de
+ * compte. Passe par le même verrou que `syncLocalReminders`.
+ */
+export function cancelAllLocalReminders(): Promise<void> {
+  return withLock(async () => {
+    const p = plugin();
+    if (!p) return;
+    const pending = await p.getPending().catch(() => ({ notifications: [] as PendingNotification[] }));
+    if (pending.notifications.length) {
+      await p.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) }).catch(() => {});
+    }
+  });
 }
 
 /**
@@ -223,13 +232,24 @@ export async function cancelAllLocalReminders(): Promise<void> {
  * fois (voir `NativeDeviceSync`) ; couvre aussi le démarrage à froid (le
  * plugin met en attente l'action jusqu'à ce qu'un écouteur soit posé).
  */
-export function onReminderNotificationTapped(callback: (url: string) => void): void {
+export function onReminderNotificationTapped(callback: (url: string) => void): () => void {
   const p = plugin();
-  if (!p) return;
+  if (!p) return () => {};
+  let removed = false;
+  let handle: PluginListenerHandle | undefined;
   Promise.resolve(
     p.addListener("localNotificationActionPerformed", (action) => {
       const url = action.notification?.extra?.url;
       if (typeof url === "string" && url.startsWith("/") && !url.startsWith("//")) callback(url);
     })
-  ).catch(() => {});
+  )
+    .then((h) => {
+      handle = h;
+      if (removed) h.remove().catch(() => {});
+    })
+    .catch(() => {});
+  return () => {
+    removed = true;
+    handle?.remove().catch(() => {});
+  };
 }

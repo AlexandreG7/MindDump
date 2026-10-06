@@ -68,8 +68,11 @@
          listes n'afficherait jamais « Hors ligne ». -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Rappels locaux (docs/app-mobile.md, étape 3.3). Android 13+ exige
-         POST_NOTIFICATIONS, demandée au bon moment par LocalNotifications.requestPermissions()
-         (src/lib/localReminders.ts), pas au premier lancement. -->
+         POST_NOTIFICATIONS, demandée par LocalNotifications.requestPermissions() à
+         l'activation de l'interrupteur (NotificationSettings), ou par
+         schedule() lui-même à la première synchronisation après connexion
+         quand il existe des rappels et que le statut est indéterminé
+         (src/lib/localReminders.ts). Jamais au simple lancement. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- @capacitor/local-notifications déclare SCHEDULE_EXACT_ALARM dans son
          propre manifest ; on la retire : un rappel programmé à quelques minutes

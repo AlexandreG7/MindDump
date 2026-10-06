@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { notifyRemindersChanged } from "@/lib/localReminders";
 import { TOAST_ACTION_DURATION, useFeedback } from "@/components/ui/feedback";
 
 interface PendingDelete {
@@ -68,6 +69,7 @@ export function useDeferredDelete() {
       setHidden((h) => new Set(h).add(id));
       const timer = setTimeout(async () => {
         const res = await sendDelete(id, url);
+        notifyRemindersChanged();
         if (!res?.ok) {
           toast(errorMessage, "error");
           unhide(id);
@@ -113,7 +115,9 @@ export function useDeferredDelete() {
       pending.forEach(({ timer, toastId, url }, id) => {
         clearTimeout(timer);
         dismiss(toastId);
-        sendDelete(id, url);
+        // Reprogramme les rappels une fois la suppression traitée (démontage
+        // d'une route dans l'app ; sur `pagehide` la page part, sans objet).
+        sendDelete(id, url).then(notifyRemindersChanged);
       });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -139,7 +139,9 @@ export function NotificationSettings() {
 
   // Interrupteur « Rappels sur ce téléphone » : notifications locales de
   // l'app, gardées derrière `User.notifyReminders`. L'activer est le bon
-  // moment pour demander l'autorisation système (pas au premier lancement).
+  // moment pour demander l'autorisation (explicitement ici). Elle peut aussi
+  // être demandée par `schedule()` à la première synchronisation après
+  // connexion, s'il existe des rappels et que le statut est encore indéterminé.
   const setNotifyReminders = async (notifyReminders: boolean) => {
     setPrefs((p) => (p ? { ...p, notifyReminders } : p));
     setRemindersBusy(true);
