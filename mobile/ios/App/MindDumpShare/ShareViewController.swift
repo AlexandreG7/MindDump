@@ -161,19 +161,19 @@ class ShareViewController: UIViewController {
         // hellofresh.fr, .com, .be, .co.uk… mais pas hellofresh.fr.autre-site.com
         // Il faut un identifiant hexadécimal après "/recipes/" : "/recipes/<slug>-<id>".
         // Même règle insensible à la casse que isHelloFreshRecipeUrl (src/lib/hellofresh.ts).
-        if matches(#"(^|\.)hellofresh\.([a-z]{2,3}|co\.uk|com\.au)$"#, host),
+        if matches(#"^(www\.)?hellofresh\.([a-z]{2,3}|co\.uk|com\.au)$"#, host),
            matches(#"/recipes/[^/?#]+-[0-9a-f]{20,}(?:[/?#]|$)"#, path) {
             return .hellofresh
         }
         // jow.fr/(en/)recipes/<slug> : candidate dès que le slug n'est pas vide,
         // sans contrainte sur un id qui le suivrait (voir isJowUrl, src/lib/jow.ts).
-        if matches(#"(^|\.)jow\.fr$"#, host),
+        if matches(#"^(www\.)?jow\.fr$"#, host),
            matches(#"^/(en/)?recipes/[^/?#]+/?$"#, path) {
             return .jow
         }
         // quitoque.fr/recettes/<slug> uniquement (pas /recettes seul, ni
         // /recettes/recettes-de-saison qui est une collection).
-        if matches(#"(^|\.)quitoque\.fr$"#, host) {
+        if matches(#"^(www\.)?quitoque\.fr$"#, host) {
             let segments = path.split(separator: "/").map(String.init)
             if segments.count == 2, segments[0] == "recettes", segments[1] != "recettes-de-saison" {
                 return .quitoque
