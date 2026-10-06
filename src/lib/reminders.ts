@@ -40,6 +40,18 @@ export const EVENT_REMINDER_WHERE: Prisma.CalendarEventWhereInput = {
   OR: [{ notified: false }, { recurrence: { not: null } }],
 };
 
+/**
+ * Pré-filtre SQL pour un utilisateur donné : créateur de l'élément, ou membre
+ * actuel du groupe auquel il est rattaché. Sur-ensemble de `recipientsFor`
+ * (créateur + membres du groupe, éventuellement restreints aux personnes
+ * assignées) : la règle des destinataires reste appliquée ensuite par
+ * l'appelant, ce filtre ne fait qu'éviter de charger les éléments des autres.
+ * Le créateur est toujours inclus, même s'il a quitté le groupe (ADR 0001).
+ */
+function visibleTo(userId: string) {
+  return [{ userId }, { group: { members: { some: { userId } } } }];
+}
+
 type TodoForReminder = {
   id: string;
   title: string;
@@ -84,11 +96,15 @@ export type EventReminderCandidate = {
  * Tâches non terminées, pas encore notifiées, dont l'échéance tombe un jour.
  * `windowEnd` borne le rappel le plus tardif renvoyé (`fireAt <= windowEnd`) ;
  * à l'appelant de filtrer la borne basse (le cron veut `fireAt <= now`, la
- * route des rappels locaux veut `fireAt >= now`).
+ * route des rappels locaux veut `fireAt >= now`). `forUserId` : voir `visibleTo`
+ * (omis = tous les utilisateurs, comme le cron).
  */
-export async function listTodoCandidates(windowEnd: Date): Promise<TodoReminderCandidate[]> {
+export async function listTodoCandidates(
+  windowEnd: Date,
+  forUserId?: string
+): Promise<TodoReminderCandidate[]> {
   const todos = await prisma.todo.findMany({
-    where: TODO_REMINDER_WHERE,
+    where: forUserId ? { AND: [TODO_REMINDER_WHERE, { OR: visibleTo(forUserId) }] } : TODO_REMINDER_WHERE,
     include: {
       user: { select: USER_SELECT },
       group: { select: { name: true } },
@@ -148,14 +164,18 @@ function upcomingOccurrencesInWindow(
  * `allOccurrences` : false (défaut, comportement du cron) ne renvoie que la
  * prochaine occurrence de chaque série ; true (rappels locaux) renvoie toutes
  * celles dues dans la fenêtre, pour programmer plusieurs notifications.
+ *
+ * `forUserId` : ne charge que les éléments que cet utilisateur peut recevoir
+ * (voir `visibleTo`) ; omis, charge tout (cron).
  */
 export async function listEventCandidates(
   now: Date,
   windowEnd: Date,
-  allOccurrences = false
+  allOccurrences = false,
+  forUserId?: string
 ): Promise<EventReminderCandidate[]> {
   const events = await prisma.calendarEvent.findMany({
-    where: EVENT_REMINDER_WHERE,
+    where: forUserId ? { AND: [EVENT_REMINDER_WHERE, { OR: visibleTo(forUserId) }] } : EVENT_REMINDER_WHERE,
     include: {
       user: { select: USER_SELECT },
       group: { select: { name: true } },
