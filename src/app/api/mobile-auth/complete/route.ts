@@ -30,14 +30,21 @@ export async function GET(req: NextRequest) {
 
   // Liaison : ni session, ni consentement, ni nouvel utilisateur. Le résultat est
   // déposé sur le ticket (src/lib/mobileLink.ts) ; le code ne vaut que pour lui.
+  const linkParam = req.nextUrl.searchParams.get("link");
+  // Jamais de JSON brut dans le navigateur : une liaison sans parcours en cours
+  // (cookie perdu ou expiré) renvoie vers /login avec un message.
+  const linkExpired = () => {
+    const login = new URL("/login", req.nextUrl.origin);
+    login.searchParams.set("error", "LinkExpired");
+    return NextResponse.redirect(login);
+  };
+  if (pending.mode !== "link" && linkParam !== null) return linkExpired();
+
   if (pending.mode === "link") {
-    const code = await completeLinkFlow(pending.ticketId, req.nextUrl.searchParams.get("link"));
-    if (!code) {
-      return NextResponse.json(
-        { error: "Liaison expirée : relance-la depuis l'app." },
-        { status: 400 }
-      );
-    }
+    // Un `error` (page d'erreur NextAuth) ne vaut jamais succès.
+    const status = req.nextUrl.searchParams.has("error") ? "error" : linkParam;
+    const code = await completeLinkFlow(pending.ticketId, status);
+    if (!code) return linkExpired();
     const target = new URL(MOBILE_REDIRECT);
     target.searchParams.set("code", code);
     target.searchParams.set("mode", "link");

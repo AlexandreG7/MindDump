@@ -76,29 +76,42 @@ export async function DELETE(req: NextRequest) {
   if (!userId) return unauthorized();
 
   const provider = req.nextUrl.searchParams.get("provider");
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      password: true,
-      accounts: { select: { id: true, provider: true, refresh_token: true } },
-    },
-  });
-  if (!user) return unauthorized();
 
-  const target = user.accounts.filter((a) => a.provider === provider);
-  if (target.length === 0) {
+  // Comptage et suppression sous verrou de la ligne User : deux déliaisons
+  // simultanées (Google et Apple, sans mot de passe) ne peuvent pas retirer
+  // toutes les deux le dernier moyen de connexion.
+  const outcome = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        password: true,
+        accounts: { select: { id: true, provider: true, refresh_token: true } },
+      },
+    });
+    if (!user) return { kind: "unauthorized" as const };
+
+    const target = user.accounts.filter((a) => a.provider === provider);
+    if (target.length === 0) return { kind: "missing" as const };
+
+    const remaining = user.accounts.length - target.length + (user.password ? 1 : 0);
+    if (remaining < 1) return { kind: "last" as const };
+
+    await tx.account.deleteMany({ where: { id: { in: target.map((a) => a.id) } } });
+    return { kind: "deleted" as const, target };
+  });
+
+  if (outcome.kind === "unauthorized") return unauthorized();
+  if (outcome.kind === "missing") {
     return NextResponse.json({ error: "Ce fournisseur n'est pas lié." }, { status: 404 });
   }
-
-  const remaining = user.accounts.length - target.length + (user.password ? 1 : 0);
-  if (remaining < 1) {
+  if (outcome.kind === "last") {
     return NextResponse.json(
       { error: "C'est ton seul moyen de connexion : lie un autre compte avant de le retirer." },
       { status: 409 }
     );
   }
-
-  await prisma.account.deleteMany({ where: { id: { in: target.map((a) => a.id) } } });
+  const target = outcome.target;
   if (provider === "apple") {
     for (const account of target) await revokeAppleToken(account.refresh_token);
   }

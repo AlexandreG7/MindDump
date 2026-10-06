@@ -351,6 +351,12 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
       Non vérifié : le vrai aller-retour Google / Apple (identifiants de
       production), et la déliaison du dernier moyen de connexion dans l'UI
       native (bouton désactivé, refus serveur couvert par le test).
+      Durcissement après audit secops : le GET `start?mode=link` n'engage plus
+      rien (page de confirmation au nom du titulaire, e-mail masqué ; seul un
+      POST protégé par un cookie `SameSite=Strict` + jeton + `Origin` consomme
+      le ticket : anti-fixation de ticket), intention abandonnée effacée,
+      refus chez le fournisseur ramené à l'app, 5 tickets actifs au plus,
+      déliaison sous verrou. Pas de nouveau build natif.
 
 ### 3.3 Push natif
 

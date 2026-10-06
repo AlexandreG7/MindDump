@@ -90,10 +90,41 @@ async function getTicket(user, verifier) {
   return { res, ticket: res.ok ? (await res.json()).ticket : null };
 }
 const startUrl = (ticket, extra = "") => `/api/mobile-auth/start?mode=link&ticket=${encodeURIComponent(ticket)}${extra}`;
-/** Navigateur système : start puis complete ; renvoie le code (ou null) et les réponses. */
+const ORIGIN = new URL(BASE_URL).origin;
+const CONFIRM_COOKIE = "minddump.link-confirm";
+/** GET de la page de confirmation : renvoie la réponse, le HTML, le cookie Strict et le jeton du formulaire. */
+async function confirmPage(ticket, extra = "") {
+  const res = await http("GET", startUrl(ticket, extra), { native: false });
+  const html = res.status === 200 ? await res.text() : "";
+  return {
+    res,
+    html,
+    cookie: cookieValue(res, CONFIRM_COOKIE),
+    token: html.match(/name="token" value="([^"]+)"/)?.[1] ?? null,
+  };
+}
+/** POST de la page (bouton « Continuer » par défaut). */
+const confirmPost = (ticket, { cookie, token, origin = ORIGIN, action = "continue" } = {}) =>
+  fetch(`${BASE_URL}/api/mobile-auth/start`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      ...(cookie ? { cookie: `${CONFIRM_COOKIE}=${cookie}` } : {}),
+      ...(origin ? { origin } : {}),
+    },
+    body: new URLSearchParams({ ticket, ...(token ? { token } : {}), action }).toString(),
+  });
+/** Le navigateur système : page de confirmation, clic sur « Continuer ». */
+async function confirmedStart(ticket) {
+  const page = await confirmPage(ticket);
+  if (!page.cookie || !page.token) return page.res;
+  return confirmPost(ticket, page);
+}
+/** Navigateur système : start (confirmé) puis complete ; renvoie le code (ou null) et les réponses. */
 async function browserFlow(ticket, { status = "", simulate } = {}) {
-  const start = await http("GET", startUrl(ticket), { native: false });
-  if (start.status !== 307 && start.status !== 302) return { start, code: null };
+  const start = await confirmedStart(ticket);
+  if (start.status !== 303) return { start, code: null };
   const pending = cookieValue(start, "minddump.mobile-auth");
   if (simulate) await simulate(start);
   const complete = await http("GET", `/api/mobile-auth/complete${status}`, {
@@ -127,12 +158,13 @@ async function oidcSuite({ alice, bob, mallory }) {
     }
   };
   const jarHeader = () => [...jar].map(([k, v]) => `${k}=${v}`).join("; ");
-  const browse = async (method, url, { body, form } = {}) => {
+  const browse = async (method, url, { body, form, headers = {} } = {}) => {
     const res = await fetch(url.startsWith("http") ? url : BASE_URL + url, {
       method,
       redirect: "manual",
       headers: {
         cookie: jarHeader(),
+        ...headers,
         ...(form ? { "content-type": "application/x-www-form-urlencoded" } : {}),
       },
       body: form ? new URLSearchParams(form).toString() : body,
@@ -146,7 +178,12 @@ async function oidcSuite({ alice, bob, mallory }) {
     jar.clear();
     for (const [k, v] of Object.entries(cookies)) jar.set(k, v);
     await fetch(`${issuer}/__subject?sub=${sub}${email ? `&email=${encodeURIComponent(email)}` : ""}`);
-    const start = await browse("GET", startUrl(ticket));
+    const confirm = await browse("GET", startUrl(ticket));
+    const token = (await confirm.text()).match(/name="token" value="([^"]+)"/)[1];
+    const start = await browse("POST", "/api/mobile-auth/start", {
+      form: { ticket, token, action: "continue" },
+      headers: { origin: ORIGIN },
+    });
     const page = new URL(start.headers.get("location"), BASE_URL);
     const nonce = page.searchParams.get("li");
     // Ce que fait la page /auth/mobile : signIn(provider, { callbackUrl }).
@@ -312,7 +349,8 @@ async function main() {
   {
     const v = newVerifier();
     const { ticket } = await getTicket(frank, v);
-    const start = await http("GET", startUrl(ticket, `&userId=${bob.id}&provider=apple&challenge=${challengeOf(newVerifier())}`), { native: false });
+    const page = await confirmPage(ticket, `&userId=${bob.id}&provider=apple&challenge=${challengeOf(newVerifier())}`);
+    const start = await confirmPost(ticket, page);
     const intent = await decodeLinkIntent(cookieValue(start, LINK_COOKIE));
     check(intent?.userId === frank.id && intent.provider === PROVIDER, "userId, provider et challenge de l'URL ignorés : tout vient du ticket");
   }
@@ -321,9 +359,11 @@ async function main() {
   {
     const v = newVerifier();
     const { ticket } = await getTicket(frank, v);
-    const first = await http("GET", startUrl(ticket), { native: false });
-    check(first.status === 307 || first.status === 302, "première ouverture : OK");
-    check((await http("GET", startUrl(ticket), { native: false })).status === 400, "ticket rejoué : refusé");
+    const page = await confirmPage(ticket);
+    const first = await confirmPost(ticket, page);
+    check(first.status === 303, "première confirmation : OK");
+    check((await confirmPost(ticket, page)).status === 400, "ticket rejoué (même cookie et jeton) : refusé");
+    check((await http("GET", startUrl(ticket), { native: false })).status === 400, "…et la page de confirmation ne s'ouvre plus");
 
     const v2 = newVerifier();
     const { ticket: old } = await getTicket(frank, v2);
@@ -383,13 +423,128 @@ async function main() {
     check((await res.json()).result === "error", "aucun Account en base : le résultat n'est jamais « linked »");
     const orphan = await http("GET", "/api/mobile-auth/complete", { native: false });
     check(orphan.status === 400 && !(orphan.headers.get("location") || "").startsWith("minddump://"), "complete sans cookie de parcours : pas de code");
+    const orphanLink = await http("GET", "/api/mobile-auth/complete?link=error", { native: false });
+    check(orphanLink.status === 307 && (orphanLink.headers.get("location") || "").includes("/login?error=LinkExpired"), "complete?link=error sans cookie de défi : redirection vers /login, jamais un JSON brut");
     const v2 = newVerifier();
     const { ticket: t2 } = await getTicket(bob, v2);
     const never = await http("GET", "/api/mobile-auth/complete", {
       native: false,
       cookies: `minddump.mobile-auth=${encodeURIComponent(JSON.stringify({ mode: "link", ticketId: (await prisma.mobileLinkTicket.findUnique({ where: { ticketHash: sha256(t2) } })).id }))}`,
     });
-    check(never.status === 400, "complete avant que le ticket soit consommé par start : refusé");
+    check(never.status === 307 && (never.headers.get("location") || "").includes("/login?error=LinkExpired"), "complete avant que le ticket soit consommé par start : refusé (retour /login)");
+  }
+
+  console.log("Confirmation avant liaison (fixation de ticket)");
+  {
+    const vera = await makeUser("vera");
+    await prisma.user.update({ where: { id: vera.id }, data: { email: "victime@exemple.test" } });
+    const v = newVerifier();
+    const { ticket } = await getTicket(vera, v);
+    const page = await confirmPage(ticket);
+    check(page.res.status === 200 && (page.res.headers.get("content-type") || "").includes("text/html"), "GET : page de confirmation (HTML), pas une redirection");
+    check(page.html.includes("vera") && page.html.includes("v•••@exemple.test"), "la page nomme le titulaire (nom, e-mail masqué)");
+    check(!page.html.includes("victime@exemple.test"), "l'e-mail complet n'est jamais affiché");
+    check(page.html.includes("Continuer") && page.html.includes("Ce n'est pas mon compte"), "boutons « Continuer » et « Ce n'est pas mon compte »");
+    const raw = page.res.headers.getSetCookie();
+    check(raw.length === 1 && raw[0].startsWith(`${CONFIRM_COOKIE}=`) && /samesite=strict/i.test(raw[0]) && /httponly/i.test(raw[0]) && /max-age=\d+/i.test(raw[0]), "GET : seul cookie posé = jeton SameSite=Strict, httpOnly, courte durée");
+    check(!raw.some((c) => c.includes(LINK_COOKIE) || c.includes("mobile-auth=")), "GET : aucune intention de liaison, aucun cookie de défi");
+    check((await prisma.mobileLinkTicket.findUnique({ where: { ticketHash: sha256(ticket) } })).startedAt === null, "GET : le ticket n'est pas consommé");
+    check((await confirmPage(ticket)).res.status === 200, "GET répété : toujours la page");
+
+    const noCookie = await confirmPost(ticket, { token: page.token });
+    check(noCookie.status === 403 && !cookieValue(noCookie, LINK_COOKIE), "POST sans le cookie Strict (formulaire d'un autre site) : refusé, aucune intention");
+    check((await confirmPost(ticket, { cookie: page.cookie, token: "x".repeat(32) })).status === 403, "POST avec un mauvais jeton : refusé");
+    check((await confirmPost(ticket, { cookie: page.cookie })).status === 403, "POST sans jeton : refusé");
+    const other = await confirmPage((await getTicket(vera, newVerifier())).ticket);
+    check((await confirmPost(ticket, { cookie: other.cookie, token: other.token })).status === 403, "cookie et jeton d'un AUTRE ticket : refusé");
+    const wrongOrigin = await confirmPost(ticket, { ...page, origin: "https://evil.example" });
+    check(wrongOrigin.status === 403 && !cookieValue(wrongOrigin, LINK_COOKIE), "POST avec une mauvaise Origin : refusé");
+    check((await confirmPost(ticket, { ...page, origin: "null" })).status === 403, "POST avec Origin « null » : refusé");
+    check((await confirmPost(ticket, { ...page, origin: "" })).status === 403, "POST sans Origin : refusé");
+    check((await prisma.mobileLinkTicket.findUnique({ where: { ticketHash: sha256(ticket) } })).startedAt === null, "tous ces refus laissent le ticket intact");
+
+    const ok = await confirmPost(ticket, page);
+    const intent = await decodeLinkIntent(cookieValue(ok, LINK_COOKIE));
+    check(ok.status === 303 && intent?.userId === vera.id && !!intent.ticketId, "POST complet : intention posée pour le titulaire du ticket, redirection vers /auth/mobile");
+
+    // « Ce n'est pas mon compte »
+    const { ticket: t2 } = await getTicket(vera, newVerifier());
+    const page2 = await confirmPage(t2);
+    check((await confirmPost(t2, { token: page2.token, action: "cancel" })).status === 403, "annuler sans le cookie Strict : refusé");
+    const cancel = await confirmPost(t2, { ...page2, action: "cancel" });
+    check(cancel.status === 303 && (cancel.headers.get("location") || "").startsWith("minddump://auth?cancelled=1") && !cookieValue(cancel, LINK_COOKIE), "« Ce n'est pas mon compte » : retour à l'app (cancelled), aucune intention");
+    check((await http("GET", startUrl(t2), { native: false })).status === 400, "…et le ticket ne sert plus");
+  }
+
+  console.log("Intention de liaison abandonnée");
+  {
+    const abandon = await makeUser("abandon");
+    const { ticket } = await getTicket(abandon, newVerifier());
+    const start = await confirmedStart(ticket);
+    const intentCookie = cookieValue(start, LINK_COOKIE);
+    check(!!intentCookie, "liaison démarrée (intention posée), puis abandonnée");
+    // Connexion normale ensuite, dans le même navigateur : start (mode connexion) efface l'intention.
+    const login = await http("GET", `/api/mobile-auth/start?provider=google&challenge=${challengeOf(newVerifier())}`, { native: false, cookies: `${LINK_COOKIE}=${intentCookie}` });
+    const cleared = login.headers.getSetCookie().find((c) => c.startsWith(`${LINK_COOKIE}=;`));
+    check(login.status === 307 && !!cleared && /max-age=0/i.test(cleared) && /path=\/api\/auth/i.test(cleared), "start (mode connexion) efface l'intention abandonnée (mêmes Path et attributs)");
+    check(!!cookieValue(login, "minddump.mobile-auth"), "…et réécrit le cookie de défi");
+    // Si l'intention survit quand même, le callback ne détourne pas la connexion.
+    const cb = await http("GET", "/api/auth/callback/google", { native: false, cookies: `${LINK_COOKIE}=${intentCookie}` });
+    const loc = cb.headers.get("location") || "";
+    check(!loc.includes("/api/mobile-auth/complete?link=error") && !loc.startsWith("minddump://"), "callback avec une intention d'une autre tentative : connexion normale, pas de complete?link=error");
+    check(cb.headers.getSetCookie().some((c) => c.startsWith(`${LINK_COOKIE}=;`)), "…et l'intention est effacée");
+  }
+
+  console.log("Refus chez le fournisseur");
+  {
+    // NextAuth renvoie un refus (access_denied) vers /api/auth/signin?error=… ou /api/auth/error?error=…
+    const linkCookie = `minddump.mobile-auth=${encodeURIComponent(JSON.stringify({ mode: "link", ticketId: "t" }))}`;
+    for (const path of ["/api/auth/signin?error=Callback&callbackUrl=x", "/api/auth/error?error=AccessDenied"]) {
+      const denied = await http("GET", path, { native: false, cookies: linkCookie });
+      check(denied.status === 303 && (denied.headers.get("location") || "").endsWith("/api/mobile-auth/complete?link=error"), `refus du fournisseur (${path.split("?")[0]}) en liaison : retour vers complete?link=error`);
+    }
+    const plain = await http("GET", "/api/auth/signin?error=Callback", { native: false });
+    check(!(plain.headers.get("location") || "").includes("/api/mobile-auth/complete"), "…mais pas sans parcours de liaison en cours (connexion normale intacte)");
+    const normal = await http("GET", "/api/auth/signin?error=Callback", { native: false, cookies: `minddump.mobile-auth=${encodeURIComponent(JSON.stringify({ challenge: challengeOf(newVerifier()), provider: "google" }))}` });
+    check(!(normal.headers.get("location") || "").includes("/api/mobile-auth/complete"), "…ni pendant une connexion mobile ordinaire");
+    const hana = await makeUser("hana");
+    const v = newVerifier();
+    const { ticket } = await getTicket(hana, v);
+    const flow = await browserFlow(ticket, {
+      status: "?link=error&error=OAuthCallback",
+      simulate: async (start) => {
+        const intent = await decodeLinkIntent(cookieValue(start, LINK_COOKIE));
+        // Le compte existe : malgré cela, un retour en erreur n'est jamais un succès.
+        await prisma.account.create({ data: { userId: intent.userId, type: "oauth", provider: PROVIDER, providerAccountId: `sub-${run}-hana` } });
+      },
+    });
+    check((await (await exchange(hana, flow.code, v)).json()).result === "error", "retour en erreur : résultat « error », jamais « linked »");
+    const v2 = newVerifier();
+    await prisma.account.deleteMany({ where: { userId: hana.id } });
+    const { ticket: t2 } = await getTicket(hana, v2);
+    const flow2 = await browserFlow(t2, {
+      status: "?error=AccessDenied",
+      simulate: async (start) => {
+        const intent = await decodeLinkIntent(cookieValue(start, LINK_COOKIE));
+        await prisma.account.create({ data: { userId: intent.userId, type: "oauth", provider: PROVIDER, providerAccountId: `sub-${run}-hana2` } });
+      },
+    });
+    check((await (await exchange(hana, flow2.code, v2)).json()).result === "error", "?error=… seul (sans link) : « error » aussi");
+    await prisma.account.deleteMany({ where: { userId: hana.id } });
+  }
+
+  console.log("Limite de tickets");
+  {
+    const rita = await makeUser("rita");
+    const codes = [];
+    for (let i = 0; i < 6; i++) codes.push((await http("POST", "/api/mobile-auth/link-ticket", { user: rita, body: { provider: PROVIDER, challenge: challengeOf(newVerifier()) } })).status);
+    check(codes.slice(0, 5).every((c) => c === 200) && codes[5] === 429, "5 tickets actifs au plus par utilisateur : le 6e est refusé (429)");
+    const body = await (await http("POST", "/api/mobile-auth/link-ticket", { user: rita, body: { provider: PROVIDER, challenge: challengeOf(newVerifier()) } })).json();
+    check(body.error === "Trop de tentatives, réessaie dans quelques minutes.", "message français");
+    await prisma.mobileLinkTicket.updateMany({ where: { userId: rita.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    check((await http("POST", "/api/mobile-auth/link-ticket", { user: rita, body: { provider: PROVIDER, challenge: challengeOf(newVerifier()) } })).status === 200, "tickets expirés : ne comptent plus");
+    const other = await makeUser("rita2");
+    check((await http("POST", "/api/mobile-auth/link-ticket", { user: other, body: { provider: PROVIDER, challenge: challengeOf(newVerifier()) } })).status === 200, "la limite est par utilisateur");
   }
 
   console.log("Options NextAuth de liaison (mode app)");
@@ -425,6 +580,24 @@ async function main() {
     await prisma.user.update({ where: { id: erin.id }, data: { password: "x".repeat(60) } });
     const ok = await http("DELETE", `/api/users/me/accounts?provider=${PROVIDER}`, { user: erin });
     check(ok.status === 200 && (await prisma.account.count({ where: { userId: erin.id } })) === 0, "avec un mot de passe : déliaison autorisée");
+    // Deux déliaisons simultanées sans mot de passe : il doit rester un moyen de connexion.
+    let racesOk = true;
+    for (let i = 0; i < 6; i++) {
+      const racer = await makeUser(`racer${i}`);
+      await prisma.account.createMany({
+        data: [
+          { userId: racer.id, type: "oauth", provider: "google", providerAccountId: `g-${run}-${i}` },
+          { userId: racer.id, type: "oauth", provider: "apple", providerAccountId: `a-${run}-${i}` },
+        ],
+      });
+      const [a, b] = await Promise.all([
+        http("DELETE", "/api/users/me/accounts?provider=google", { user: racer }),
+        http("DELETE", "/api/users/me/accounts?provider=apple", { user: racer }),
+      ]);
+      const left = await prisma.account.count({ where: { userId: racer.id } });
+      if (left !== 1 || [a.status, b.status].sort().join() !== "200,409") racesOk = false;
+    }
+    check(racesOk, "deux DELETE concurrents (Google et Apple, sans mot de passe) : un 200, un 409, un moyen de connexion reste (6 essais)");
     const apiKey = `test-${run}-${randomBytes(6).toString("hex")}`;
     await prisma.apiKey.create({ data: { key: apiKey, userId: erin.id } });
     const viaKey = await fetch(`${BASE_URL}/api/mobile-auth/link-ticket`, { method: "POST", headers: { authorization: `Bearer ${apiKey}`, "user-agent": APP_UA, "content-type": "application/json" }, body: JSON.stringify({ provider: PROVIDER, challenge: challengeOf(newVerifier()) }) });
@@ -441,7 +614,7 @@ async function main() {
 
   console.log("Invariants");
   {
-    check((await prisma.user.count()) === usersBefore + 4 + (process.env.OAUTH_TEST_ISSUER ? 1 : 0), "aucun utilisateur créé par la liaison (seuls gina, carol, dave, erin, walt du test)");
+    check((await prisma.user.count()) === usersBefore + 4 + 6 + 5 + (process.env.OAUTH_TEST_ISSUER ? 1 : 0), "aucun utilisateur créé par la liaison (seuls ceux du test : gina, carol, dave, erin, vera, abandon, hana, rita, rita2, 6 racers, walt)");
     check((await prisma.loginEvent.count()) === eventsBefore + (process.env.OAUTH_TEST_ISSUER ? 1 : 0), "aucune connexion enregistrée par la liaison mobile (seule la liaison web, jouée en plus, en écrit une)");
     check((await prisma.mobileDevice.count()) === 0, "aucun appareil (donc aucune session) créé");
   }

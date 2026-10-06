@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { enabledOAuthProviderIds } from "@/lib/authProviders";
 import { NATIVE_APP_COOKIE, isNativeRequest } from "@/lib/native";
-import { createLinkTicket } from "@/lib/mobileLink";
+import { MAX_ACTIVE_TICKETS, countActiveLinkTickets, createLinkTicket } from "@/lib/mobileLink";
 import { isChallenge } from "@/lib/mobileAuth";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +33,10 @@ export async function POST(req: NextRequest) {
   }
   const already = await prisma.account.findFirst({ where: { userId, provider }, select: { id: true } });
   if (already) return NextResponse.json({ error: "Ce fournisseur est déjà lié." }, { status: 409 });
+
+  if ((await countActiveLinkTickets(userId)) >= MAX_ACTIVE_TICKETS) {
+    return NextResponse.json({ error: "Trop de tentatives, réessaie dans quelques minutes." }, { status: 429 });
+  }
 
   const ticket = await createLinkTicket(userId, provider, challenge);
   if (!ticket) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });

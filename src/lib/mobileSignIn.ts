@@ -34,6 +34,9 @@ type NativePlugins = {
 
 export class SignInCanceled extends Error {}
 
+/** Échec de liaison dont le message est en français et peut être montré tel quel. */
+export class LinkError extends Error {}
+
 function plugins(): NativePlugins {
   return (window as Window & { Capacitor?: { Plugins?: NativePlugins } }).Capacitor?.Plugins ?? {};
 }
@@ -137,7 +140,7 @@ export async function nativeLinkAccount(provider: string): Promise<LinkOutcome> 
   });
   const ticketData = await ticketRes.json().catch(() => ({}));
   if (!ticketRes.ok || typeof ticketData.ticket !== "string") {
-    throw new Error(ticketData.error || "La liaison a échoué");
+    throw new LinkError(ticketData.error || "La liaison a échoué.");
   }
 
   const start = new URL("/api/mobile-auth/start", window.location.origin);
@@ -145,14 +148,16 @@ export async function nativeLinkAccount(provider: string): Promise<LinkOutcome> 
   start.searchParams.set("ticket", ticketData.ticket);
 
   const callback = new URL(await openAuthSession(start.href));
+  // « Ce n'est pas mon compte » sur la page de confirmation.
+  if (callback.searchParams.get("cancelled")) throw new SignInCanceled();
   const code = callback.searchParams.get("code");
-  if (!code) throw new Error("La liaison n'a pas abouti");
+  if (!code) throw new LinkError("La liaison n'a pas abouti.");
 
   const res = await fetch("/api/mobile-auth/link-exchange", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code, verifier }),
   });
-  if (!res.ok) throw new Error("La liaison a expiré, réessaie");
+  if (!res.ok) throw new LinkError("La liaison a expiré, réessaie.");
   return res.json();
 }

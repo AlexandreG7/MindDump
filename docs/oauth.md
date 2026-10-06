@@ -116,7 +116,11 @@ session ni aucun utilisateur n'est créé. Code : `src/lib/mobileLink.ts`, `src/
 ```
 WebView (session)   POST /api/mobile-auth/link-ticket {provider, challenge}      réservé à l'app, session
                     <- ticket (aléatoire, 5 min, usage unique ; SHA-256 stocké avec userId, provider, défi)
-Navigateur système  GET /api/mobile-auth/start?mode=link&ticket=…                 consomme le ticket
+Navigateur système  GET /api/mobile-auth/start?mode=link&ticket=…                 NE consomme PAS le ticket :
+                    page de confirmation « Lier ton compte Google au compte MindDump de <nom>
+                    (a•••@gmail.com) ? » + cookie SameSite=Strict (jeton lié au ticket, 10 min)
+                    POST /api/mobile-auth/start (« Continuer »)                           consomme le ticket
+                    exige : cookie Strict = jeton du formulaire, Origin = site
                     pose : intention de liaison {userId DU TICKET, provider, nonce, ticketId}
                            (cookie chiffré, /api/auth, 10 min) + cookie {mode:link, ticketId}
                     -> /auth/mobile?li=nonce -> signIn(provider, callbackUrl=complete?li=nonce)
@@ -136,6 +140,18 @@ WebView (session)   POST /api/mobile-auth/link-exchange {code, verifier}
 
 Modèle de menace :
 
+- **Fixation de ticket (CSRF de connexion)** : le ticket est un porteur dans l'URL. Un attaquant
+  crée un ticket depuis SON app et envoie `…/start?mode=link&ticket=<le sien>` à une victime ; si elle
+  s'authentifiait chez Google, son Google serait rattaché au compte de l'attaquant, qui y retrouverait
+  ensuite ses données. Parades : (1) le GET ne pose aucune intention et ne lance pas l'OAuth, il affiche
+  à qui appartient le ticket (nom et e-mail masqué seulement, ce que le détenteur du ticket sait déjà) ;
+  la victime voit un autre nom et refuse (« Ce n'est pas mon compte » brûle le ticket) ; (2) seul le POST de
+  la page consomme le ticket. Un formulaire auto-soumis par un site tiers saute la confirmation sans les
+  parades suivantes : le GET pose un cookie `SameSite=Strict` httpOnly (10 min) contenant l'empreinte du
+  ticket et un jeton aléatoire, que la page remet en champ caché ; le POST exige que les deux
+  correspondent (comparaison à temps constant) et que l'en-tête `Origin` soit celui du site
+  (`NEXTAUTH_URL`) ; un POST cross-site n'envoie pas le cookie Strict. Reste hors de portée : une victime
+  qui confirme malgré un nom qui n'est pas le sien (ingénierie sociale).
 - **Qui est lié** : uniquement le `userId` du ticket, fixé par la session de la WebView au moment de
   la demande. L'URL d'`start` ne porte que le ticket (`userId`, `provider`, `challenge` en paramètres
   sont ignorés). Un ticket d'un utilisateur A ne lie jamais B, même si la WebView de B présente le code.
@@ -149,9 +165,20 @@ Modèle de menace :
   de session de la réponse. Testé avec une session d'un autre utilisateur dans le navigateur.
 - **Compte déjà pris** : refus (`taken`), aucune modification, aucune liaison par e-mail
   (`getUserByEmail` nul). `exchange` revérifie en base avant d'annoncer `linked`.
-- **Intention non appariée** (nonce absent du cookie `callback-url`) : redirection vers
-  `complete?link=error`, jamais de compte créé.
+- **Intention non appariée / abandonnée** (nonce absent du cookie `callback-url`) : la route NextAuth
+  l'ignore, efface le cookie et laisse la connexion se dérouler normalement. `start` en mode connexion
+  efface aussi toute intention restée dans le navigateur (liaison annulée). Jamais de compte créé.
+- **Refus chez le fournisseur** (`access_denied`) : NextAuth redirige vers `/api/auth/signin?error=…`
+  ou `/api/auth/error?error=…` (nouvelle requête, intention déjà consommée) puis `/login`. La route
+  NextAuth intercepte ces deux GET quand le cookie de parcours est en mode `link` et renvoie vers
+  `complete?link=error` : le navigateur revient à l'app (« La liaison avec … a échoué. Réessaie. »).
+  (`pages.error` ne suffit pas : NextAuth range ces erreurs sur la page de connexion.) Un `error` en
+  paramètre n'est jamais pris pour un succès. `complete` sans parcours en cours redirige vers
+  `/login?error=LinkExpired`, jamais de JSON brut.
+- **Limite de débit** : 5 tickets actifs (non consommés, non expirés) par utilisateur, sinon 429.
 - **Délier** : inchangé (`DELETE /api/users/me/accounts`, session obligatoire, refus s'il ne reste
-  aucun autre moyen de connexion, révocation Apple conservée). Une clé API ne peut pas demander de ticket.
+  aucun autre moyen de connexion, révocation Apple conservée). Le comptage et la suppression se font
+  dans une transaction qui verrouille la ligne `User` (`FOR UPDATE`) : deux déliaisons simultanées ne
+  peuvent pas retirer toutes les deux le dernier moyen. Une clé API ne peut pas demander de ticket.
 - **Limites** : `provider` du ticket vérifié contre les fournisseurs actifs ; ticket et code ne
   sont jamais journalisés ; lignes purgées après 1 h (`MobileLinkTicket`, supprimées avec le compte).

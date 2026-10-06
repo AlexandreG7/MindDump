@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ProviderIcon } from "@/components/OAuthButtons";
 import { useFeedback } from "@/components/ui/feedback";
 import { isNativeApp } from "@/lib/native";
-import { SignInCanceled, nativeLinkAccount } from "@/lib/mobileSignIn";
+import { LinkError, SignInCanceled, nativeLinkAccount } from "@/lib/mobileSignIn";
 
 interface Methods {
   hasPassword: boolean;
@@ -64,7 +64,7 @@ export function LoginMethods() {
       setMessage(
         error instanceof SignInCanceled
           ? { text: "Liaison annulée.", ok: false }
-          : { text: error instanceof Error && error.message ? error.message : "La liaison a échoué.", ok: false }
+          : { text: error instanceof LinkError ? error.message : "La liaison a échoué.", ok: false }
       );
     } finally {
       setBusy(null);

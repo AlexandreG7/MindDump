@@ -143,4 +143,4 @@ createServer(async (req, res) => {
   }
   res.writeHead(404);
   res.end();
-}).listen(PORT, () => console.log(`OIDC de test sur ${ISSUER}`));
+}).listen(PORT, "127.0.0.1", () => console.log(`OIDC de test sur ${ISSUER}`));

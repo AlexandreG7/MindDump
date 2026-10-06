@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { CHALLENGE_COOKIE } from "@/lib/mobileAuth";
 import { authOptions } from "@/lib/auth";
 import {
   LINK_COOKIE,
@@ -18,6 +19,27 @@ const isSessionCookie = (name: string) => name.includes("next-auth.session-token
 // créer un nouveau. Voir src/lib/accountLinking.ts.
 async function handler(req: NextRequest, context: Context) {
   const [action, providerId] = context.params.nextauth ?? [];
+
+  // Refus chez le fournisseur (access_denied…) pendant une liaison depuis l'app :
+  // NextAuth redirige vers /api/auth/signin?error=… ou /api/auth/error?error=…
+  // (une NOUVELLE requête, sans l'intention, déjà consommée) puis vers /login.
+  // Le navigateur système doit revenir à l'app avec un échec (« La liaison a
+  // échoué. »), pas rester sur la page de connexion.
+  if (
+    req.method === "GET" &&
+    (action === "signin" || action === "error") &&
+    !providerId &&
+    req.nextUrl.searchParams.has("error")
+  ) {
+    let pending: { mode?: unknown } = {};
+    try {
+      pending = JSON.parse(req.cookies.get(CHALLENGE_COOKIE.name)?.value ?? "{}");
+    } catch {}
+    if (pending.mode === "link") {
+      return NextResponse.redirect(new URL("/api/mobile-auth/complete?link=error", req.nextUrl.origin), 303);
+    }
+  }
+
   const hasIntentCookie = !!req.cookies.get(LINK_COOKIE);
 
   const intent =
@@ -27,14 +49,10 @@ async function handler(req: NextRequest, context: Context) {
   const intentMatches =
     !!intent && intent.provider === providerId && callbackMatchesIntent(req.cookies, intent);
 
-  // Intention posée pour l'app mobile mais callback qui n'est pas celui de cette
-  // tentative : on ne laisse jamais NextAuth créer un compte ou une session ici.
+  // Intention de liaison qui n'est pas celle de cette tentative (liaison abandonnée
+  // dans ce navigateur, par exemple) : on l'ignore, la connexion se déroule
+  // normalement, et le cookie est effacé en fin de callback (plus bas).
   const mobileIntent = !!intent?.ticketId;
-  if (mobileIntent && !intentMatches) {
-    const res = NextResponse.redirect(new URL("/api/mobile-auth/complete?link=error", req.nextUrl.origin), 303);
-    res.headers.append("Set-Cookie", clearLinkCookieHeader);
-    return res;
-  }
 
   let response: Response = await NextAuth(
     req,

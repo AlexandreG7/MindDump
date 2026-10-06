@@ -14,8 +14,13 @@ import { isChallenge } from "./mobileAuth";
  *   WebView (connectée) ── POST /api/mobile-auth/link-ticket {provider, challenge}
  *        ◀── ticket (5 min, usage unique ; SHA-256 stocké avec userId, provider, défi)
  *   navigateur système ── GET /api/mobile-auth/start?mode=link&ticket=…
+ *        ne consomme rien : page de confirmation (nom et e-mail masqué du titulaire)
+ *   navigateur système ── POST /api/mobile-auth/start (bouton « Continuer »)
  *        consomme le ticket, pose l'intention de liaison {userId du ticket, nonce}
  *        (src/lib/accountLinking.ts) et un cookie {ticketId}, puis lance OAuth
+ *        (le POST exige le cookie SameSite=Strict et l'Origin du site : sans cela,
+ *        un lien piégé ferait lier le compte Google de la victime au compte de
+ *        l'attaquant, voir docs/oauth.md)
  *   callback NextAuth (intention) ── rattache le compte OAuth à CE userId, ou refuse
  *        (« taken » si déjà lié à un autre) ; le cookie de session n'est ni lu ni posé
  *   /api/mobile-auth/complete ── dépose code (60 s, SHA-256) + résultat sur le ticket
@@ -29,6 +34,8 @@ const CODE_TTL_MS = 60 * 1000;
 // Durée maximale d'un parcours (ticket consommé → retour de l'OAuth) : celle du cookie du défi.
 const FLOW_MAX_MS = 15 * 60 * 1000;
 const PURGE_AFTER_MS = 60 * 60 * 1000;
+/** Tickets actifs (non expirés, non consommés) autorisés par utilisateur. */
+export const MAX_ACTIVE_TICKETS = 5;
 
 export type LinkResult = "linked" | "taken" | "error";
 
@@ -55,12 +62,51 @@ export async function createLinkTicket(userId: string, provider: string, challen
   return ticket;
 }
 
+export async function countActiveLinkTickets(userId: string) {
+  return prisma.mobileLinkTicket.count({
+    where: { userId, startedAt: null, expiresAt: { gt: new Date() } },
+  });
+}
+
+const validTicket = (ticket: unknown): ticket is string =>
+  typeof ticket === "string" && ticket.length >= 20 && ticket.length <= 200;
+
+export const hashLinkTicket = sha256;
+
+/**
+ * Regarde le ticket SANS le consommer, pour la page de confirmation : ne renvoie
+ * que le nom et l'e-mail du titulaire (que celui qui détient le ticket connaît déjà).
+ */
+export async function peekLinkTicket(ticket: unknown) {
+  if (!validTicket(ticket)) return null;
+  const row = await prisma.mobileLinkTicket.findUnique({
+    where: { ticketHash: sha256(ticket) },
+    select: { userId: true, provider: true, startedAt: true, expiresAt: true },
+  });
+  if (!row || row.startedAt || row.expiresAt < new Date()) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: row.userId },
+    select: { name: true, email: true },
+  });
+  if (!user) return null;
+  return { provider: row.provider, name: user.name, email: user.email };
+}
+
+/** « Ce n'est pas mon compte » : le ticket ne servira plus. */
+export async function cancelLinkTicket(ticket: unknown) {
+  if (!validTicket(ticket)) return;
+  await prisma.mobileLinkTicket.updateMany({
+    where: { ticketHash: sha256(ticket), startedAt: null },
+    data: { expiresAt: new Date() },
+  });
+}
+
 /**
  * Consomme le ticket (usage unique, même si la suite échoue) et renvoie ce que
  * le navigateur système doit lier. Rien n'est lu dans l'URL en dehors du ticket.
  */
 export async function startLinkFlow(ticket: unknown) {
-  if (typeof ticket !== "string" || ticket.length < 20 || ticket.length > 200) return null;
+  if (!validTicket(ticket)) return null;
   const ticketHash = sha256(ticket);
   const claimed = await prisma.mobileLinkTicket.updateMany({
     where: { ticketHash, startedAt: null, expiresAt: { gt: new Date() } },
