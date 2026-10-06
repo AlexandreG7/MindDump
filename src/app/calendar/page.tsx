@@ -118,8 +118,10 @@ export default function CalendarPage() {
   // Abonnements (calendriers externes) : la liste, puis leurs événements de l'intervalle affiché.
   const fetchSubscriptions = useCallback(() => {
     fetch("/api/calendar/subscriptions")
-      .then((r) => r.json())
-      .then((subs: Subscription[]) => setSubscriptions(subs))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((subs: Subscription[] | null) => {
+        if (subs) setSubscriptions(subs);
+      })
       .catch(() => {});
   }, []);
 
@@ -172,9 +174,9 @@ export default function CalendarPage() {
     let cancelled = false;
     for (const sub of active) {
       fetch(`/api/calendar/subscriptions/${sub.id}?${params}`)
-        .then((r) => r.json())
+        .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
-          if (cancelled || !data.events) return;
+          if (cancelled || !data?.events) return;
           setExternalEvents((prev) => [...prev.filter((e) => e.subscriptionId !== sub.id), ...data.events]);
         })
         .catch(() => {});

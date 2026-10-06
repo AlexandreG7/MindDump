@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MealPlanner } from "@/components/recipes/MealPlanner";
+import { prepareRecipePhoto, thumbnailUrl } from "@/lib/image";
 import { useFeaturesContext } from "@/components/FeaturesContext";
 import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
@@ -127,19 +128,32 @@ export default function RecipesPage() {
 
   const fetchRecipes = useCallback(() => {
     const url = currentGroupId ? `/api/recipes?groupId=${currentGroupId}` : "/api/recipes";
-    fetch(url).then((r) => r.json()).then(setRecipes);
+    // Groupe enregistré devenu invalide (403) : on garde la liste précédente
+    // au lieu d'écraser l'état avec l'objet d'erreur, la correction côté
+    // GroupContext relance ensuite le chargement avec le bon groupe.
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setRecipes(data);
+      });
   }, [currentGroupId]);
 
   const fetchLists = useCallback(() => {
-    fetch("/api/lists").then((r) => r.json()).then(setLists);
+    fetch("/api/lists")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setLists(data);
+      });
   }, []);
 
   useEffect(() => {
-    if (isReady) {
-      fetchRecipes();
-      fetchLists();
-    }
-  }, [isReady, fetchRecipes, fetchLists]);
+    if (isReady) fetchRecipes();
+  }, [isReady, fetchRecipes]);
+
+  // Les listes ne dépendent pas du groupe : pas de rechargement quand il change.
+  useEffect(() => {
+    if (isReady) fetchLists();
+  }, [isReady, fetchLists]);
 
   const tabRecipes = recipes.filter((r) =>
     activeTab === "prevues" ? r.planned : r.inCatalog
@@ -243,7 +257,7 @@ export default function RecipesPage() {
 
     if (pendingImage && created.id) {
       const formData = new FormData();
-      formData.append("image", pendingImage);
+      formData.append("image", await prepareRecipePhoto(pendingImage), "photo.jpg");
       const imgRes = await fetch(`/api/recipes/${created.id}/image`, {
         method: "POST",
         body: formData,
@@ -330,7 +344,7 @@ export default function RecipesPage() {
 
   const uploadImage = async (recipeId: string, file: File) => {
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", await prepareRecipePhoto(file), "photo.jpg");
     const res = await fetch(`/api/recipes/${recipeId}/image`, {
       method: "POST",
       body: formData,
@@ -991,7 +1005,9 @@ export default function RecipesPage() {
                 {recipe.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={recipe.image}
+                    src={thumbnailUrl(recipe.image, 240)}
+                    loading="lazy"
+                    decoding="async"
                     alt={recipe.title}
                     className="w-20 h-20 object-cover rounded-l-2xl"
                   />
@@ -1050,7 +1066,9 @@ export default function RecipesPage() {
                 {recipe.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={recipe.image}
+                    src={thumbnailUrl(recipe.image, 480)}
+                    loading="lazy"
+                    decoding="async"
                     alt={recipe.title}
                     className="w-full aspect-square object-cover"
                   />
@@ -1484,7 +1502,9 @@ function RecipeCard({
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={recipe.image}
+              src={thumbnailUrl(recipe.image, 800)}
+              loading="lazy"
+              decoding="async"
               alt={recipe.title}
               className="w-full h-44 object-cover"
             />

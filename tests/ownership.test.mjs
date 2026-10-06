@@ -223,6 +223,39 @@ async function main() {
   const memberRemovesMember = await api(frank, "DELETE", `/api/groups/${alice.defaultGroupId}/members/${grace.id}`);
   check(memberRemovesMember.status === 403, `un membre simple ne peut pas retirer un autre membre (${memberRemovesMember.status})`);
 
+  console.log("9. Résumé des recettes (?fields=summary, utilisé par la page Listes)");
+  const summaryRecipe = await api(alice, "POST", "/api/recipes", {
+    title: `Recette résumé ${run}`,
+    groupId: alice.defaultGroupId,
+    steps: [],
+    ingredients: [
+      { name: "Sel", quantity: "1", unit: "pincée" },
+      { name: "Poivre", quantity: "1", unit: "pincée" },
+    ],
+  });
+  check(!!summaryRecipe.json?.id, `recette avec ingrédients créée (${summaryRecipe.status})`);
+  const summaryId = summaryRecipe.json.id;
+
+  const aliceSummary = await api(alice, "GET", `/api/recipes?fields=summary&groupId=${alice.defaultGroupId}`);
+  const aliceEntry = (aliceSummary.json || []).find((r) => r.id === summaryId);
+  check(!!aliceEntry, `alice voit sa recette dans le résumé (${aliceSummary.status})`);
+  check(
+    !!aliceEntry && Object.keys(aliceEntry).sort().join(",") === "id,ingredientCount,title",
+    "le résumé ne contient que id, title et ingredientCount"
+  );
+  check(aliceEntry?.ingredientCount === 2, "le résumé compte les ingrédients");
+
+  const carolSummaryNoFilter = await api(carol, "GET", "/api/recipes?fields=summary");
+  check(
+    !(carolSummaryNoFilter.json || []).some((r) => r.id === summaryId),
+    "carol (non membre) ne voit pas la recette d'alice dans le résumé, sans filtre de groupe"
+  );
+  const carolSummaryGroupFilter = await api(carol, "GET", `/api/recipes?fields=summary&groupId=${alice.defaultGroupId}`);
+  check(
+    carolSummaryGroupFilter.status === 403,
+    `carol ne peut pas filtrer le résumé sur un groupe dont elle n'est pas membre (${carolSummaryGroupFilter.status})`
+  );
+
   console.log(`\n${checks - failures}/${checks} vérifications OK`);
 }
 

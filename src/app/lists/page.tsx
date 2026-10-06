@@ -68,7 +68,7 @@ interface ShoppingList {
 interface Recipe {
   id: string;
   title: string;
-  ingredients: { id: string; name: string; quantity: string; unit: string | null }[];
+  ingredientCount: number;
 }
 
 interface GroupedItem {
@@ -180,16 +180,24 @@ export default function ListsPage() {
   // Hors ligne, /api/lists vient du cache du service worker (src/app/sw.ts) :
   // on y rejoue les modifications en attente pour ne pas les faire disparaître.
   const fetchLists = useCallback(() => {
+    // Réponse en erreur (groupe enregistré invalide, etc.) : on garde les
+    // listes précédentes plutôt que d'écraser l'état avec l'objet d'erreur.
     fetch("/api/lists")
-      .then((r) => r.json())
-      .then((data: ShoppingList[]) => setLists(withPending(data)))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: ShoppingList[] | null) => {
+        if (data) setLists(withPending(data));
+      })
       .catch(() => {});
   }, []);
 
   const fetchRecipes = useCallback(() => {
-    fetch("/api/recipes")
-      .then((r) => r.json())
-      .then(setRecipes)
+    // Le choix « ajouter une recette » n'affiche que le titre et le nombre
+    // d'ingrédients : inutile de charger les recettes complètes.
+    fetch("/api/recipes?fields=summary")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setRecipes(data);
+      })
       .catch(() => {});
   }, []);
 
@@ -572,7 +580,7 @@ function ListGroup({
                               <ChefHat className="h-4 w-4 mr-2 shrink-0" />
                               <span className="truncate">{recipe.title}</span>
                               <span className="text-xs text-muted-foreground ml-auto pl-2">
-                                {recipe.ingredients.length} ing.
+                                {recipe.ingredientCount} ing.
                               </span>
                             </Button>
                           </DialogClose>
