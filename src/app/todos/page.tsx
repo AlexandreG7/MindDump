@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
 import { notifyRemindersChanged } from "@/lib/localReminders";
@@ -72,7 +72,7 @@ function TodosPageContent() {
   const [todos, setTodos] = useState<Todo[] | null>(null);
   // Suppressions en attente : la tâche disparaît tout de suite, la requête part
   // à la fin du délai d'annulation.
-  const { hidden, requestDelete } = useDeferredDelete();
+  const { hidden, requestDelete } = useDeferredDelete({ affectsReminders: true });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newTodo, setNewTodo] = useState({
     title: "",
@@ -101,10 +101,15 @@ function TodosPageContent() {
   // Lu à chaque changement d'URL : un rappel touché alors que l'app est déjà
   // sur /todos (router.push vers /todos?task=…) met aussi la tâche en évidence.
   const searchParams = useSearchParams();
+  const router = useRouter();
   const taskParam = searchParams.get("task");
   useEffect(() => {
-    if (taskParam) setHighlightId(taskParam);
-  }, [taskParam]);
+    if (!taskParam) return;
+    setHighlightId(taskParam);
+    // Paramètre consommé : on le retire pour qu'un second appui sur le même
+    // rappel (URL identique sinon) déclenche de nouveau la mise en évidence.
+    router.replace("/todos", { scroll: false });
+  }, [taskParam, router]);
 
   const [activeTab, setActiveTab] = useState<"urgent" | "planned">("urgent");
 

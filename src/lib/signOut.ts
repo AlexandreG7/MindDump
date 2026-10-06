@@ -2,7 +2,7 @@ import { signOut, type SignOutParams } from "next-auth/react";
 import { clearOfflineCaches } from "./offlineCache";
 import { clearPendingOps } from "./offlineLists";
 import { unsubscribeFromPush } from "./pushClient";
-import { cancelAllLocalReminders } from "./localReminders";
+import { cancelAllLocalReminders, suspendLocalReminderSync } from "./localReminders";
 import { clearShareToken } from "./nativeDevice";
 
 /**
@@ -17,8 +17,11 @@ export async function signOutAndClear(options?: SignOutParams<true>) {
   await unsubscribeFromPush();
   await fetch("/api/users/me/devices/current", { method: "DELETE" }).catch(() => {});
   await clearShareToken();
-  await cancelAllLocalReminders();
   clearPendingOps();
   await clearOfflineCaches();
+  // Plus de resynchronisation possible, puis annulation juste avant la fin de
+  // session ; une erreur du plugin ne doit jamais empêcher la déconnexion.
+  suspendLocalReminderSync();
+  await cancelAllLocalReminders().catch(() => {});
   return signOut(options);
 }

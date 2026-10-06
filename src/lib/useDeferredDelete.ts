@@ -41,7 +41,7 @@ interface RequestDeleteParams {
  *   ne convient pas), puis vide la map pour qu'elle ne soit pas renvoyée en
  *   double par le nettoyage.
  */
-export function useDeferredDelete() {
+export function useDeferredDelete({ affectsReminders = false }: { affectsReminders?: boolean } = {}) {
   const { toast, dismiss } = useFeedback();
   const pendingDeletes = useRef(new Map<string, PendingDelete>());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -69,7 +69,7 @@ export function useDeferredDelete() {
       setHidden((h) => new Set(h).add(id));
       const timer = setTimeout(async () => {
         const res = await sendDelete(id, url);
-        notifyRemindersChanged();
+        if (affectsReminders) notifyRemindersChanged();
         if (!res?.ok) {
           toast(errorMessage, "error");
           unhide(id);
@@ -88,7 +88,7 @@ export function useDeferredDelete() {
 
       pendingDeletes.current.set(id, { timer, toastId, url });
     },
-    [sendDelete, toast, unhide]
+    [sendDelete, toast, unhide, affectsReminders]
   );
 
   // Fermeture d'onglet ou rechargement dur : on envoie les suppressions en
@@ -117,7 +117,9 @@ export function useDeferredDelete() {
         dismiss(toastId);
         // Reprogramme les rappels une fois la suppression traitée (démontage
         // d'une route dans l'app ; sur `pagehide` la page part, sans objet).
-        sendDelete(id, url).then(notifyRemindersChanged);
+        sendDelete(id, url).then(() => {
+          if (affectsReminders) notifyRemindersChanged();
+        });
       });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

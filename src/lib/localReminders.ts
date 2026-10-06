@@ -122,14 +122,20 @@ export function reminderNotificationId(key: string): number {
   return (unsigned % 0x7fffffff) + 1;
 }
 
-async function fetchUpcomingReminders(): Promise<UpcomingReminder[] | null> {
+type UpcomingResult =
+  | { kind: "ok"; reminders: UpcomingReminder[] }
+  | { kind: "unauthorized" } // 401 : session expirée ou changement de compte
+  | { kind: "unavailable" }; // réseau coupé, 5xx, réponse illisible
+
+async function fetchUpcomingReminders(): Promise<UpcomingResult> {
   try {
     const res = await fetch("/api/reminders/upcoming");
-    if (!res.ok) return null;
+    if (res.status === 401) return { kind: "unauthorized" };
+    if (!res.ok) return { kind: "unavailable" };
     const data = (await res.json()) as { reminders: UpcomingReminder[] };
-    return data.reminders;
+    return { kind: "ok", reminders: data.reminders };
   } catch {
-    return null;
+    return { kind: "unavailable" };
   }
 }
 
@@ -138,6 +144,13 @@ async function fetchUpcomingReminders(): Promise<UpcomingReminder[] | null> {
 // juste après qu'on les a annulés, par exemple en désactivant l'interrupteur).
 let lock: Promise<unknown> = Promise.resolve();
 let syncQueued = false;
+// Posé par la déconnexion : plus aucune synchro ne doit reprogrammer de rappels.
+let signingOut = false;
+
+/** Déconnexion en cours : rend `syncLocalReminders` inopérant. */
+export function suspendLocalReminderSync() {
+  signingOut = true;
+}
 
 function withLock<T>(fn: () => Promise<T>): Promise<T> {
   const run = lock.then(fn, fn);
@@ -156,7 +169,7 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
  * en attente se regroupent en une seule exécution.
  */
 export function syncLocalReminders(): Promise<void> {
-  if (!localRemindersAvailable()) return Promise.resolve();
+  if (!localRemindersAvailable() || signingOut) return Promise.resolve();
   if (syncQueued) return lock as Promise<void>;
   syncQueued = true;
   return withLock(async () => {
@@ -168,8 +181,15 @@ export function syncLocalReminders(): Promise<void> {
 async function doSync(): Promise<void> {
   const p = plugin();
   if (!p) return;
-  const reminders = await fetchUpcomingReminders();
-  if (reminders === null) return; // pas de session, ou réseau indisponible : on ne touche à rien.
+  const result = await fetchUpcomingReminders();
+  if (signingOut) return;
+  if (result.kind === "unavailable") return; // hors ligne ou erreur serveur : on garde les rappels déjà programmés.
+  if (result.kind === "unauthorized") {
+    // Session expirée ou changement de compte : rien de l'ancien compte ne doit rester.
+    await cancelAllPending(p);
+    return;
+  }
+  const reminders = result.reminders;
 
   const now = Date.now();
   const desired = reminders
@@ -217,14 +237,21 @@ async function doSync(): Promise<void> {
  * compte. Passe par le même verrou que `syncLocalReminders`.
  */
 export function cancelAllLocalReminders(): Promise<void> {
+  // Une synchro déjà en file passerait avant cet appel : on la retire, la
+  // prochaine demande de synchro s'enfilera après l'annulation.
+  syncQueued = false;
   return withLock(async () => {
     const p = plugin();
     if (!p) return;
-    const pending = await p.getPending().catch(() => ({ notifications: [] as PendingNotification[] }));
-    if (pending.notifications.length) {
-      await p.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) }).catch(() => {});
-    }
+    await cancelAllPending(p);
   });
+}
+
+async function cancelAllPending(p: LocalNotificationsPlugin): Promise<void> {
+  const pending = await p.getPending().catch(() => ({ notifications: [] as PendingNotification[] }));
+  if (pending.notifications.length) {
+    await p.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) }).catch(() => {});
+  }
 }
 
 /**

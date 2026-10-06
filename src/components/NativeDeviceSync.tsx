@@ -8,7 +8,6 @@ import { registerMatchDriveRelay } from "@/lib/matchDrive";
 import {
   REMINDERS_CHANGED_EVENT,
   localRemindersAvailable,
-  cancelAllLocalReminders,
   onReminderNotificationTapped,
   syncLocalReminders,
 } from "@/lib/localReminders";
@@ -37,12 +36,6 @@ export function NativeDeviceSync() {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      // Session expirée ou changement de compte : les rappels de l'ancien
-      // compte ne doivent pas survivre sur ce téléphone.
-      if (localRemindersAvailable()) cancelAllLocalReminders();
-      return;
-    }
     if (status !== "authenticated") return;
     syncShareToken();
     registerMatchDriveRelay();
