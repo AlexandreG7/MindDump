@@ -156,6 +156,34 @@ async function main() {
   const reenable = await api(alice, "PATCH", "/api/users/me/notifications", { notifyReminders: true });
   check(reenable.status === 200 && reenable.json.notifyReminders === true, "rappels réactivés");
 
+  console.log("6. Utilisateur sans lien avec Alice ni son groupe");
+  const carol = await makeUser("carol");
+  const carolReminders = await upcomingReminders(carol);
+  check(carolReminders.length === 0, `Carol (sans lien) ne reçoit aucun rappel (${carolReminders.length})`);
+  check(
+    !has(carolReminders, sharedTodo.json.id) && !has(carolReminders, recurringEvent.json.id),
+    "les éléments d'Alice n'apparaissent pas chez Carol"
+  );
+  // Carol a ses propres rappels : le pré-filtre ne la prive pas des siens.
+  const carolTodo = await api(carol, "POST", "/api/todos", {
+    title: `Tâche de Carol ${run}`,
+    dueDate: dueSoon.toISOString(),
+    notifyBefore: 10,
+  });
+  check(has(await upcomingReminders(carol), carolTodo.json.id), "Carol voit son propre rappel");
+  // Cas ADR 0001 : Bob (ancien membre) garde les éléments dont il est l'auteur.
+  const bobTodo = await prisma.todo.create({
+    data: {
+      title: `Tâche de Bob ${run}`,
+      userId: bob.id,
+      groupId: alice.defaultGroupId,
+      dueDate: dueSoon,
+      notifyBefore: 10,
+    },
+  });
+  check(has(await upcomingReminders(bob), bobTodo.id), "Bob (auteur, plus membre) garde le rappel de sa tâche");
+  check(!has(await upcomingReminders(carol), bobTodo.id), "Carol ne reçoit pas la tâche de Bob");
+
   console.log(`\n${checks - failures}/${checks} vérifications OK`);
 }
 

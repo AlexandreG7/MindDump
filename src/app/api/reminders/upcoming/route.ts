@@ -54,7 +54,7 @@ export async function GET() {
 
   const results: Array<UpcomingReminder & { fireAtDate: Date }> = [];
 
-  const todoCandidates = await listTodoCandidates(windowEnd);
+  const todoCandidates = await listTodoCandidates(windowEnd, sessionUser.id);
   for (const { todo, fireAt } of todoCandidates) {
     if (fireAt < now) continue;
     const recipients = await recipientsForTodo(todo, groupMembers);
@@ -75,7 +75,7 @@ export async function GET() {
   // allOccurrences = true : une série récurrente doit proposer toutes ses
   // occurrences des 30 prochains jours, pas seulement la suivante (le cron,
   // lui, n'a besoin que de la prochaine à chaque passage).
-  const eventCandidates = await listEventCandidates(now, windowEnd, true);
+  const eventCandidates = await listEventCandidates(now, windowEnd, true, sessionUser.id);
   for (const { event, occurrenceAt, fireAt } of eventCandidates) {
     if (fireAt < now) continue;
     const recipients = await recipientsForEvent(event, groupMembers);
