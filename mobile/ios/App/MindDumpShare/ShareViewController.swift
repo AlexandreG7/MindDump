@@ -139,8 +139,20 @@ class ShareViewController: UIViewController {
     /// https://www.quitoque.fr/recettes/recettes-de-saison                               → nil (collection)
     /// https://www.quitoque.fr/                                                          → nil (accueil)
     /// https://www.marmiton.org/recettes/poulet.aspx                                     → nil (autre site)
+    /// http://www.hellofresh.fr/recipes/poulet-roti-au-citron-6192a1f3a6b8c9001234abcd   → .hellofresh (http accepté : le serveur le réécrit en https)
+    /// http://jow.fr/recipes/crepes-maison-83jq25q5innb780q0wzk                          → .jow (idem)
+    /// http://www.quitoque.fr/recettes/poulet-tikka-masala                               → .quitoque (idem)
+    /// http://127.0.0.1/recipes/x-6192a1f3a6b8c9001234abcd                               → nil (hôte hors liste)
+    /// http://hellofresh.fr.evil.com/recipes/x-6192a1f3a6b8c9001234abcd                  → nil (domaine usurpé)
+    /// https://user:pass@www.hellofresh.fr/recipes/x-6192a1f3a6b8c9001234abcd            → nil (identifiants dans l'URL)
+    /// http://www.hellofresh.fr:8080/recipes/x-6192a1f3a6b8c9001234abcd                  → nil (port non standard)
     private func recipeSource(_ url: String?) -> RecipeSource? {
         guard let url = url, let parsedUrl = URL(string: url), let host = parsedUrl.host?.lowercased() else { return nil }
+        // Mêmes garde-fous que isAllowedUrl (src/lib/safeFetch.ts) : http(s)
+        // seulement, pas d'identifiants, port standard (80 en http, 443 en https).
+        guard let scheme = parsedUrl.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              parsedUrl.user == nil, parsedUrl.password == nil else { return nil }
+        if let port = parsedUrl.port, port != (scheme == "http" ? 80 : 443) { return nil }
         let path = URLComponents(url: parsedUrl, resolvingAgainstBaseURL: false)?.path ?? parsedUrl.path
         func matches(_ pattern: String, _ value: String, caseInsensitive: Bool = true) -> Bool {
             let options: NSString.CompareOptions = caseInsensitive ? [.regularExpression, .caseInsensitive] : [.regularExpression]

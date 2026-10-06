@@ -406,8 +406,18 @@ export default function RecipesPage() {
     setImportError("");
     try {
       const targetUrl = importUrl.trim();
-      const isJow = /jow\.fr\/(en\/)?recipes\//.test(targetUrl);
-      const isHelloFresh = targetUrl.includes("hellofresh");
+      // Aiguillage sur l'hôte (ancré), pas sur une recherche dans toute l'URL.
+      let host = "";
+      let path = "";
+      try {
+        const parsed = new URL(targetUrl);
+        host = parsed.hostname.toLowerCase();
+        path = parsed.pathname;
+      } catch {
+        /* URL invalide : ni Jow ni HelloFresh, l'erreur ci-dessous s'applique */
+      }
+      const isJow = /^(?:www\.)?jow\.fr$/.test(host) && /^\/(?:en\/)?recipes\//.test(path);
+      const isHelloFresh = /^(?:www\.)?hellofresh\.(?:[a-z]{2,3}|co\.uk|com\.au)$/.test(host);
 
       if (isJow) {
         const res = await fetch("/api/recipes/import-jow", {

@@ -76,7 +76,11 @@ test("isAllowedUrl : hôte usurpé, userinfo, port non standard, protocole exoti
   assert.equal(isAllowedUrl(`https://hellofresh.fr.evil.com/recipes/x-${HF_ID}`, HF), false);
   assert.equal(isAllowedUrl(`https://evil.com/?hellofresh`, HF), false);
   assert.equal(isAllowedUrl(`https://www.hellofresh.fr:8080/recipes/x-${HF_ID}`, HF), false);
-  assert.equal(isAllowedUrl(`http://www.hellofresh.fr/recipes/x-${HF_ID}`, HF), false); // http refusé
+  assert.equal(isAllowedUrl(`http://www.hellofresh.fr/recipes/x-${HF_ID}`, HF), true); // http réécrit en https
+  assert.equal(isAllowedUrl(`http://www.hellofresh.fr:8080/recipes/x-${HF_ID}`, HF), false);
+  assert.equal(isAllowedUrl(`http://user:pw@www.hellofresh.fr/recipes/x-${HF_ID}`, HF), false);
+  assert.equal(isAllowedUrl(`http://127.0.0.1/recipes/x-${HF_ID}`, HF), false);
+  assert.equal(isAllowedUrl(`http://hellofresh.fr.evil.com/recipes/x-${HF_ID}`, HF), false);
   assert.equal(isAllowedUrl(`file:///etc/passwd`, HF), false);
   assert.equal(isAllowedUrl(`gopher://hellofresh.fr/recipes`, HF), false);
   assert.equal(isAllowedUrl(`https://www.hellofresh.fr/recipes/x-${HF_ID}`, HF), true);
@@ -136,6 +140,31 @@ test("fetchAllowedUrl : hôte hors liste refusé avant tout fetch", async () => 
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test("fetchAllowedUrl : lien http d'un hôte autorisé fetché en https", async () => {
+  stubLookup("93.184.216.34");
+  const realFetch = globalThis.fetch;
+  const seen: string[] = [];
+  globalThis.fetch = (async (input: URL | string) => {
+    seen.push(String(input));
+    return new Response("ok", { status: 200 });
+  }) as typeof fetch;
+  try {
+    const res = await fetchAllowedUrl(`http://www.hellofresh.fr/recipes/x-${HF_ID}`, /^(?:www\.)?hellofresh\.fr$/i);
+    assert.equal(res.status, 200);
+    assert.deepEqual(seen, [`https://www.hellofresh.fr/recipes/x-${HF_ID}`]);
+    await assert.rejects(() => fetchAllowedUrl("http://127.0.0.1/x", JOW_HOST_PATTERN), UnsafeUrlError);
+    await assert.rejects(() => fetchAllowedUrl("http://jow.fr.evil.com/x", JOW_HOST_PATTERN), UnsafeUrlError);
+    assert.equal(seen.length, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+    __setLookupForTests(null);
+  }
+});
+
+test("assertPublicUrl : identifiants dans l'URL refusés", async () => {
+  await assert.rejects(() => assertPublicUrl("https://user:pw@example.com/cal.ics"), UnsafeUrlError);
 });
 
 test("fetchAllowedUrl : redirection vers un hôte interne refusée", async () => {

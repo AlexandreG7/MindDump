@@ -31,24 +31,6 @@ export function isJowUrl(url: string): boolean {
   return /^\/(?:en\/)?recipes\/[^/?#]+\/?$/i.test(pathname);
 }
 
-/**
- * Extrait l'id Jow (hash hexadécimal) quand le dernier segment de
- * "/recipes/" en porte un ("/recipes/<slug>-<id>"). Utile si un appelant a
- * vraiment besoin de l'id ; ne sert plus de porte d'entrée pour accepter ou
- * refuser une URL (voir `isJowUrl`).
- */
-export function extractJowSlugId(url: string): string | null {
-  if (!isJowHost(url)) return null;
-  let pathname: string;
-  try {
-    pathname = new URL(url).pathname;
-  } catch {
-    return null;
-  }
-  const match = pathname.match(/^\/(?:en\/)?recipes\/[^/?#]+-([a-z0-9]{16,})\/?$/i);
-  return match ? match[1] : null;
-}
-
 interface JowConstituent {
   id: string;
   name: string;

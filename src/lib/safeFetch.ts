@@ -91,6 +91,9 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new UnsafeUrlError("URL invalide (http/https uniquement)");
   }
+  if (url.username || url.password) {
+    throw new UnsafeUrlError("Identifiants non autorisés dans l'URL");
+  }
   const host = url.hostname.replace(/^\[|\]$/g, "");
   const addresses = isIP(host) ? [host] : (await lookup(host).catch(() => [])).map((a) => a.address);
   if (addresses.length === 0) throw new UnsafeUrlError("Adresse introuvable");
@@ -128,6 +131,30 @@ export async function safeFetchText(raw: string): Promise<string> {
 }
 
 /**
+ * Pour les hôtes de la liste blanche (HelloFresh, Jow, Quitoque) : si l'URL
+ * est en http: et que l'hôte correspond (sans identifiants, port standard),
+ * la réécrit en https: — un vieux lien partagé en http (ex: notification,
+ * copier-coller) ne doit pas être refusé puisque ces sites répondent tous en
+ * https. Le fetch réel part toujours en https (voir `fetchAllowedUrl`).
+ * Toute autre URL (hôte hors liste, userinfo, port non standard, protocole
+ * exotique) est renvoyée inchangée : `isAllowedUrl` la jugera ensuite.
+ */
+export function toAllowedHttps(raw: string, hostPattern: RegExp): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return raw;
+  }
+  if (url.protocol !== "http:" || url.username || url.password) return raw;
+  if (url.port && url.port !== "80") return raw;
+  if (!hostPattern.test(url.hostname)) return raw;
+  url.protocol = "https:";
+  url.port = "";
+  return url.toString();
+}
+
+/**
  * Pour les imports de recettes (HelloFresh, Jow, Quitoque) : en plus du
  * blocage d'IP interne, l'hôte doit être dans une liste blanche ancrée
  * (évite "hellofresh.fr.evil.com", les userinfo "jow.fr@evil.com", les ports
@@ -137,7 +164,7 @@ export async function safeFetchText(raw: string): Promise<string> {
 export function isAllowedUrl(raw: string, hostPattern: RegExp): boolean {
   let url: URL;
   try {
-    url = new URL(raw);
+    url = new URL(toAllowedHttps(raw, hostPattern));
   } catch {
     return false;
   }
@@ -161,10 +188,14 @@ export async function fetchAllowedUrl(
 ): Promise<Response> {
   let current = raw;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    if (!isAllowedUrl(current, hostPattern)) {
+    // Réécrit http: en https: pour un hôte de la liste blanche avant de
+    // juger l'URL et de construire la requête : le fetch réel ne part
+    // jamais en http, même si le lien d'origine (ou une redirection) l'était.
+    const canonical = toAllowedHttps(current, hostPattern);
+    if (!isAllowedUrl(canonical, hostPattern)) {
       throw new UnsafeUrlError("Hôte non autorisé");
     }
-    const url = new URL(current);
+    const url = new URL(canonical);
     const host = url.hostname;
     const addresses = (await lookup(host).catch(() => [])).map((a) => a.address);
     if (addresses.length === 0) throw new UnsafeUrlError("Adresse introuvable");

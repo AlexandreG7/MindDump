@@ -142,3 +142,13 @@ test("HelloFresh : vraie page de recette → ingrédients et étapes présents",
   assert.equal(parsed.ingredients.length, 2);
   assert.equal(parsed.steps.length, 2);
 });
+
+test("recipeSource : liens http des hôtes autorisés acceptés, le reste refusé", () => {
+  assert.equal(recipeSource(`http://www.hellofresh.fr/recipes/poulet-roti-au-citron-${HF_ID}`), "hellofresh");
+  assert.equal(recipeSource("http://jow.fr/recipes/crepes-maison-83jq25q5innb780q0wzk"), "jow");
+  assert.equal(recipeSource("http://www.quitoque.fr/recettes/poulet-tikka-masala"), "quitoque");
+  assert.equal(recipeSource(`http://127.0.0.1/recipes/x-${HF_ID}`), null);
+  assert.equal(recipeSource(`http://hellofresh.fr.evil.com/recipes/x-${HF_ID}`), null);
+  assert.equal(recipeSource(`https://user:pass@www.hellofresh.fr/recipes/x-${HF_ID}`), null);
+  assert.equal(recipeSource(`http://www.hellofresh.fr:8080/recipes/x-${HF_ID}`), null);
+});
