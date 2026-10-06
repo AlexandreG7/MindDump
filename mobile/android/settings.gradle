@@ -1,3 +1,10 @@
+// @capacitor/local-notifications demande Kotlin en JDK 21 (jvmToolchain(21)) ;
+// notre JDK local (JBR d'Android Studio) est en 25. Ce résolveur télécharge
+// un JDK 21 au besoin plutôt que d'en exiger un installé à la main.
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')

@@ -77,6 +77,11 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 - Le wrapper Gradle est passé de 8.14 à **9.2.1** : Gradle 8 ne tourne pas sur
   le JDK 25 d'Android Studio (« Unsupported class file major version 69 »).
+- `@capacitor/local-notifications` compile en Kotlin avec `jvmToolchain(21)`,
+  alors que le seul JDK disponible ici est le JBR 25 d'Android Studio :
+  `android/settings.gradle` déclare le résolveur
+  `org.gradle.toolchains.foojay-resolver-convention` pour que Gradle
+  télécharge un JDK 21 tout seul au lieu d'en exiger un installé à la main.
 - `android/local.properties` (chemin du SDK, non versionné) :
   `sdk.dir=/Users/<toi>/Library/Android/sdk`. Android Studio le crée tout seul.
 - Serveur local : l'émulateur n'a pas le même `localhost` que le Mac. Utiliser
@@ -95,6 +100,29 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - Icône adaptative : fond orange (`values/ic_launcher_background.xml`) et
   « M » en premier plan ; écran de lancement Android 12+ par l'API SplashScreen
   (`values/styles.xml`), fichiers `splash.png` pour les versions antérieures.
+
+## Rappels locaux (étape 3.3)
+
+`@capacitor/local-notifications` programme les rappels depuis l'app
+(`src/lib/localReminders.ts`), sans APNs ni Firebase. Rien de spécial à faire
+sur iOS au-delà de l'autorisation demandée par le plugin lui-même (voir
+`src/lib/localReminders.ts` : `schedule()` ne demande l'autorisation que si
+elle n'a encore jamais été décidée, jamais en boucle si elle a été refusée).
+
+Sur Android 13+, la permission `POST_NOTIFICATIONS` est déclarée dans
+`mobile/android/app/src/main/AndroidManifest.xml`. Le plugin déclare aussi
+`SCHEDULE_EXACT_ALARM` dans son propre manifeste ; elle est explicitement
+retirée (`tools:node="remove"`) : un rappel programmé avec quelques minutes
+(voire dizaines de minutes en veille profonde) de retard reste acceptable —
+ce n'est pas une alarme-réveil — et ça évite à l'app de demander une
+permission spéciale soumise à déclaration Play Console.
+
+Chaque notification programmée (`src/lib/localReminders.ts`) porte
+`isExactNotification: false` : sans ça, le plugin ouvre de lui-même l'écran
+système « Alarmes et rappels » au premier rappel programmé sur Android 12+,
+même sans la permission déclarée. Avec `isExactNotification: false`,
+`AlarmManager` programme directement une alarme inexacte
+(`setAndAllowWhileIdle`), sans jamais interrompre l'utilisateur.
 
 ## Ce que contient le projet iOS
 

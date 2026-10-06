@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, Mail, Send, Smartphone } from "lucide-react";
+import { Bell, BellRing, Mail, Send, Smartphone } from "lucide-react";
 import {
   currentSubscription,
   pushSupport,
@@ -9,9 +9,16 @@ import {
   unsubscribeFromPush,
   type PushSupport,
 } from "@/lib/pushClient";
-import { isNativeApp } from "@/lib/native";
+import { isNativeApp, nativePlatform } from "@/lib/native";
+import {
+  cancelAllLocalReminders,
+  localRemindersAvailable,
+  reminderPermissionStatus,
+  requestReminderPermission,
+  syncLocalReminders,
+} from "@/lib/localReminders";
 
-type Prefs = { notifyEmail: boolean; pushPublicKey: string | null };
+type Prefs = { notifyEmail: boolean; notifyReminders: boolean; pushPublicKey: string | null };
 
 function Switch({
   checked,
@@ -49,12 +56,14 @@ function Row({
   active,
   label,
   description,
+  action,
   children,
 }: {
   icon: typeof Bell;
   active: boolean;
   label: string;
   description: string;
+  action?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   return (
@@ -70,6 +79,7 @@ function Row({
         <div className="min-w-0">
           <p className={`text-sm font-medium ${!active ? "text-muted-foreground" : ""}`}>{label}</p>
           <p className="text-xs text-muted-foreground">{description}</p>
+          {action}
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">{children}</div>
@@ -85,9 +95,13 @@ export function NotificationSettings() {
   const [subscribed, setSubscribed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  // Dans l'app native, le Web Push n'est pas disponible : les notifications
-  // y passeront par APNs / FCM (docs/app-mobile.md, étape 3.3).
+  // Dans l'app native, le Web Push n'est pas disponible : les rappels passent
+  // par des notifications locales programmées depuis l'app
+  // (docs/app-mobile.md, étape 3.3).
   const [native, setNative] = useState(false);
+  const [remindersAvailable, setRemindersAvailable] = useState(false);
+  const [remindersPermission, setRemindersPermission] = useState<string | null>(null);
+  const [remindersBusy, setRemindersBusy] = useState(false);
 
   const refreshDevice = useCallback(async () => {
     const s = pushSupport();
@@ -97,14 +111,21 @@ export function NotificationSettings() {
     setSubscribed(!!(await currentSubscription().catch(() => null)));
   }, []);
 
+  const refreshRemindersPermission = useCallback(async () => {
+    if (!localRemindersAvailable()) return;
+    setRemindersPermission(await reminderPermissionStatus());
+  }, []);
+
   useEffect(() => {
     fetch("/api/users/me/notifications")
       .then((r) => (r.ok ? r.json() : null))
       .then(setPrefs)
       .catch(() => {});
     setNative(isNativeApp());
+    setRemindersAvailable(localRemindersAvailable());
     refreshDevice();
-  }, [refreshDevice]);
+    refreshRemindersPermission();
+  }, [refreshDevice, refreshRemindersPermission]);
 
   const setNotifyEmail = async (notifyEmail: boolean) => {
     setPrefs((p) => (p ? { ...p, notifyEmail } : p));
@@ -114,6 +135,32 @@ export function NotificationSettings() {
       body: JSON.stringify({ notifyEmail }),
     }).catch(() => null);
     if (!res?.ok) setPrefs((p) => (p ? { ...p, notifyEmail: !notifyEmail } : p));
+  };
+
+  // Interrupteur « Rappels sur ce téléphone » : notifications locales de
+  // l'app, gardées derrière `User.notifyReminders`. L'activer est le bon
+  // moment pour demander l'autorisation système (pas au premier lancement).
+  const setNotifyReminders = async (notifyReminders: boolean) => {
+    setPrefs((p) => (p ? { ...p, notifyReminders } : p));
+    setRemindersBusy(true);
+    const res = await fetch("/api/users/me/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notifyReminders }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      setPrefs((p) => (p ? { ...p, notifyReminders: !notifyReminders } : p));
+      setRemindersBusy(false);
+      return;
+    }
+    if (notifyReminders) {
+      await requestReminderPermission();
+      await refreshRemindersPermission();
+      await syncLocalReminders();
+    } else {
+      await cancelAllLocalReminders();
+    }
+    setRemindersBusy(false);
   };
 
   const setDevicePush = async (enabled: boolean) => {
@@ -151,6 +198,17 @@ export function NotificationSettings() {
         : denied
           ? "Notifications bloquées : autorise-les dans les réglages du navigateur."
           : "Rappels des tâches et événements, même app fermée.";
+
+  const remindersDenied = remindersPermission === "denied";
+  const isAndroid = nativePlatform() === "android";
+  // Lien vers les réglages de l'app : schéma iOS `app-settings:`, ouvert hors
+  // de la page par la coque. Sur Android, un lien `intent:` n'est pas suivi par
+  // la WebView de Capacitor (testé) : seul le chemin est indiqué.
+  const remindersDescription = remindersDenied
+    ? isAndroid
+      ? "Rappels bloqués : autorise-les dans Paramètres → Applications → MindDump → Notifications."
+      : "Rappels bloqués : autorise-les dans Réglages → MindDump → Notifications."
+    : "Rappels des tâches et événements, même app fermée.";
 
   return (
     <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
@@ -194,6 +252,29 @@ export function NotificationSettings() {
               disabled={busy || support !== "supported" || (denied && !subscribed)}
               onChange={setDevicePush}
               label="Notifications sur cet appareil"
+            />
+          </Row>
+        )}
+
+        {native && remindersAvailable && (
+          <Row
+            icon={BellRing}
+            active={prefs.notifyReminders}
+            label="Sur ce téléphone"
+            description={remindersDescription}
+            action={
+              remindersDenied && !isAndroid ? (
+                <a href="app-settings:" className="inline-block py-2 text-xs font-medium text-primary underline">
+                  Ouvrir les réglages
+                </a>
+              ) : undefined
+            }
+          >
+            <Switch
+              checked={prefs.notifyReminders}
+              disabled={remindersBusy}
+              onChange={setNotifyReminders}
+              label="Rappels sur ce téléphone"
             />
           </Row>
         )}

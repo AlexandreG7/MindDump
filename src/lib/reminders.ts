@@ -225,7 +225,7 @@ export function todoReminderContent(todo: TodoForReminder) {
     key: `todo-${todo.id}`,
     title: todo.title,
     body: `Échéance le ${date} à ${time}`,
-    url: "/todos",
+    url: `/todos?task=${todo.id}`,
   };
 }
 

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:networkSecurityConfig="@xml/network_security_config"
@@ -66,4 +67,16 @@
     <!-- Sans elle, la WebView laisse navigator.onLine à true : la page des
          listes n'afficherait jamais « Hors ligne ». -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Rappels locaux (docs/app-mobile.md, étape 3.3). Android 13+ exige
+         POST_NOTIFICATIONS, demandée au bon moment par LocalNotifications.requestPermissions()
+         (src/lib/localReminders.ts), pas au premier lancement. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- @capacitor/local-notifications déclare SCHEDULE_EXACT_ALARM dans son
+         propre manifest ; on la retire : un rappel programmé à quelques minutes
+         ou dizaines de minutes de retard reste acceptable (ce n'est pas une
+         alarme-réveil), et ça évite à l'app de demander une permission spéciale
+         soumise à déclaration Play Console. L'app programme donc des alarmes
+         inexactes (AlarmManager.setAndAllowWhileIdle), ce que fait déjà le
+         plugin quand cette permission manque. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
 </manifest>

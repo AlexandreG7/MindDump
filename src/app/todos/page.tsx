@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
+import { notifyRemindersChanged } from "@/lib/localReminders";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,9 @@ export default function TodosPage() {
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiStatus, setAiStatus] = useAiImportStatus();
   const [peopleFilter, setPeopleFilter] = useState<string[]>([]);
+  // Ouverte depuis un rappel (?task=<id>) : fait défiler jusqu'à la tâche et
+  // la met en évidence un instant (docs/app-mobile.md, étape 3.3).
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -83,6 +87,13 @@ export default function TodosPage() {
       if (Array.isArray(saved)) setPeopleFilter(saved.filter((v) => typeof v === "string"));
     } catch {}
   }, []);
+
+  useEffect(() => {
+    const task = new URLSearchParams(window.location.search).get("task");
+    if (task) setHighlightId(task);
+  }, []);
+
+  const [activeTab, setActiveTab] = useState<"urgent" | "planned">("urgent");
 
   const changePeopleFilter = (ids: string[]) => {
     setPeopleFilter(ids);
@@ -133,6 +144,7 @@ export default function TodosPage() {
     setNewAssignees([]);
     setDialogOpen(false);
     fetchTodos();
+    notifyRemindersChanged();
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
@@ -146,11 +158,14 @@ export default function TodosPage() {
     if (!res?.ok) toast("La tâche n'a pas pu être mise à jour.", "error");
     // Recharge aussi pour voir l'occurrence suivante d'une tâche récurrente.
     fetchTodos();
+    notifyRemindersChanged();
   };
 
   const sendDelete = (id: string) => {
     pendingDeletes.current.delete(id);
-    return fetch(`/api/todos/${id}`, { method: "DELETE", keepalive: true }).catch(() => null);
+    return fetch(`/api/todos/${id}`, { method: "DELETE", keepalive: true })
+      .catch(() => null)
+      .finally(() => notifyRemindersChanged());
   };
 
   const deleteTodo = (todo: Todo) => {
@@ -199,8 +214,27 @@ export default function TodosPage() {
       });
       setQuickAdd("");
       fetchTodos();
+      notifyRemindersChanged();
     }
   };
+
+  const highlightedTodo = highlightId ? (todos ?? []).find((t) => t.id === highlightId) : undefined;
+
+  // Dès que la tâche visée est chargée : bon onglet, puis défilement et
+  // coup de projecteur, qui s'efface après un instant (l'URL garde `?task=`
+  // sans effet si on revient sur la page).
+  useEffect(() => {
+    if (!highlightedTodo) return;
+    setActiveTab(highlightedTodo.priority === "URGENT" ? "urgent" : "planned");
+    const id = window.setTimeout(() => {
+      document.getElementById(`todo-${highlightedTodo.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+    const clear = window.setTimeout(() => setHighlightId(null), 3000);
+    return () => {
+      window.clearTimeout(id);
+      window.clearTimeout(clear);
+    };
+  }, [highlightedTodo]);
 
   if (!isReady) return null;
 
@@ -234,7 +268,13 @@ export default function TodosPage() {
     return (
       <div className="space-y-2">
         {pending.map((todo) => (
-          <Card key={todo.id}>
+          <Card
+            key={todo.id}
+            id={`todo-${todo.id}`}
+            className={
+              highlightId === todo.id ? "ring-2 ring-primary transition-shadow" : undefined
+            }
+          >
             <CardContent className="flex items-center gap-3 p-4">
               <Checkbox
                 checked={todo.completed}
@@ -286,7 +326,11 @@ export default function TodosPage() {
               Terminées ({done.length})
             </p>
             {done.map((todo) => (
-              <Card key={todo.id} className="opacity-50 mb-2">
+              <Card
+                key={todo.id}
+                id={`todo-${todo.id}`}
+                className={`opacity-50 mb-2${highlightId === todo.id ? " ring-2 ring-primary" : ""}`}
+              >
                 <CardContent className="flex items-center gap-3 p-4">
                   <Checkbox
                     checked={todo.completed}
@@ -479,7 +523,10 @@ export default function TodosPage() {
           profiles={profiles.assignable}
           status={aiStatus}
           onStatusChange={setAiStatus}
-          onImported={fetchTodos}
+          onImported={() => {
+            fetchTodos();
+            notifyRemindersChanged();
+          }}
         />
       </div>
 
@@ -495,7 +542,7 @@ export default function TodosPage() {
         aria-label="Ajout rapide d’une tâche urgente"
       />
 
-      <Tabs defaultValue="urgent">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "urgent" | "planned")}>
         <TabsList>
           <TabsTrigger value="urgent" className="gap-1">
             <AlertCircle className="h-4 w-4" />

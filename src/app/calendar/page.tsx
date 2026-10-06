@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/useAuth";
+import { notifyRemindersChanged } from "@/lib/localReminders";
 import { useGroupContext } from "@/components/GroupContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -211,6 +212,7 @@ export default function CalendarPage() {
       }),
     });
     fetchEvents();
+    notifyRemindersChanged();
   };
 
   // Les occurrences generees d'un evenement recurrent ont un id suffixe
@@ -220,6 +222,7 @@ export default function CalendarPage() {
   const deleteEvent = async (id: string) => {
     await fetch(`/api/calendar/${baseEventId(id)}`, { method: "DELETE" });
     fetchEvents();
+    notifyRemindersChanged();
   };
 
   const setEventColor = async (id: string, color: string | null) => {
@@ -241,6 +244,7 @@ export default function CalendarPage() {
       body: JSON.stringify({ assigneeIds }),
     });
     fetchEvents();
+    notifyRemindersChanged();
   };
 
   // Filtre « qui », limité aux personnes encore affichables.
@@ -335,7 +339,10 @@ export default function CalendarPage() {
         profiles={profiles.assignable}
         status={aiStatus}
         onStatusChange={setAiStatus}
-        onImported={fetchEvents}
+        onImported={() => {
+          fetchEvents();
+          notifyRemindersChanged();
+        }}
       />
 
       <SubscriptionChips subscriptions={subscriptions} onDelete={deleteSubscription} />

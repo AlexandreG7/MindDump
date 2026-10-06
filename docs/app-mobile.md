@@ -26,7 +26,7 @@ Web Push                 WebView                    finitions natives          f
 | 2.2 | Appareils connectés (liste, révocation) | S | ☑ |
 | 3.1 | Projet Capacitor (iOS + Android) | M | ☑ |
 | 3.2 | Branchement de la connexion mobile | S | ◐ connexion faite, liaison depuis le profil à faire |
-| 3.3 | Push natif (APNs / FCM) | L | ☐ |
+| 3.3 | Push natif (APNs / FCM) | L | ◐ rappels locaux faits et vérifiés (iOS + Android) ; APNs / FCM à faire |
 | 3.4 | Extension de partage iOS + intent Android | M | ◐ Android fait, iOS à faire |
 | 3.5 | Finitions natives | M | ☐ |
 | 3.6 | Remplir le panier drive Match (WebView dédiée) | M | ☐ |
@@ -393,10 +393,45 @@ exactement la règle du cron existant (e-mail + push web).
 - Tests : `tests/reminders.test.mjs` (`npm run test:reminders`), bloquant au
   déploiement comme `test:ownership` (stage `test` du Dockerfile).
 
-**Reste à faire (agent `mobile`)** : plugin `@capacitor/local-notifications`,
-programmation des notifications au démarrage/retour au premier plan de l'app
-à partir de cette liste, tap → navigation vers `url`. Cocher cette
-sous-partie seulement après vérification sur simulateur.
+- [x] Plugin `@capacitor/local-notifications` 8.3.1 (Android + iOS SPM) : **nouveau
+      build natif nécessaire** (nouvelle version sur les stores). Android :
+      `POST_NOTIFICATIONS` et récepteurs dans `AndroidManifest.xml`.
+- [x] `src/lib/localReminders.ts` (monté par `NativeDeviceSync`) : au
+      démarrage, au retour au premier plan et après chaque modification d'une
+      tâche ou d'un événement (`notifyRemindersChanged`), compare
+      `/api/reminders/upcoming` aux notifications en attente (annule ce qui a
+      disparu, reprogramme ce qui a changé). Ids dérivés de la `key` (FNV-1a).
+      Alarmes Android **inexactes** (`isExactNotification: false`, pas de
+      permission « Alarmes et rappels ») : la notification peut arriver avec
+      quelques minutes de retard (jusqu'à 4 min observées sur l'émulateur,
+      plus si l'échéance est lointaine).
+- [x] Tap sur la notification : la WebView ouvre `/todos?task=<id>` (la tâche est
+      mise en évidence 3 s) ou le jour de l'événement, y compris au démarrage à
+      froid. Ce garde-fou `url` commence par `/` (jamais `//`).
+- [x] Réglage « Rappels sur ce téléphone » (`NotificationSettings`, profil) :
+      désactivé, il annule tout ; autorisation refusée : statut explicite, lien
+      « Ouvrir les réglages » sur iOS (`app-settings:`). Sur Android, un lien
+      `intent:` n'est pas suivi par la WebView (testé) : seul le chemin
+      « Paramètres → Applications → MindDump → Notifications » est indiqué.
+      L'autorisation n'est demandée qu'à l'activation, jamais en boucle.
+
+**Vérifié le 06/10/2026** (Pixel_9 API 36 et iPhone 17 Pro iOS 26.3, serveur de
+production local, base de test) :
+
+| Critère | Android | iOS |
+|---|---|---|
+| Notification app en arrière-plan | OK | OK |
+| Notification app fermée | OK | OK |
+| Tap : ouvre la tâche précise, démarrage à froid | OK | OK |
+| Modifier l'heure reprogramme ; cocher / supprimer annule | OK | non testé (même code JS) |
+| Tâche assignée à quelqu'un d'autre qui a un compte : pas de rappel | OK | non testé (même code JS) |
+| Interrupteur désactivé : tout annulé | OK | OK |
+| Autorisation refusée : statut + pas de redemande | OK | OK (+ lien réglages) |
+| Événement récurrent : occurrences programmées | OK (31 alarmes) | non testé |
+| Tap sur une notification d'événement : jour du calendrier | non testé | non testé |
+
+Non vérifié : appareils réels, redémarrage du téléphone (les alarmes Android
+survivent via `LocalNotificationReceiver` ; à confirmer sur appareil).
 
 #### Push natif (APNs / FCM)
 
