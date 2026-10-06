@@ -8,6 +8,7 @@ import {
   createMobileAuthCode,
   isChallenge,
 } from "@/lib/mobileAuth";
+import { completeLinkFlow } from "@/lib/mobileLink";
 
 const SELF = "/api/mobile-auth/complete";
 
@@ -22,10 +23,29 @@ export async function GET(req: NextRequest) {
   // seule qui émet le code.
   if (req.headers.get("RSC") === "1") return new NextResponse(null, { status: 200 });
 
-  let pending: { challenge?: unknown; provider?: unknown } = {};
+  let pending: { challenge?: unknown; provider?: unknown; mode?: unknown; ticketId?: unknown } = {};
   try {
     pending = JSON.parse(req.cookies.get(CHALLENGE_COOKIE.name)?.value ?? "{}");
   } catch {}
+
+  // Liaison : ni session, ni consentement, ni nouvel utilisateur. Le résultat est
+  // déposé sur le ticket (src/lib/mobileLink.ts) ; le code ne vaut que pour lui.
+  if (pending.mode === "link") {
+    const code = await completeLinkFlow(pending.ticketId, req.nextUrl.searchParams.get("link"));
+    if (!code) {
+      return NextResponse.json(
+        { error: "Liaison expirée : relance-la depuis l'app." },
+        { status: 400 }
+      );
+    }
+    const target = new URL(MOBILE_REDIRECT);
+    target.searchParams.set("code", code);
+    target.searchParams.set("mode", "link");
+    const res = NextResponse.redirect(target);
+    res.cookies.set(CHALLENGE_COOKIE.name, "", { ...CHALLENGE_COOKIE.options, maxAge: 0 });
+    return res;
+  }
+
   if (!isChallenge(pending.challenge)) {
     return NextResponse.json(
       { error: "Connexion expirée : relance-la depuis l'app." },

@@ -118,3 +118,41 @@ export async function nativeSignIn(provider: string, callbackUrl = "/"): Promise
   // Seulement un chemin du site (jamais « //autre-site »).
   return callbackUrl.startsWith("/") && !callbackUrl.startsWith("//") ? callbackUrl : "/";
 }
+
+export type LinkOutcome = { result: "linked" | "taken" | "error"; provider: string };
+
+/**
+ * Lie un compte Google / Apple à l'utilisateur connecté dans la WebView
+ * (src/lib/mobileLink.ts) : même circuit que la connexion, sans nouvelle
+ * session. Lève SignInCanceled si la fenêtre est fermée avant la fin, une
+ * Error pour tout autre échec ; sinon renvoie le résultat (linked / taken / error).
+ */
+export async function nativeLinkAccount(provider: string): Promise<LinkOutcome> {
+  const { verifier, challenge } = await pkcePair();
+
+  const ticketRes = await fetch("/api/mobile-auth/link-ticket", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, challenge }),
+  });
+  const ticketData = await ticketRes.json().catch(() => ({}));
+  if (!ticketRes.ok || typeof ticketData.ticket !== "string") {
+    throw new Error(ticketData.error || "La liaison a échoué");
+  }
+
+  const start = new URL("/api/mobile-auth/start", window.location.origin);
+  start.searchParams.set("mode", "link");
+  start.searchParams.set("ticket", ticketData.ticket);
+
+  const callback = new URL(await openAuthSession(start.href));
+  const code = callback.searchParams.get("code");
+  if (!code) throw new Error("La liaison n'a pas abouti");
+
+  const res = await fetch("/api/mobile-auth/link-exchange", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, verifier }),
+  });
+  if (!res.ok) throw new Error("La liaison a expiré, réessaie");
+  return res.json();
+}

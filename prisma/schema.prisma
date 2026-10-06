@@ -150,6 +150,31 @@ model MobileAuthCode {
   @@index([expiresAt])
 }
 
+// Liaison d'un compte Google/Apple depuis l'app mobile (étape 3.2, docs/oauth.md).
+// Le ticket est demandé par la WebView connectée : il fixe l'utilisateur à
+// lier, le fournisseur et le défi PKCE. Il sert une fois (startedAt), puis le
+// retour du navigateur système y dépose un code à usage unique (codeHash) et le
+// résultat de la liaison, que la WebView échange avec le verifier PKCE.
+// Seuls les SHA-256 sont stockés. Pas de relation vers User (comme MobileAuthCode) ;
+// suppression explicite avec le compte (src/lib/account.ts).
+model MobileLinkTicket {
+  id            String    @id @default(cuid())
+  ticketHash    String    @unique
+  userId        String
+  provider      String
+  challenge     String
+  expiresAt     DateTime
+  startedAt     DateTime?
+  result        String?
+  codeHash      String?   @unique
+  codeExpiresAt DateTime?
+  exchangedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
 // Appareil connecté par l'app mobile (étape 2.2) : son id est porté par le jeton
 // de session, et le callback jwt refuse un appareil qui n'existe plus (révoquer =
 // supprimer la ligne). Comme

@@ -31,6 +31,9 @@ RUN sh scripts/test-ownership.sh && touch /app/.ownership-test-passed
 # Rappels locaux de l'app mobile (GET /api/reminders/upcoming) : même règle
 # de destinataires que le cron, donc même garantie à vérifier.
 RUN sh scripts/test-reminders.sh && touch /app/.reminders-test-passed
+# Liaison d'un compte Google/Apple depuis l'app : un ticket ne lie que son
+# utilisateur, une seule fois, sans session ni utilisateur créé (docs/oauth.md).
+RUN sh scripts/test-mobile-link.sh && touch /app/.mobile-link-test-passed
 
 # Production image
 FROM base AS runner
@@ -46,6 +49,7 @@ RUN apk add --no-cache postgresql16-client
 # Oblige BuildKit à exécuter le stage « test » (sinon ignoré car non référencé).
 COPY --from=test /app/.ownership-test-passed /app/.ownership-test-passed
 COPY --from=test /app/.reminders-test-passed /app/.reminders-test-passed
+COPY --from=test /app/.mobile-link-test-passed /app/.mobile-link-test-passed
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

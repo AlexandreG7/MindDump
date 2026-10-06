@@ -6,6 +6,8 @@ import { Check, KeyRound, LogIn, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProviderIcon } from "@/components/OAuthButtons";
 import { useFeedback } from "@/components/ui/feedback";
+import { isNativeApp } from "@/lib/native";
+import { SignInCanceled, nativeLinkAccount } from "@/lib/mobileSignIn";
 
 interface Methods {
   hasPassword: boolean;
@@ -50,7 +52,28 @@ export function LoginMethods() {
     setLinkResult(null);
   }, [linkResult, methods]);
 
+  // Dans l'app : navigateur système + code à usage unique, sans quitter la page.
+  const linkInApp = async (id: string) => {
+    setBusy(id);
+    setMessage(null);
+    try {
+      const { result } = await nativeLinkAccount(id);
+      const name = methods?.providers.find((p) => p.id === id)?.name ?? id;
+      setMessage(LINK_MESSAGES[result === "linked" ? "ok" : result](name));
+    } catch (error) {
+      setMessage(
+        error instanceof SignInCanceled
+          ? { text: "Liaison annulée.", ok: false }
+          : { text: error instanceof Error && error.message ? error.message : "La liaison a échoué.", ok: false }
+      );
+    } finally {
+      setBusy(null);
+      load();
+    }
+  };
+
   const link = async (id: string) => {
+    if (isNativeApp()) return linkInApp(id);
     setBusy(id);
     setMessage(null);
     const res = await fetch("/api/users/me/accounts", {

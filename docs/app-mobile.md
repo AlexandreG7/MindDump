@@ -25,7 +25,7 @@ Web Push                 WebView                    finitions natives          f
 | 2.1 | Connexion OAuth par navigateur système (code à usage unique) | M | ☑ (reste : aller-retour Google / Apple réel, avec l'app) |
 | 2.2 | Appareils connectés (liste, révocation) | S | ☑ |
 | 3.1 | Projet Capacitor (iOS + Android) | M | ☑ |
-| 3.2 | Branchement de la connexion mobile | S | ◐ connexion faite, liaison depuis le profil à faire |
+| 3.2 | Branchement de la connexion mobile | S | ✓ connexion et liaison depuis le profil (vrai Google / Apple à valider en production) |
 | 3.3 | Push natif (APNs / FCM) | L | ◐ rappels locaux faits et vérifiés (iOS + Android) ; APNs / FCM à faire |
 | 3.4 | Extension de partage iOS + intent Android | M | ◐ Android fait, iOS à faire |
 | 3.5 | Finitions natives | M | ☐ |
@@ -334,9 +334,23 @@ connexion par identifiants OK ; mode avion → la PWA hors ligne prend le relais
         reconnu par le serveur comme l'agent utilisateur.
       - iOS affichait « App » dans sa demande de connexion : `CFBundleName`
         corrigé en « MindDump ».
-- [ ] Liaison / déliaison de compte depuis `/profile` dans l'app : même
-      mécanisme, à faire (la liaison suppose que le navigateur système soit
-      connecté au même compte).
+- [x] Liaison / déliaison de compte depuis `/profile` dans l'app
+      (`LoginMethods.tsx`, `nativeLinkAccount`, `src/lib/mobileLink.ts`) :
+      même circuit que la connexion (navigateur système, PKCE, code à usage
+      unique) en mode « lier au compte connecté », **sans nouvelle session**.
+      La WebView connectée demande un ticket lié à son `userId`, au
+      fournisseur et au défi PKCE (`POST /api/mobile-auth/link-ticket`), le
+      navigateur système l'ouvre (`start?mode=link&ticket=…`), et l'`exchange`
+      (`link-exchange`) renvoie `linked` / `taken` / `error`. Détail et modèle
+      de menace : `docs/oauth.md`. Tests : `npm run test:mobile-link` (aussi
+      dans le stage `test` du Dockerfile). Vérifié avec le fournisseur de
+      test `test-oidc` (`scripts/test-oidc-server.mjs`) sur **iPhone 17 Pro
+      (simulateur)** et **Pixel_9 (émulateur)** : lier, délier, compte déjà
+      pris (« déjà lié à un autre compte »), fermeture de la fenêtre
+      (« Liaison annulée », bouton libéré). Pas de nouveau build natif.
+      Non vérifié : le vrai aller-retour Google / Apple (identifiants de
+      production), et la déliaison du dernier moyen de connexion dans l'UI
+      native (bouton désactivé, refus serveur couvert par le test).
 
 ### 3.3 Push natif
 

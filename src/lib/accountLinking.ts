@@ -54,6 +54,8 @@ export interface LinkIntent {
   userId: string;
   provider: string;
   nonce: string;
+  /** Liaison lancée depuis l'app mobile (src/lib/mobileLink.ts) : id du ticket. */
+  ticketId?: string;
 }
 
 export function newLinkNonce(): string {
@@ -62,7 +64,13 @@ export function newLinkNonce(): string {
 
 export async function encodeLinkIntent(intent: LinkIntent): Promise<string> {
   return encode({
-    token: { sub: intent.userId, provider: intent.provider, nonce: intent.nonce, purpose: "link-intent" },
+    token: {
+      sub: intent.userId,
+      provider: intent.provider,
+      nonce: intent.nonce,
+      purpose: "link-intent",
+      ...(intent.ticketId ? { ticketId: intent.ticketId } : {}),
+    },
     secret: process.env.NEXTAUTH_SECRET as string,
     maxAge: LINK_TTL_S,
   });
@@ -80,7 +88,12 @@ export async function decodeLinkIntent(value: string | undefined): Promise<LinkI
     ) {
       return null;
     }
-    return { userId: token.sub, provider: token.provider, nonce: token.nonce };
+    return {
+      userId: token.sub,
+      provider: token.provider,
+      nonce: token.nonce,
+      ...(typeof token.ticketId === "string" ? { ticketId: token.ticketId } : {}),
+    };
   } catch {
     return null;
   }
@@ -107,9 +120,18 @@ const profileUrl = (status: string, provider: string) =>
 /** Options NextAuth pour le callback OAuth qui porte une intention de liaison. */
 export function linkAuthOptions(base: NextAuthOptions, intent: LinkIntent): NextAuthOptions {
   const adapter = base.adapter as Adapter;
+  // Depuis l'app, le résultat revient à /api/mobile-auth/complete (pas au profil) ;
+  // et lier n'est pas se connecter : pas d'entrée dans l'historique de connexion.
+  const mobile = !!intent.ticketId;
+  const resultUrl = (status: string, provider: string) =>
+    mobile ? `/api/mobile-auth/complete?link=${status}` : profileUrl(status, provider);
 
   return {
     ...base,
+    // Depuis l'app, le navigateur système peut porter la session de quelqu'un
+    // d'autre : NextAuth y rattacherait le compte avant de regarder l'intention.
+    // On la lui rend illisible ; seule l'intention (userId du ticket) compte.
+    ...(mobile ? { jwt: { ...base.jwt, decode: async () => null } } : {}),
     adapter: {
       ...adapter,
       // Ne jamais basculer vers un autre compte à cause de l'email du fournisseur
@@ -125,7 +147,7 @@ export function linkAuthOptions(base: NextAuthOptions, intent: LinkIntent): Next
     callbacks: {
       ...base.callbacks,
       async signIn({ account }) {
-        if (!account || account.provider !== intent.provider) return profileUrl("error", intent.provider);
+        if (!account || account.provider !== intent.provider) return resultUrl("error", intent.provider);
         const existing = await prisma.account.findUnique({
           where: {
             provider_providerAccountId: {
@@ -137,7 +159,7 @@ export function linkAuthOptions(base: NextAuthOptions, intent: LinkIntent): Next
         });
         // Ce compte Google/Apple appartient déjà à un autre utilisateur MindDump.
         if (existing && existing.userId !== intent.userId) {
-          return profileUrl("taken", intent.provider);
+          return resultUrl("taken", intent.provider);
         }
         return true;
       },
@@ -146,6 +168,7 @@ export function linkAuthOptions(base: NextAuthOptions, intent: LinkIntent): Next
       ...base.events,
       // Pas un nouveau compte : pas d'identifiant public ni de groupe par défaut.
       createUser: async () => {},
+      ...(mobile ? { signIn: async () => {} } : {}),
     },
   };
 }

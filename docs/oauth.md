@@ -80,7 +80,11 @@ Particularités Apple : le nom n'est transmis qu'à la toute première autorisat
 Un fournisseur OIDC de test (`test-oidc`) est activé par `OAUTH_TEST_ISSUER`, **uniquement hors
 production** (`NODE_ENV !== "production"`, même si la variable est définie). Il imite Apple (retour
 en `form_post`). Pointer `OAUTH_TEST_ISSUER` vers un serveur OIDC local (client `minddump-test` /
-`minddump-test-secret`) et lancer `next dev`.
+`minddump-test-secret`) et lancer `next dev`. Le script `node scripts/test-oidc-server.mjs`
+(sans dépendance, port 4010, `OAUTH_TEST_ISSUER=http://localhost:4010`) en fournit un : page avec un
+compte par bouton plus « Annuler », ou `?auto` / `OIDC_AUTO=1` pour accepter sans clic, compte courant
+changé par `/__subject?sub=…&email=…`. Garder `localhost` des deux côtés (même site : les cookies Lax
+suivent le POST du retour).
 
 ## Connexion depuis l'app mobile
 
@@ -102,3 +106,52 @@ Toute tentative d'échange brûle le code, même avec un mauvais `verifier` : un
 intercepterait le lien `minddump://` n'aurait qu'un essai, sans le `verifier`. L'identifiant /
 mot de passe fonctionne directement dans la WebView, sans ce détour. L'historique de connexion
 (`LoginEvent`) est alimenté par la connexion du navigateur système, avec le fournisseur réel.
+
+### Lier ou délier un compte depuis l'app (mode « liaison »)
+
+Depuis le profil de l'app, « Lier » suit le même circuit que la connexion, mais ne connecte
+personne : le compte OAuth est rattaché à **l'utilisateur connecté dans la WebView**, et aucune
+session ni aucun utilisateur n'est créé. Code : `src/lib/mobileLink.ts`, `src/lib/accountLinking.ts`.
+
+```
+WebView (session)   POST /api/mobile-auth/link-ticket {provider, challenge}      réservé à l'app, session
+                    <- ticket (aléatoire, 5 min, usage unique ; SHA-256 stocké avec userId, provider, défi)
+Navigateur système  GET /api/mobile-auth/start?mode=link&ticket=…                 consomme le ticket
+                    pose : intention de liaison {userId DU TICKET, provider, nonce, ticketId}
+                           (cookie chiffré, /api/auth, 10 min) + cookie {mode:link, ticketId}
+                    -> /auth/mobile?li=nonce -> signIn(provider, callbackUrl=complete?li=nonce)
+Fournisseur         retour sur /api/auth/callback/<provider> (form_post pour Apple)
+NextAuth (callback) options `linkAuthOptions` : jwt.decode neutralisé (une session présente dans le
+                    navigateur système n'est jamais lue), createUser renvoie l'utilisateur du
+                    ticket, compte déjà lié à un autre -> /api/mobile-auth/complete?link=taken,
+                    pas de LoginEvent, cookies de session retirés de la réponse
+/api/mobile-auth/complete  lit le ticket (cookie), calcule le résultat EN BASE (Account de userId
+                    pour ce fournisseur ? sinon error ; taken seulement s'il a été signalé),
+                    dépose codeHash (SHA-256, 60 s) + résultat sur le ticket
+                    -> minddump://auth?code=…&mode=link
+WebView (session)   POST /api/mobile-auth/link-exchange {code, verifier}
+                    exige la session de l'utilisateur du ticket, PKCE, code à usage unique
+                    -> {result: linked|taken|error, provider} ; aucun cookie posé
+```
+
+Modèle de menace :
+
+- **Qui est lié** : uniquement le `userId` du ticket, fixé par la session de la WebView au moment de
+  la demande. L'URL d'`start` ne porte que le ticket (`userId`, `provider`, `challenge` en paramètres
+  sont ignorés). Un ticket d'un utilisateur A ne lie jamais B, même si la WebView de B présente le code.
+- **Interception** : le ticket (dans l'URL du navigateur système) est à usage unique, 5 minutes, et
+  ne donne qu'une page OAuth. Le code de retour (`minddump://`) ne vaut rien sans le verifier PKCE
+  gardé dans la WebView et sans la session de l'utilisateur du ticket ; toute tentative le brûle.
+- **Rejeu / expiration** : ticket (5 min) et code (60 s) à usage unique, marqués par `updateMany`
+  conditionnel (pas de course).
+- **Session parasite dans le navigateur système** : NextAuth lie « à la personne connectée » avant de
+  regarder l'intention ; le mode app rend la session illisible (`jwt.decode` nul) et retire tout cookie
+  de session de la réponse. Testé avec une session d'un autre utilisateur dans le navigateur.
+- **Compte déjà pris** : refus (`taken`), aucune modification, aucune liaison par e-mail
+  (`getUserByEmail` nul). `exchange` revérifie en base avant d'annoncer `linked`.
+- **Intention non appariée** (nonce absent du cookie `callback-url`) : redirection vers
+  `complete?link=error`, jamais de compte créé.
+- **Délier** : inchangé (`DELETE /api/users/me/accounts`, session obligatoire, refus s'il ne reste
+  aucun autre moyen de connexion, révocation Apple conservée). Une clé API ne peut pas demander de ticket.
+- **Limites** : `provider` du ticket vérifié contre les fournisseurs actifs ; ticket et code ne
+  sont jamais journalisés ; lignes purgées après 1 h (`MobileLinkTicket`, supprimées avec le compte).

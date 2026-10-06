@@ -7,14 +7,21 @@ import { Loader2 } from "lucide-react";
 
 /** Lance la connexion OAuth demandée par l'app, retour sur /api/mobile-auth/complete. */
 export function MobileSignIn() {
-  const provider = useSearchParams().get("provider");
+  const params = useSearchParams();
+  const provider = params.get("provider");
+  // Liaison : le nonce relie ce retour OAuth à l'intention posée par /api/mobile-auth/start.
+  const nonce = params.get("li");
   const started = useRef(false);
 
   useEffect(() => {
     if (!provider || started.current) return;
     started.current = true;
-    signIn(provider, { callbackUrl: "/api/mobile-auth/complete" });
-  }, [provider]);
+    signIn(provider, {
+      callbackUrl: nonce && /^[a-f0-9]{32}$/.test(nonce)
+        ? `/api/mobile-auth/complete?li=${nonce}`
+        : "/api/mobile-auth/complete",
+    });
+  }, [provider, nonce]);
 
   return (
     <div className="flex flex-col items-center gap-3 pt-16 text-center">

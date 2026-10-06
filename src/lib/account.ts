@@ -258,6 +258,7 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
     // Sans relation vers User (voir schema.prisma) : à effacer explicitement.
     await tx.mobileDevice.deleteMany({ where: { userId } });
     await tx.mobileAuthCode.deleteMany({ where: { userId } });
+    await tx.mobileLinkTicket.deleteMany({ where: { userId } });
     await tx.user.delete({ where: { id: userId } });
   });
 
