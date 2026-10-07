@@ -307,7 +307,10 @@ async function createPendingAccount(ticket: {
     });
   } catch (error) {
     // Contrainte unique (provider, providerAccountId) : liée à quelqu'un d'autre entre-temps.
-    if ((error as { code?: string })?.code === "P2002") return "taken";
-    throw error;
+    const code = (error as { code?: string })?.code;
+    if (code === "P2002") return "taken";
+    // Le message d'une erreur Prisma reprend les données (jetons) : on ne journalise que son type.
+    console.error("[mobile-link] liaison impossible :", (error as Error)?.name ?? "Error", code ?? "");
+    return "error";
   }
 }
