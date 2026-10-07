@@ -47,12 +47,33 @@ export function appleClientSecret(): string {
   return value;
 }
 
-const appleEnabled = !!(
+const appleConfigured = !!(
   process.env.APPLE_ID &&
   process.env.APPLE_TEAM_ID &&
   process.env.APPLE_KEY_ID &&
   process.env.APPLE_PRIVATE_KEY
 );
+
+// NextAuth relit les options de tous les fournisseurs à chaque requête : une clé
+// .p8 mal collée ferait échouer toute l'authentification (mot de passe compris),
+// pas seulement Apple. On vérifie donc la clé une fois au démarrage et on
+// désactive Apple si elle est illisible, sans jamais journaliser son contenu.
+function appleKeyUsable(): boolean {
+  if (!appleConfigured) return false;
+  try {
+    appleClientSecret();
+    return true;
+  } catch (error) {
+    appleSecretCache = null;
+    console.error(
+      "[auth] Connexion Apple désactivée : APPLE_PRIVATE_KEY illisible (attendu : contenu du .p8, retours à la ligne en \\n).",
+      (error as Error)?.name ?? "Error"
+    );
+    return false;
+  }
+}
+
+const appleEnabled = appleKeyUsable();
 
 // ─── Fournisseur de test (développement uniquement) ────────────
 // Serveur OIDC local qui imite Apple (retour en POST form_post), pour tester
