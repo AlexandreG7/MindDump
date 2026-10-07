@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "./prisma";
 import { isChallenge } from "./mobileAuth";
+import { open, seal } from "./secretBox";
 
 /**
  * Lier un compte Google/Apple depuis l'app mobile (docs/app-mobile.md, étape 3.2 ;
@@ -21,12 +22,19 @@ import { isChallenge } from "./mobileAuth";
  *        (le POST exige le cookie SameSite=Strict et l'Origin du site : sans cela,
  *        un lien piégé ferait lier le compte Google de la victime au compte de
  *        l'attaquant, voir docs/oauth.md)
- *   callback NextAuth (intention) ── rattache le compte OAuth à CE userId, ou refuse
- *        (« taken » si déjà lié à un autre) ; le cookie de session n'est ni lu ni posé
+ *   callback NextAuth (intention) ── N'ÉCRIT PAS l'Account : l'identité obtenue (compte
+ *        fournisseur, jetons chiffrés, e-mail) est mise EN ATTENTE sur le ticket ; refuse
+ *        (« taken ») si ce compte est déjà lié à un autre ; le cookie de session n'est ni lu ni posé
  *   /api/mobile-auth/complete ── dépose code (60 s, SHA-256) + résultat sur le ticket
  *        ──▶ minddump://auth?code=…
  *   WebView ── POST /api/mobile-auth/link-exchange {code, verifier}
- *        exige la session de l'utilisateur du ticket ; vérifie PKCE ; renvoie le résultat
+ *        exige la session de l'utilisateur du ticket ; vérifie PKCE et code ; PUIS SEULEMENT
+ *        crée l'Account (transaction, contrainte unique), purge l'attente, renvoie le résultat
+ *
+ * Pourquoi différer : celui qui détient le ticket ne connaît pas le code (il part vers
+ * l'app de la personne qui a fait l'OAuth). Sans échange réussi par la session du
+ * titulaire du ticket, aucune liaison n'existe : un lien piégé ciblé ne peut pas
+ * lier le Google d'une victime au compte d'un attaquant (docs/oauth.md).
  */
 
 const TICKET_TTL_MS = 5 * 60 * 1000;
@@ -39,6 +47,62 @@ export const MAX_ACTIVE_TICKETS = 5;
 
 export type LinkResult = "linked" | "taken" | "error";
 
+const PENDING_CONTEXT = "mobile-link-pending";
+const ACCOUNT_FIELDS = ["type", "refresh_token", "access_token", "expires_at", "token_type", "scope", "id_token", "session_state"] as const;
+type PendingTokens = Partial<Record<(typeof ACCOUNT_FIELDS)[number], string | number | null>>;
+
+/**
+ * Mise en attente de l'identité OAuth obtenue (appelé par l'adaptateur de
+ * linkAuthOptions à la place de la création de l'Account). Refuse un ticket qui
+ * n'est pas en cours de parcours pour CET utilisateur.
+ */
+export async function storePendingLinkAccount(
+  ticketId: string,
+  userId: string,
+  account: Record<string, unknown> & { provider: string; providerAccountId: string },
+  email: string | null | undefined
+) {
+  const tokens: PendingTokens = {};
+  for (const field of ACCOUNT_FIELDS) {
+    const value = account[field];
+    if (typeof value === "string" || typeof value === "number") tokens[field] = value;
+  }
+  const stored = await prisma.mobileLinkTicket.updateMany({
+    where: {
+      id: ticketId,
+      userId,
+      provider: account.provider,
+      startedAt: { gt: new Date(Date.now() - FLOW_MAX_MS) },
+      codeHash: null,
+      exchangedAt: null,
+    },
+    data: {
+      pendingProviderAccountId: account.providerAccountId,
+      pendingEmail: typeof email === "string" ? email.slice(0, 320) : null,
+      pendingTokens: seal(JSON.stringify(tokens), PENDING_CONTEXT),
+    },
+  });
+  return stored.count === 1;
+}
+
+const NO_PENDING = { pendingProviderAccountId: null, pendingEmail: null, pendingTokens: null } as const;
+
+/** Purge les identités en attente d'un parcours abandonné ou expiré, et les vieux tickets. */
+async function purgeLinkTickets() {
+  const now = Date.now();
+  await prisma.mobileLinkTicket.updateMany({
+    where: {
+      pendingProviderAccountId: { not: null },
+      OR: [
+        { codeHash: null, startedAt: { lt: new Date(now - FLOW_MAX_MS) } },
+        { codeExpiresAt: { lt: new Date(now) } },
+      ],
+    },
+    data: NO_PENDING,
+  });
+  await prisma.mobileLinkTicket.deleteMany({ where: { createdAt: { lt: new Date(now - PURGE_AFTER_MS) } } });
+}
+
 const sha256 = (value: string) => createHash("sha256").update(value).digest("base64url");
 const isVerifier = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9._~-]{43,128}$/.test(value);
@@ -46,9 +110,7 @@ const isVerifier = (value: unknown): value is string =>
 /** Ticket de liaison pour l'utilisateur connecté (à n'appeler qu'avec sa session). */
 export async function createLinkTicket(userId: string, provider: string, challenge: string) {
   if (!isChallenge(challenge)) return null;
-  await prisma.mobileLinkTicket.deleteMany({
-    where: { createdAt: { lt: new Date(Date.now() - PURGE_AFTER_MS) } },
-  });
+  await purgeLinkTickets();
   const ticket = randomBytes(32).toString("base64url");
   await prisma.mobileLinkTicket.create({
     data: {
@@ -75,7 +137,8 @@ export const hashLinkTicket = sha256;
 
 /**
  * Regarde le ticket SANS le consommer, pour la page de confirmation : ne renvoie
- * que le nom et l'e-mail du titulaire (que celui qui détient le ticket connaît déjà).
+ * que le nom et l'e-mail du titulaire. Le détenteur du ticket les connaît déjà
+ * (c'est SON compte) ; la victime d'un lien piégé y lit que ce n'est pas le sien.
  */
 export async function peekLinkTicket(ticket: unknown) {
   if (!validTicket(ticket)) return null;
@@ -113,6 +176,7 @@ export async function startLinkFlow(ticket: unknown) {
     data: { startedAt: new Date() },
   });
   if (claimed.count !== 1) return null;
+  await purgeLinkTickets();
   const row = await prisma.mobileLinkTicket.findUnique({
     where: { ticketHash },
     select: { id: true, userId: true, provider: true },
@@ -122,9 +186,10 @@ export async function startLinkFlow(ticket: unknown) {
 
 /**
  * Retour du fournisseur : fixe le résultat sur le ticket et émet le code à usage
- * unique. Le résultat est lu en base (le compte est-il bien rattaché à l'utilisateur
- * du ticket ?), jamais déduit d'un seul paramètre d'URL, sauf « taken » / « error »
- * qui ne peuvent que refuser.
+ * unique. Le résultat est lu en base (une identité est-elle bien en attente pour
+ * l'utilisateur du ticket ?), jamais déduit d'un seul paramètre d'URL, sauf
+ * « taken » / « error » qui ne peuvent que refuser (et purgent l'attente).
+ * Aucun Account n'est créé ici : voir exchangeLinkCode.
  */
 export async function completeLinkFlow(ticketId: unknown, status: string | null) {
   if (typeof ticketId !== "string") return null;
@@ -135,13 +200,16 @@ export async function completeLinkFlow(ticketId: unknown, status: string | null)
     ticket.codeHash ||
     ticket.startedAt.getTime() < Date.now() - FLOW_MAX_MS
   ) {
+    if (ticket && !ticket.codeHash) await prisma.mobileLinkTicket.update({ where: { id: ticket.id }, data: NO_PENDING });
     return null;
   }
 
   let result: LinkResult;
   if (status === "taken") result = "taken";
   else if (status === "error") result = "error";
+  else if (ticket.pendingProviderAccountId && ticket.pendingTokens) result = "linked";
   else {
+    // Rien en attente : « linked » seulement si CE compte fournisseur est déjà à l'utilisateur du ticket.
     const account = await prisma.account.findFirst({
       where: { userId: ticket.userId, provider: ticket.provider },
       select: { id: true },
@@ -152,14 +220,20 @@ export async function completeLinkFlow(ticketId: unknown, status: string | null)
   const code = randomBytes(32).toString("base64url");
   const stored = await prisma.mobileLinkTicket.updateMany({
     where: { id: ticket.id, codeHash: null },
-    data: { codeHash: sha256(code), codeExpiresAt: new Date(Date.now() + CODE_TTL_MS), result },
+    data: {
+      codeHash: sha256(code),
+      codeExpiresAt: new Date(Date.now() + CODE_TTL_MS),
+      result,
+      ...(result === "linked" ? {} : NO_PENDING),
+    },
   });
   return stored.count === 1 ? code : null;
 }
 
 /**
- * Échange le code contre le résultat. Toute tentative brûle le code (même ratée),
- * comme pour la connexion. Refuse si la session n'est pas celle du ticket.
+ * Échange le code contre le résultat, et c'est ICI que l'Account est créé. Toute
+ * tentative brûle le code (même ratée) et purge l'identité en attente, comme pour
+ * la connexion. Refuse si la session n'est pas celle du ticket.
  */
 export async function exchangeLinkCode(code: unknown, verifier: unknown, sessionUserId: string) {
   if (typeof code !== "string" || code.length > 200 || !isVerifier(verifier)) return null;
@@ -168,7 +242,7 @@ export async function exchangeLinkCode(code: unknown, verifier: unknown, session
 
   const claimed = await prisma.mobileLinkTicket.updateMany({
     where: { id: ticket.id, exchangedAt: null },
-    data: { exchangedAt: new Date() },
+    data: { exchangedAt: new Date(), ...NO_PENDING },
   });
   if (claimed.count !== 1) return null;
   if (
@@ -180,14 +254,60 @@ export async function exchangeLinkCode(code: unknown, verifier: unknown, session
     return null;
   }
 
-  // Dernier regard sur la base : « linked » seulement si le compte est bien à CET utilisateur.
   let result = ticket.result as LinkResult | null;
   if (result === "linked") {
-    const account = await prisma.account.findFirst({
-      where: { userId: ticket.userId, provider: ticket.provider },
-      select: { id: true },
-    });
-    if (!account) result = "error";
+    result = ticket.pendingProviderAccountId && ticket.pendingTokens
+      ? await createPendingAccount(ticket)
+      : await existingAccountResult(ticket.userId, ticket.provider);
   }
   return { result: result ?? "error", provider: ticket.provider };
+}
+
+const existingAccountResult = async (userId: string, provider: string): Promise<LinkResult> =>
+  (await prisma.account.findFirst({ where: { userId, provider }, select: { id: true } })) ? "linked" : "error";
+
+/** Crée l'Account de l'identité en attente, en revérifiant qu'elle est encore libre. */
+async function createPendingAccount(ticket: {
+  userId: string;
+  provider: string;
+  pendingProviderAccountId: string | null;
+  pendingTokens: string | null;
+}): Promise<LinkResult> {
+  const providerAccountId = ticket.pendingProviderAccountId;
+  const opened = ticket.pendingTokens ? open(ticket.pendingTokens, PENDING_CONTEXT) : null;
+  if (!providerAccountId || !opened) return "error";
+  let tokens: PendingTokens;
+  try {
+    tokens = JSON.parse(opened);
+  } catch {
+    return "error";
+  }
+  const data: Record<string, string | number> = {};
+  for (const field of ACCOUNT_FIELDS) {
+    const value = tokens[field];
+    if (typeof value === "string" || typeof value === "number") data[field] = value;
+  }
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const taken = await tx.account.findUnique({
+        where: { provider_providerAccountId: { provider: ticket.provider, providerAccountId } },
+        select: { userId: true },
+      });
+      if (taken) return taken.userId === ticket.userId ? "linked" : "taken";
+      // Un seul compte par fournisseur et par utilisateur (le ticket est refusé en amont si déjà lié).
+      const already = await tx.account.findFirst({
+        where: { userId: ticket.userId, provider: ticket.provider },
+        select: { id: true },
+      });
+      if (already) return "error";
+      await tx.account.create({
+        data: { type: "oauth", ...data, userId: ticket.userId, provider: ticket.provider, providerAccountId },
+      });
+      return "linked";
+    });
+  } catch (error) {
+    // Contrainte unique (provider, providerAccountId) : liée à quelqu'un d'autre entre-temps.
+    if ((error as { code?: string })?.code === "P2002") return "taken";
+    throw error;
+  }
 }

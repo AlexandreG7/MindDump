@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
   const linkExpired = () => {
     const login = new URL("/login", req.nextUrl.origin);
     login.searchParams.set("error", "LinkExpired");
-    return NextResponse.redirect(login);
+    const res = NextResponse.redirect(login);
+    res.cookies.set(CHALLENGE_COOKIE.name, "", { ...CHALLENGE_COOKIE.options, maxAge: 0 });
+    return res;
   };
   if (pending.mode !== "link" && linkParam !== null) return linkExpired();
 

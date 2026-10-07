@@ -118,7 +118,7 @@ WebView (session)   POST /api/mobile-auth/link-ticket {provider, challenge}     
                     <- ticket (aléatoire, 5 min, usage unique ; SHA-256 stocké avec userId, provider, défi)
 Navigateur système  GET /api/mobile-auth/start?mode=link&ticket=…                 NE consomme PAS le ticket :
                     page de confirmation « Lier ton compte Google au compte MindDump de <nom>
-                    (a•••@gmail.com) ? » + cookie SameSite=Strict (jeton lié au ticket, 10 min)
+                    (<e-mail complet>) ? Si quelqu'un t'a envoyé ce lien, refuse. » + cookie SameSite=Strict (jeton lié au ticket, 10 min)
                     POST /api/mobile-auth/start (« Continuer »)                           consomme le ticket
                     exige : cookie Strict = jeton du formulaire, Origin = site
                     pose : intention de liaison {userId DU TICKET, provider, nonce, ticketId}
@@ -127,14 +127,19 @@ Navigateur système  GET /api/mobile-auth/start?mode=link&ticket=…            
 Fournisseur         retour sur /api/auth/callback/<provider> (form_post pour Apple)
 NextAuth (callback) options `linkAuthOptions` : jwt.decode neutralisé (une session présente dans le
                     navigateur système n'est jamais lue), createUser renvoie l'utilisateur du
-                    ticket, compte déjà lié à un autre -> /api/mobile-auth/complete?link=taken,
-                    pas de LoginEvent, cookies de session retirés de la réponse
-/api/mobile-auth/complete  lit le ticket (cookie), calcule le résultat EN BASE (Account de userId
-                    pour ce fournisseur ? sinon error ; taken seulement s'il a été signalé),
-                    dépose codeHash (SHA-256, 60 s) + résultat sur le ticket
+                    ticket, compte déjà lié à un autre -> /api/mobile-auth/complete?link=taken
+                    (rien en attente), pas de LoginEvent, cookies de session retirés de la réponse.
+                    linkAccount N'ÉCRIT PAS l'Account : l'identité (providerAccountId, e-mail du
+                    fournisseur, jetons dont le refresh_token Apple) est mise EN ATTENTE sur le
+                    ticket (colonnes pending*, jetons chiffrés AES-256-GCM, src/lib/secretBox.ts)
+/api/mobile-auth/complete  lit le ticket (cookie), calcule le résultat (identité en attente ? linked ;
+                    sinon Account déjà à userId ? linked ; sinon error ; taken/error seulement s'ils
+                    ont été signalés, et purgent l'attente), dépose codeHash (SHA-256, 60 s)
                     -> minddump://auth?code=…&mode=link
 WebView (session)   POST /api/mobile-auth/link-exchange {code, verifier}
-                    exige la session de l'utilisateur du ticket, PKCE, code à usage unique
+                    exige la session de l'utilisateur du ticket, PKCE, code à usage unique (brûlé et
+                    attente purgée dès la tentative) ; PUIS SEULEMENT crée l'Account dans une
+                    transaction (contrainte unique revérifiée : conflit -> taken)
                     -> {result: linked|taken|error, provider} ; aucun cookie posé
 ```
 
@@ -143,8 +148,12 @@ Modèle de menace :
 - **Fixation de ticket (CSRF de connexion)** : le ticket est un porteur dans l'URL. Un attaquant
   crée un ticket depuis SON app et envoie `…/start?mode=link&ticket=<le sien>` à une victime ; si elle
   s'authentifiait chez Google, son Google serait rattaché au compte de l'attaquant, qui y retrouverait
-  ensuite ses données. Parades : (1) le GET ne pose aucune intention et ne lance pas l'OAuth, il affiche
-  à qui appartient le ticket (nom et e-mail masqué seulement, ce que le détenteur du ticket sait déjà) ;
+  ensuite ses données. Parades : (0) **la liaison est différée** (voir « Liaison différée » ci-dessous) :
+  même si la victime va jusqu'au bout de l'OAuth, rien n'est lié tant que la session du titulaire du
+  ticket n'a pas échangé le code ; (1) le GET ne pose aucune intention et ne lance pas l'OAuth, il affiche
+  à qui appartient le ticket (nom et e-mail COMPLET : le détenteur du ticket les connaît déjà, et un
+  e-mail masqué ne suffisait pas contre un lien ciblé, l'attaquant choisissant son nom et une adresse
+  qui commence par la même lettre) avec « Si quelqu'un t'a envoyé ce lien, refuse. » ;
   la victime voit un autre nom et refuse (« Ce n'est pas mon compte » brûle le ticket) ; (2) seul le POST de
   la page consomme le ticket. Un formulaire auto-soumis par un site tiers saute la confirmation sans les
   parades suivantes : le GET pose un cookie `SameSite=Strict` httpOnly (10 min) contenant l'empreinte du
@@ -152,6 +161,18 @@ Modèle de menace :
   correspondent (comparaison à temps constant) et que l'en-tête `Origin` soit celui du site
   (`NEXTAUTH_URL`) ; un POST cross-site n'envoie pas le cookie Strict. Reste hors de portée : une victime
   qui confirme malgré un nom qui n'est pas le sien (ingénierie sociale).
+- **Liaison différée (fixation ciblée)** : le callback OAuth n'écrit jamais l'`Account`. Il met
+  l'identité obtenue en attente sur le ticket ; le code (déposé par `complete`) part vers `minddump://`,
+  donc vers l'app de la personne qui a fait l'OAuth dans ce navigateur. `link-exchange` n'aboutit que
+  pour la session de `ticket.userId`, avec le verifier PKCE, et c'est là seulement que l'`Account` naît.
+  Scénario « ticket de l'attaquant, OAuth de la victime » : l'attaquant ne reçoit jamais le code (échange
+  refusé) ; l'app de la victime le reçoit mais sa session n'est pas celle du ticket (refusé, code brûlé,
+  attente purgée) : aucun `Account` dans les deux cas. Un parcours abandonné après l'OAuth ne lie
+  rien. Jetons en attente : chiffrés au repos (AES-256-GCM, clé dérivée de `NEXTAUTH_SECRET` et du
+  contexte), jamais journalisés, purgés à l'échange (réussi ou non), à l'échec/« taken » signalé, à
+  l'expiration du parcours (15 min sans code) ou du code (60 s), lors de la prochaine émission ou
+  consommation d'un ticket ; les lignes disparaissent après 1 h et avec le compte. Reste hors de portée :
+  une victime dont l'app est connectée au compte de l'attaquant (elle y reçoit le code sous cette session).
 - **Qui est lié** : uniquement le `userId` du ticket, fixé par la session de la WebView au moment de
   la demande. L'URL d'`start` ne porte que le ticket (`userId`, `provider`, `challenge` en paramètres
   sont ignorés). Un ticket d'un utilisateur A ne lie jamais B, même si la WebView de B présente le code.
@@ -168,6 +189,10 @@ Modèle de menace :
 - **Intention non appariée / abandonnée** (nonce absent du cookie `callback-url`) : la route NextAuth
   l'ignore, efface le cookie et laisse la connexion se dérouler normalement. `start` en mode connexion
   efface aussi toute intention restée dans le navigateur (liaison annulée). Jamais de compte créé.
+  Le cookie de parcours `minddump.mobile-auth` (SameSite=None, 15 min) porte le nonce de la tentative : une
+  erreur de connexion WEB faite ensuite dans ce navigateur ne revient à l'app que si l'URL de retour
+  mémorisée par NextAuth porte ce nonce ; sinon le cookie est effacé et l'erreur retourne vers `/login`.
+  `complete` l'efface aussi quand le parcours est invalide ; `start` en mode connexion le réécrit.
 - **Refus chez le fournisseur** (`access_denied`) : NextAuth redirige vers `/api/auth/signin?error=…`
   ou `/api/auth/error?error=…` (nouvelle requête, intention déjà consommée) puis `/login`. La route
   NextAuth intercepte ces deux GET quand le cookie de parcours est en mode `link` et renvoie vers
@@ -180,5 +205,10 @@ Modèle de menace :
   aucun autre moyen de connexion, révocation Apple conservée). Le comptage et la suppression se font
   dans une transaction qui verrouille la ligne `User` (`FOR UPDATE`) : deux déliaisons simultanées ne
   peuvent pas retirer toutes les deux le dernier moyen. Une clé API ne peut pas demander de ticket.
-- **Limites** : `provider` du ticket vérifié contre les fournisseurs actifs ; ticket et code ne
-  sont jamais journalisés ; lignes purgées après 1 h (`MobileLinkTicket`, supprimées avec le compte).
+- **Page de confirmation** : `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline';
+  base-uri 'none'; frame-ancestors 'none'` (sans `form-action` : Chrome l'appliquerait à la redirection 303
+  vers `minddump://`), `Referrer-Policy: same-origin` (pas `no-referrer` : le navigateur enverrait `Origin: null` sur le POST
+  du formulaire, que la route refuse ; constaté sur le simulateur iOS), `X-Frame-Options: DENY`.
+- **Limites** : `provider` du ticket vérifié contre les fournisseurs actifs ; ticket, code, jetons et
+  e-mails ne sont jamais journalisés (un POST refusé pour mauvaise `Origin` journalise l'Origin reçue et
+  l'attendue, pour repérer un `NEXTAUTH_URL` erroné en production) ; lignes purgées après 1 h (`MobileLinkTicket`, supprimées avec le compte).

@@ -64,6 +64,11 @@ export async function GET(req: NextRequest) {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "no-store",
           "X-Frame-Options": "DENY",
+          // Pas de form-action : Chrome l'applique aussi à la redirection 303 vers minddump://.
+          "Content-Security-Policy":
+            "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+          // Pas « no-referrer » : le navigateur enverrait « Origin: null » sur le POST du formulaire.
+          "Referrer-Policy": "same-origin",
         },
       }
     );
@@ -101,7 +106,16 @@ export async function GET(req: NextRequest) {
  * n'a aucun des trois.
  */
 export async function POST(req: NextRequest) {
-  if (req.headers.get("origin") !== siteOrigin(req)) return plainError("Requête refusée.", 403);
+  const expectedOrigin = siteOrigin(req);
+  const origin = req.headers.get("origin");
+  if (origin !== expectedOrigin) {
+    // Sans ticket, jeton ni e-mail. Si NEXTAUTH_URL est faux en prod, tous les POST
+    // légitimes tombent ici : ce journal le rend visible.
+    console.warn(
+      `[mobile-auth/start] POST refusé : Origin « ${String(origin).slice(0, 100)} » ≠ attendue « ${expectedOrigin} » (NEXTAUTH_URL ?)`
+    );
+    return plainError("Requête refusée.", 403);
+  }
   const form = await req.formData().catch(() => null);
   const ticket = form?.get("ticket");
   if (
@@ -130,7 +144,7 @@ export async function POST(req: NextRequest) {
   url.searchParams.set("provider", flow.provider);
   url.searchParams.set("li", nonce);
   const res = NextResponse.redirect(url, 303);
-  res.cookies.set(CHALLENGE_COOKIE.name, JSON.stringify({ mode: "link", ticketId: flow.id }), CHALLENGE_COOKIE.options);
+  res.cookies.set(CHALLENGE_COOKIE.name, JSON.stringify({ mode: "link", ticketId: flow.id, nonce }), CHALLENGE_COOKIE.options);
   res.cookies.set(
     LINK_COOKIE,
     await encodeLinkIntent({ userId: flow.userId, provider: flow.provider, nonce, ticketId: flow.id }),

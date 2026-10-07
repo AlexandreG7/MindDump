@@ -1,8 +1,9 @@
 import type { NextAuthOptions } from "next-auth";
-import type { Adapter, AdapterUser } from "next-auth/adapters";
+import type { Adapter, AdapterAccount, AdapterUser } from "next-auth/adapters";
 import { randomBytes } from "crypto";
 import { encode, decode } from "next-auth/jwt";
 import { prisma } from "./prisma";
+import { storePendingLinkAccount } from "./mobileLink";
 import { useSecureCookies } from "./secureCookies";
 
 /**
@@ -99,18 +100,23 @@ export async function decodeLinkIntent(value: string | undefined): Promise<LinkI
   }
 }
 
+/** Nonce « li » de l'URL de retour de la tentative OAuth en cours (cookie de NextAuth). */
+export function callbackNonce(cookies: { get(name: string): { value: string } | undefined }): string | null {
+  const value = cookies.get(CALLBACK_URL_COOKIE)?.value;
+  if (!value) return null;
+  try {
+    return new URL(value, "http://localhost").searchParams.get("li");
+  } catch {
+    return null;
+  }
+}
+
 /** L'URL de retour de la tentative OAuth en cours porte-t-elle le nonce de l'intention ? */
 export function callbackMatchesIntent(
   cookies: { get(name: string): { value: string } | undefined },
   intent: LinkIntent
 ): boolean {
-  const value = cookies.get(CALLBACK_URL_COOKIE)?.value;
-  if (!value) return false;
-  try {
-    return new URL(value, "http://localhost").searchParams.get("li") === intent.nonce;
-  } catch {
-    return false;
-  }
+  return callbackNonce(cookies) === intent.nonce;
 }
 
 // Où revenir après une tentative de liaison (lu par la section « Connexion » du profil).
@@ -123,6 +129,8 @@ export function linkAuthOptions(base: NextAuthOptions, intent: LinkIntent): Next
   // Depuis l'app, le résultat revient à /api/mobile-auth/complete (pas au profil) ;
   // et lier n'est pas se connecter : pas d'entrée dans l'historique de connexion.
   const mobile = !!intent.ticketId;
+  // E-mail du fournisseur, pour l'affichage (jamais utilisé pour rapprocher un compte).
+  let pendingEmail: string | null = null;
   const resultUrl = (status: string, provider: string) =>
     mobile ? `/api/mobile-auth/complete?link=${status}` : profileUrl(status, provider);
 
@@ -143,10 +151,27 @@ export function linkAuthOptions(base: NextAuthOptions, intent: LinkIntent): Next
         if (!user) throw new Error("Utilisateur à lier introuvable");
         return user as AdapterUser;
       },
+      // Depuis l'app : l'Account n'est PAS créé ici. L'identité est mise en attente
+      // sur le ticket et ne devient un Account qu'à l'échange du code par la session
+      // du titulaire du ticket (src/lib/mobileLink.ts) : un lien piégé ne lie rien.
+      ...(mobile
+        ? {
+            linkAccount: async (account: AdapterAccount) => {
+              const ok = await storePendingLinkAccount(
+                intent.ticketId as string,
+                intent.userId,
+                account as unknown as Record<string, unknown> & { provider: string; providerAccountId: string },
+                pendingEmail
+              );
+              if (!ok) throw new Error("Parcours de liaison introuvable ou expiré");
+            },
+          }
+        : {}),
     },
     callbacks: {
       ...base.callbacks,
-      async signIn({ account }) {
+      async signIn({ account, profile }) {
+        pendingEmail = typeof profile?.email === "string" ? profile.email : null;
         if (!account || account.provider !== intent.provider) return resultUrl("error", intent.provider);
         const existing = await prisma.account.findUnique({
           where: {

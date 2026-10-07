@@ -5,10 +5,15 @@ import { authOptions } from "@/lib/auth";
 import {
   LINK_COOKIE,
   callbackMatchesIntent,
+  callbackNonce,
   clearLinkCookieHeader,
   decodeLinkIntent,
   linkAuthOptions,
 } from "@/lib/accountLinking";
+
+const clearChallengeCookieHeader = `${CHALLENGE_COOKIE.name}=; Path=${CHALLENGE_COOKIE.options.path}; Max-Age=0; HttpOnly${
+  CHALLENGE_COOKIE.options.secure ? "; Secure; SameSite=None" : "; SameSite=Lax"
+}`;
 
 type Context = { params: { nextauth: string[] } };
 
@@ -31,12 +36,23 @@ async function handler(req: NextRequest, context: Context) {
     !providerId &&
     req.nextUrl.searchParams.has("error")
   ) {
-    let pending: { mode?: unknown } = {};
+    let pending: { mode?: unknown; nonce?: unknown } = {};
     try {
       pending = JSON.parse(req.cookies.get(CHALLENGE_COOKIE.name)?.value ?? "{}");
     } catch {}
     if (pending.mode === "link") {
-      return NextResponse.redirect(new URL("/api/mobile-auth/complete?link=error", req.nextUrl.origin), 303);
+      // Seule la tentative de liaison EN COURS revient à l'app : son nonce est dans
+      // l'URL de retour mémorisée par NextAuth. Un cookie de parcours resté d'une
+      // liaison abandonnée (SameSite=None, 15 min) ne doit pas détourner une erreur
+      // de connexion web faite ensuite dans ce navigateur : on l'efface, et la
+      // connexion suit son cours (retour vers /login).
+      if (typeof pending.nonce === "string" && callbackNonce(req.cookies) === pending.nonce) {
+        return NextResponse.redirect(new URL("/api/mobile-auth/complete?link=error", req.nextUrl.origin), 303);
+      }
+      const res = (await NextAuth(req, context, authOptions)) as Response;
+      const headers = new Headers(res.headers);
+      headers.append("Set-Cookie", clearChallengeCookieHeader);
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
     }
   }
 

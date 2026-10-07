@@ -53,7 +53,14 @@ const nextConfig = {
     return [{ source: "/uploads/:path*", destination: "/api/uploads/:path*" }];
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Page de confirmation de liaison (ticket dans l'URL) : aucun Referer vers un autre site.
+      // « same-origin » et non « no-referrer » : avec ce dernier, le navigateur envoie
+      // « Origin: null » sur le POST du formulaire, que la route refuse (vérifié sur iOS).
+      // Placée après la règle générale, elle la remplace pour cet en-tête seulement.
+      { source: "/api/mobile-auth/start", headers: [{ key: "Referrer-Policy", value: "same-origin" }] },
+    ];
   },
   // src/lib/jow.ts, hellofresh.ts et quitoque.ts exportent à la fois des
   // helpers purs utilisés côté client (partage, src/lib/share.ts) et des

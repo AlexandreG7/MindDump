@@ -36,13 +36,6 @@ export function confirmationMatches(cookie: string | undefined, ticket: unknown,
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
-/** E-mail masqué : a•••@gmail.com. */
-export function maskEmail(email: string | null | undefined): string {
-  if (!email || !email.includes("@")) return "";
-  const [local, domain] = [email.slice(0, email.lastIndexOf("@")), email.slice(email.lastIndexOf("@") + 1)];
-  return `${Array.from(local)[0] ?? ""}•••@${domain}`;
-}
-
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 
@@ -54,7 +47,7 @@ export function confirmationPage(options: {
   token: string;
 }): string {
   const who = options.name?.trim() ? options.name.trim() : "ce compte";
-  const masked = maskEmail(options.email);
+  const email = options.email?.trim() ?? "";
   return `<!doctype html>
 <html lang="fr">
 <head>
@@ -81,8 +74,8 @@ export function confirmationPage(options: {
 </head>
 <body>
 <main>
-  <h1>Lier ton compte ${escapeHtml(options.providerName)} au compte MindDump de <span class="who">${escapeHtml(who)}</span>${masked ? ` (<span class="who">${escapeHtml(masked)}</span>)` : ""} ?</h1>
-  <p>Continue seulement si c'est bien ton compte. Tu pourras ensuite te connecter avec ${escapeHtml(options.providerName)}.</p>
+  <h1>Lier ton compte ${escapeHtml(options.providerName)} au compte MindDump de <span class="who">${escapeHtml(who)}</span>${email ? ` (<span class="who">${escapeHtml(email)}</span>)` : ""} ?</h1>
+  <p>Continue seulement si c'est bien ton compte. Tu pourras ensuite te connecter avec ${escapeHtml(options.providerName)}. Si quelqu'un t'a envoyé ce lien, refuse.</p>
   <form method="post" action="/api/mobile-auth/start">
     <input type="hidden" name="ticket" value="${escapeHtml(options.ticket)}">
     <input type="hidden" name="token" value="${escapeHtml(options.token)}">

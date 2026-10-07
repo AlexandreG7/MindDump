@@ -6,12 +6,18 @@
  *    utilisateur, rejoué, expiré ou avec un mauvais PKCE ne lie rien ;
  *  - un compte OAuth déjà lié à quelqu'un d'autre n'est jamais déplacé (« taken ») ;
  *  - lier ne crée ni utilisateur, ni session, ni entrée d'historique de connexion ;
- *  - délier le dernier moyen de connexion est refusé.
+ *  - délier le dernier moyen de connexion est refusé ;
+ *  - la liaison est DIFFÉRÉE : le callback OAuth ne crée aucun Account (identité en
+ *    attente, chiffrée, sur le ticket) ; il n'existe qu'après l'échange du code par
+ *    la session du titulaire du ticket (fixation ciblée : ticket de l'attaquant,
+ *    OAuth de la victime => aucun Account) ; un parcours abandonné ne lie rien et
+ *    l'attente est purgée.
  *
  * Par HTTP contre un serveur MindDump sur une base JETABLE (même principe que
  * tests/ownership.test.mjs), plus les options NextAuth de liaison appelées
- * directement. Le retour du fournisseur est simulé en écrivant l'Account en base :
- * le serveur de production n'active pas le fournisseur de test. Le parcours OAuth
+ * directement. Le retour du fournisseur est simulé en appelant l'adaptateur de
+ * liaison (linkAccount) comme le fait NextAuth : le serveur de production n'active
+ * pas le fournisseur de test. Le parcours OAuth
  * complet (serveur OIDC local) est joué en plus si OAUTH_TEST_ISSUER est défini et
  * actif (serveur de dev, voir scripts/test-oidc-server.mjs).
  *
@@ -137,6 +143,23 @@ async function browserFlow(ticket, { status = "", simulate } = {}) {
 }
 const exchange = (user, code, verifier) =>
   http("POST", "/api/mobile-auth/link-exchange", { user, body: { code, verifier } });
+const REFRESH = `refresh-secret-${run}`;
+/**
+ * Retour du fournisseur simulé : ce que NextAuth fait au callback avec les options de
+ * liaison, c.-à-d. adapter.linkAccount (qui met l'identité EN ATTENTE sur le ticket).
+ */
+async function providerReturns(start, sub, { provider = PROVIDER } = {}) {
+  const intent = await decodeLinkIntent(cookieValue(start, LINK_COOKIE));
+  const opts = linkAuthOptions(authOptions, intent);
+  await opts.adapter.linkAccount({
+    userId: intent.userId, type: "oauth", provider, providerAccountId: sub,
+    access_token: `access-${run}`, refresh_token: REFRESH, expires_at: 1900000000,
+    token_type: "bearer", scope: "openid email", id_token: `idt-${run}`,
+  });
+  return intent;
+}
+const accountOf = (sub) => prisma.account.findFirst({ where: { provider: PROVIDER, providerAccountId: sub } });
+const ticketRow = (ticket) => prisma.mobileLinkTicket.findUnique({ where: { ticketHash: sha256(ticket) } });
 
 /**
  * Parcours OAuth complet avec le serveur OIDC local (scripts/test-oidc-server.mjs) :
@@ -254,6 +277,36 @@ async function oidcSuite({ alice, bob, mallory }) {
   check((await res.json()).result === "linked" && !!bobs && bobs.providerAccountId === bobsSub, "Bob lie son compte fournisseur, même avec l'e-mail d'Alice : pas de liaison par e-mail");
   check((await prisma.account.count({ where: { userId: alice.id, provider: "test-oidc" } })) === 1, "Alice n'a que le sien");
 
+  // 3 bis. Fixation ciblée : ticket d'un attaquant, OAuth d'une VICTIME dans un autre navigateur.
+  const attacker = await makeUser("oidc-attacker");
+  const victim = await makeUser("oidc-victim");
+  const victimSub = `oidc-sub-${run}-victim`;
+  v = newVerifier();
+  ticket = (await (await http("POST", "/api/mobile-auth/link-ticket", { user: attacker, body: { provider: "test-oidc", challenge: challengeOf(v) } })).json()).ticket;
+  const accountsBeforeAttack = await prisma.account.count();
+  flow = await systemBrowser(ticket, victimSub, { email: "victime@exemple.test" });
+  check(!!flow.code, "fixation : la victime termine l'OAuth et reçoit un code");
+  check((await prisma.account.count()) === accountsBeforeAttack && !(await prisma.account.findFirst({ where: { provider: "test-oidc", providerAccountId: victimSub } })), "fixation : AUCUN Account créé après l'OAuth de la victime");
+  const pendingRow = await prisma.mobileLinkTicket.findUnique({ where: { ticketHash: sha256(ticket) } });
+  check(pendingRow.pendingProviderAccountId === victimSub && pendingRow.pendingEmail === "victime@exemple.test" && !!pendingRow.pendingTokens, "fixation : l'identité de la victime attend sur le ticket (compte fournisseur, e-mail, jetons chiffrés)");
+  res = await exchange(attacker, "faux-code-" + randomBytes(24).toString("base64url"), v);
+  check(res.status === 400, "fixation : l'attaquant (sa session + son verifier) sans le code : refusé");
+  res = await exchange(victim, flow.code, v);
+  check(res.status === 400, "fixation : app de la victime (sa session ≠ ticket.userId) : refusé");
+  check((await prisma.account.count()) === accountsBeforeAttack && !(await prisma.account.findFirst({ where: { provider: "test-oidc", providerAccountId: victimSub } })), "fixation : toujours aucun Account, ni pour l'attaquant ni pour la victime");
+
+  // 3 ter. OAuth faite, code jamais échangé (app fermée) : aucune liaison, attente purgée à l'expiration.
+  const quit = await makeUser("oidc-quit");
+  v = newVerifier();
+  ticket = (await (await http("POST", "/api/mobile-auth/link-ticket", { user: quit, body: { provider: "test-oidc", challenge: challengeOf(v) } })).json()).ticket;
+  const quitSub = `oidc-sub-${run}-quit`;
+  flow = await systemBrowser(ticket, quitSub);
+  check(!!flow.code && !(await prisma.account.findFirst({ where: { provider: "test-oidc", providerAccountId: quitSub } })), "abandon : code émis, jamais échangé, aucun Account");
+  await prisma.mobileLinkTicket.update({ where: { ticketHash: sha256(ticket) }, data: { codeExpiresAt: new Date(Date.now() - 1000) } });
+  await http("POST", "/api/mobile-auth/link-ticket", { user: quit, body: { provider: "test-oidc", challenge: challengeOf(newVerifier()) } });
+  check((await prisma.mobileLinkTicket.findUnique({ where: { ticketHash: sha256(ticket) } })).pendingTokens === null, "abandon : attente purgée à l'expiration");
+  check((await exchange(quit, flow.code, v)).status === 400 && !(await prisma.account.findFirst({ where: { provider: "test-oidc", providerAccountId: quitSub } })), "abandon : échange tardif refusé, rien lié");
+
   // 4. Flux web (navigateur) : inchangé, retour vers le profil, session conservée.
   const walt = await makeUser("walt");
   jar.clear();
@@ -304,21 +357,27 @@ async function main() {
     const { ticket } = await getTicket(alice, v);
     const sub = `sub-${run}-alice`;
     const flow = await browserFlow(ticket, {
-      // Retour du fournisseur : NextAuth (options de liaison) rattache le compte à l'intention.
+      // Retour du fournisseur : NextAuth (options de liaison) met l'identité EN ATTENTE sur le ticket.
       simulate: async (start) => {
-        const intent = await decodeLinkIntent(cookieValue(start, LINK_COOKIE));
+        const intent = await providerReturns(start, sub);
         check(intent?.userId === alice.id && intent.provider === PROVIDER && !!intent.nonce && !!intent.ticketId, "start pose l'intention de liaison : utilisateur du TICKET, nonce, ticket");
-        await prisma.account.create({
-          data: { userId: intent.userId, type: "oauth", provider: PROVIDER, providerAccountId: sub },
-        });
+        check(!(await accountOf(sub)), "callback : AUCUN Account créé (identité en attente)");
+        const pending = await ticketRow(ticket);
+        check(pending.pendingProviderAccountId === sub && !!pending.pendingTokens, "callback : identité mise en attente sur le ticket");
+        check(!pending.pendingTokens.includes(REFRESH) && !pending.pendingTokens.includes(`access-${run}`) && !pending.pendingTokens.includes(`idt-${run}`), "jetons en attente chiffrés au repos (ni refresh, ni access, ni id_token en clair)");
       },
     });
+    check(!(await accountOf(sub)), "complete : toujours aucun Account (le code n'a pas encore été échangé)");
     check(!!flow.code, "complete renvoie minddump://auth?code=…");
     check(!setCookies(flow.complete).some((c) => c.includes("session-token=") && !c.endsWith("=")), "complete ne pose aucun cookie de session");
     check(!flow.location.includes("verifier"), "le retour n'expose pas de verifier");
     const res = await exchange(alice, flow.code, v);
     const data = await res.json();
     check(res.ok && data.result === "linked" && data.provider === PROVIDER, "exchange : linked");
+    const made = await accountOf(sub);
+    check(made?.userId === alice.id && made.type === "oauth" && made.refresh_token === REFRESH && made.access_token === `access-${run}` && made.id_token === `idt-${run}` && made.expires_at === 1900000000 && made.scope === "openid email", "exchange : l'Account est créé pour Alice avec ses jetons (refresh_token compris)");
+    const after = await ticketRow(ticket);
+    check(after.pendingProviderAccountId === null && after.pendingTokens === null && after.pendingEmail === null, "exchange : identité en attente purgée");
     check(setCookies(res).length === 0, "exchange ne pose aucun cookie (pas de nouvelle session)");
     check((await exchange(alice, flow.code, v)).status === 400, "code rejoué : refusé");
     check((await http("POST", "/api/mobile-auth/link-ticket", { user: alice, body: { provider: PROVIDER, challenge: challengeOf(v) } })).status === 409, "déjà lié : nouveau ticket refusé (409)");
@@ -330,11 +389,8 @@ async function main() {
     const { ticket } = await getTicket(bob, v);
     const flow = await browserFlow(ticket, {
       simulate: async (start) => {
-        const intent = await decodeLinkIntent(cookieValue(start, LINK_COOKIE));
+        const intent = await providerReturns(start, `sub-${run}-bob`);
         check(intent?.userId === bob.id, "l'intention suit le ticket de Bob");
-        await prisma.account.create({
-          data: { userId: intent.userId, type: "oauth", provider: PROVIDER, providerAccountId: `sub-${run}-bob` },
-        });
       },
     });
     // La WebView d'Alice présente le code du ticket de Bob avec le bon verifier.
@@ -342,6 +398,9 @@ async function main() {
     check(res.status === 400, "session d'Alice + ticket de Bob : refusé");
     check((await prisma.account.count({ where: { userId: alice.id } })) === 1, "Alice n'a toujours qu'un compte lié");
     check((await exchange(bob, flow.code, v)).status === 400, "le code est brûlé même après un essai raté");
+    check(!(await accountOf(`sub-${run}-bob`)), "…et aucun Account n'est créé pour l'identité en attente (ni pour Bob, le code étant brûlé)");
+    const burnt = await ticketRow(ticket);
+    check(burnt.pendingTokens === null && burnt.pendingProviderAccountId === null, "…l'attente est purgée dès la tentative refusée");
     check((await http("POST", "/api/mobile-auth/link-exchange", { body: { code: flow.code, verifier: v } })).status === 401, "exchange sans session : 401");
   }
 
@@ -442,8 +501,12 @@ async function main() {
     const { ticket } = await getTicket(vera, v);
     const page = await confirmPage(ticket);
     check(page.res.status === 200 && (page.res.headers.get("content-type") || "").includes("text/html"), "GET : page de confirmation (HTML), pas une redirection");
-    check(page.html.includes("vera") && page.html.includes("v•••@exemple.test"), "la page nomme le titulaire (nom, e-mail masqué)");
-    check(!page.html.includes("victime@exemple.test"), "l'e-mail complet n'est jamais affiché");
+    check(page.html.includes("vera") && page.html.includes("victime@exemple.test"), "la page nomme le titulaire (nom et e-mail COMPLET)");
+    check(!page.html.includes("v•••@"), "…sans masque");
+    check(page.html.includes("Si quelqu'un t'a envoyé ce lien, refuse."), "avertissement « Si quelqu'un t'a envoyé ce lien, refuse. »");
+    const csp = page.res.headers.get("content-security-policy") || "";
+    check(csp === "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" && !/form-action/i.test(csp), "en-tête Content-Security-Policy (sans form-action : le 303 vers minddump:// doit passer)");
+    check(page.res.headers.get("referrer-policy") === "same-origin", "en-tête Referrer-Policy: same-origin (aucun Referer vers un autre site, et Origin conservée sur le POST)");
     check(page.html.includes("Continuer") && page.html.includes("Ce n'est pas mon compte"), "boutons « Continuer » et « Ce n'est pas mon compte »");
     const raw = page.res.headers.getSetCookie();
     check(raw.length === 1 && raw[0].startsWith(`${CONFIRM_COOKIE}=`) && /samesite=strict/i.test(raw[0]) && /httponly/i.test(raw[0]) && /max-age=\d+/i.test(raw[0]), "GET : seul cookie posé = jeton SameSite=Strict, httpOnly, courte durée");
@@ -498,11 +561,24 @@ async function main() {
   console.log("Refus chez le fournisseur");
   {
     // NextAuth renvoie un refus (access_denied) vers /api/auth/signin?error=… ou /api/auth/error?error=…
-    const linkCookie = `minddump.mobile-auth=${encodeURIComponent(JSON.stringify({ mode: "link", ticketId: "t" }))}`;
+    // La tentative en cours : le nonce du cookie de parcours est celui de l'URL de retour mémorisée par NextAuth.
+    const nonce = "n".repeat(32);
+    const linkCookie = `minddump.mobile-auth=${encodeURIComponent(JSON.stringify({ mode: "link", ticketId: "t", nonce }))}`;
+    const callbackCookie = `next-auth.callback-url=${encodeURIComponent(`${BASE_URL}/api/mobile-auth/complete?li=${nonce}`)}`;
     for (const path of ["/api/auth/signin?error=Callback&callbackUrl=x", "/api/auth/error?error=AccessDenied"]) {
-      const denied = await http("GET", path, { native: false, cookies: linkCookie });
+      const denied = await http("GET", path, { native: false, cookies: `${linkCookie}; ${callbackCookie}` });
       check(denied.status === 303 && (denied.headers.get("location") || "").endsWith("/api/mobile-auth/complete?link=error"), `refus du fournisseur (${path.split("?")[0]}) en liaison : retour vers complete?link=error`);
     }
+    // Liaison abandonnée puis erreur de connexion WEB dans le même navigateur : /login, et le cookie de parcours est effacé.
+    const webCallback = `next-auth.callback-url=${encodeURIComponent(`${BASE_URL}/`)}`;
+    for (const [label, cookies] of [["URL de retour d'une autre tentative", `${linkCookie}; ${webCallback}`], ["sans URL de retour", linkCookie]]) {
+      const stale = await http("GET", "/api/auth/error?error=OAuthCallback", { native: false, cookies });
+      const loc = stale.headers.get("location") || "";
+      check(!loc.includes("/api/mobile-auth/complete") && !loc.startsWith("minddump://"), `cookie de parcours périmé (${label}) : l'erreur web ne revient pas vers l'app`);
+      check(stale.headers.getSetCookie().some((c) => c.startsWith("minddump.mobile-auth=;") && /max-age=0/i.test(c)), `…et le cookie de parcours est effacé (${label})`);
+    }
+    const lateComplete = await http("GET", "/api/mobile-auth/complete?link=error", { native: false, cookies: `minddump.mobile-auth=${encodeURIComponent(JSON.stringify({ mode: "link", ticketId: "inconnu" }))}` });
+    check(lateComplete.headers.getSetCookie().some((c) => c.startsWith("minddump.mobile-auth=;")), "complete (parcours invalide) : le cookie de parcours est effacé aussi");
     const plain = await http("GET", "/api/auth/signin?error=Callback", { native: false });
     check(!(plain.headers.get("location") || "").includes("/api/mobile-auth/complete"), "…mais pas sans parcours de liaison en cours (connexion normale intacte)");
     const normal = await http("GET", "/api/auth/signin?error=Callback", { native: false, cookies: `minddump.mobile-auth=${encodeURIComponent(JSON.stringify({ challenge: challengeOf(newVerifier()), provider: "google" }))}` });
@@ -513,24 +589,113 @@ async function main() {
     const flow = await browserFlow(ticket, {
       status: "?link=error&error=OAuthCallback",
       simulate: async (start) => {
-        const intent = await decodeLinkIntent(cookieValue(start, LINK_COOKIE));
-        // Le compte existe : malgré cela, un retour en erreur n'est jamais un succès.
-        await prisma.account.create({ data: { userId: intent.userId, type: "oauth", provider: PROVIDER, providerAccountId: `sub-${run}-hana` } });
+        // Une identité est en attente : malgré cela, un retour en erreur n'est jamais un succès.
+        await providerReturns(start, `sub-${run}-hana`);
       },
     });
+    check((await ticketRow(ticket)).pendingTokens === null, "retour en erreur : l'attente est purgée dès complete");
     check((await (await exchange(hana, flow.code, v)).json()).result === "error", "retour en erreur : résultat « error », jamais « linked »");
+    check(!(await accountOf(`sub-${run}-hana`)), "retour en erreur : aucun Account créé");
     const v2 = newVerifier();
     await prisma.account.deleteMany({ where: { userId: hana.id } });
     const { ticket: t2 } = await getTicket(hana, v2);
     const flow2 = await browserFlow(t2, {
       status: "?error=AccessDenied",
       simulate: async (start) => {
-        const intent = await decodeLinkIntent(cookieValue(start, LINK_COOKIE));
-        await prisma.account.create({ data: { userId: intent.userId, type: "oauth", provider: PROVIDER, providerAccountId: `sub-${run}-hana2` } });
+        await providerReturns(start, `sub-${run}-hana2`);
       },
     });
     check((await (await exchange(hana, flow2.code, v2)).json()).result === "error", "?error=… seul (sans link) : « error » aussi");
+    check(!(await accountOf(`sub-${run}-hana2`)), "…et aucun Account créé");
     await prisma.account.deleteMany({ where: { userId: hana.id } });
+  }
+
+  console.log("Liaison différée : fixation ciblée par usurpation");
+  {
+    const attacker = await makeUser("attacker");
+    const victim = await makeUser("victim");
+    const victimSub = `sub-${run}-victim-google`;
+    const va = newVerifier();
+    const { ticket } = await getTicket(attacker, va);
+    // La victime ouvre le lien de l'attaquant dans SON navigateur, confirme, fait l'OAuth avec SON Google.
+    const flow = await browserFlow(ticket, { simulate: async (start) => { await providerReturns(start, victimSub); } });
+    check(!!flow.code, "la victime reçoit un code (dans son navigateur, vers son app)");
+    check(!(await accountOf(victimSub)), "OAuth de la victime terminé : AUCUN Account (ni pour l'attaquant, ni pour elle)");
+    // L'attaquant ne connaît pas le code : il essaie avec sa session et son verifier.
+    for (const guess of [randomBytes(32).toString("base64url"), ticket, "x".repeat(43)]) {
+      check((await exchange(attacker, guess, va)).status === 400, "l'attaquant (sa session + son verifier) sans le bon code : échange refusé");
+    }
+    check(!(await accountOf(victimSub)), "…toujours aucun Account après les essais de l'attaquant");
+    // Le code arrive dans l'app de la victime : sa session n'est pas celle du ticket.
+    check((await exchange(victim, flow.code, va)).status === 400, "app de la victime (sa session ≠ ticket.userId) : échange refusé");
+    check((await exchange(victim, flow.code, newVerifier())).status === 400, "…avec un autre verifier aussi");
+    check(!(await accountOf(victimSub)) && (await prisma.account.count({ where: { userId: { in: [attacker.id, victim.id] } } })) === 0, "aucun Account créé, ni pour l'attaquant ni pour la victime");
+    const row = await ticketRow(ticket);
+    check(row.pendingTokens === null && row.pendingProviderAccountId === null, "l'identité de la victime est purgée du ticket");
+    check((await exchange(attacker, flow.code, va)).status === 400, "même un code intercepté ne sert plus après la tentative refusée (brûlé)");
+    check(!(await accountOf(victimSub)), "…toujours aucun Account");
+  }
+
+  console.log("Parcours abandonné après l'OAuth");
+  {
+    const quinn = await makeUser("quinn");
+    const sub = `sub-${run}-quinn`;
+    const { ticket } = await getTicket(quinn, newVerifier());
+    const start = await confirmedStart(ticket);
+    await providerReturns(start, sub);
+    check(!(await accountOf(sub)) && !!(await ticketRow(ticket)).pendingTokens, "après l'OAuth : identité en attente, aucun Account");
+    // Jamais de complete ni d'échange. Le parcours expire (15 min) : l'attente est purgée à la prochaine émission de ticket.
+    await prisma.mobileLinkTicket.update({ where: { ticketHash: sha256(ticket) }, data: { startedAt: new Date(Date.now() - 16 * 60 * 1000) } });
+    check((await getTicket(quinn, newVerifier())).res.ok, "une nouvelle émission de ticket déclenche la purge");
+    const gone = await ticketRow(ticket);
+    check(gone.pendingTokens === null && gone.pendingProviderAccountId === null && gone.pendingEmail === null, "parcours expiré : identité en attente purgée");
+    check(!(await accountOf(sub)), "…et aucune liaison n'existe");
+    // Retour tardif (complete après expiration) : refusé, rien lié.
+    const late = await http("GET", "/api/mobile-auth/complete", { native: false, cookies: `minddump.mobile-auth=${encodeURIComponent(JSON.stringify({ mode: "link", ticketId: gone.id }))}` });
+    check(late.status === 307 && (late.headers.get("location") || "").includes("/login?error=LinkExpired") && !(await accountOf(sub)), "complete après expiration du parcours : refusé, rien lié");
+
+    // Code émis mais jamais échangé : purgé à l'expiration du code.
+    const rex = await makeUser("rex");
+    const rsub = `sub-${run}-rex`;
+    const rv = newVerifier();
+    const { ticket: rt } = await getTicket(rex, rv);
+    const rflow = await browserFlow(rt, { simulate: async (st) => { await providerReturns(st, rsub); } });
+    check(!!rflow.code && !(await accountOf(rsub)), "code émis mais pas échangé : aucun Account");
+    await prisma.mobileLinkTicket.update({ where: { ticketHash: sha256(rt) }, data: { codeExpiresAt: new Date(Date.now() - 1000) } });
+    await getTicket(rex, newVerifier());
+    check((await ticketRow(rt)).pendingTokens === null, "code expiré non échangé : identité en attente purgée");
+    check((await exchange(rex, rflow.code, rv)).status === 400 && !(await accountOf(rsub)), "…et l'échange tardif est refusé, rien lié");
+  }
+
+  console.log("Compte pris entre le callback et l'échange");
+  {
+    const sam = await makeUser("sam");
+    const thief = await makeUser("thief");
+    const sub = `sub-${run}-race`;
+    const v = newVerifier();
+    const { ticket } = await getTicket(sam, v);
+    const flow = await browserFlow(ticket, { simulate: async (st) => { await providerReturns(st, sub); } });
+    // Entre-temps, ce compte fournisseur est lié à quelqu'un d'autre.
+    await prisma.account.create({ data: { userId: thief.id, type: "oauth", provider: PROVIDER, providerAccountId: sub } });
+    const res = await exchange(sam, flow.code, v);
+    check(res.ok && (await res.json()).result === "taken", "exchange : taken (la contrainte unique est revérifiée à l'échange)");
+    const kept = await accountOf(sub);
+    check(kept?.userId === thief.id && (await prisma.account.count({ where: { userId: sam.id } })) === 0, "le compte déjà lié n'est pas déplacé, Sam n'a rien reçu");
+    check((await ticketRow(ticket)).pendingTokens === null, "attente purgée");
+    // Callback : déjà lié à un autre au moment du callback => taken tout de suite, rien en attente.
+    const sam2 = await makeUser("sam2");
+    const v2 = newVerifier();
+    const { ticket: t2 } = await getTicket(sam2, v2);
+    const flow2 = await browserFlow(t2, {
+      status: "?link=taken",
+      simulate: async (st) => {
+        const intent = await decodeLinkIntent(cookieValue(st, LINK_COOKIE));
+        const target = await linkAuthOptions(authOptions, intent).callbacks.signIn({ account: { provider: PROVIDER, providerAccountId: sub } });
+        check(target === "/api/mobile-auth/complete?link=taken", "callback : compte déjà lié à un autre => taken immédiat");
+      },
+    });
+    check((await ticketRow(t2)).pendingTokens === null, "taken au callback : rien mis en attente");
+    check((await (await exchange(sam2, flow2.code, v2)).json()).result === "taken", "exchange : taken");
   }
 
   console.log("Limite de tickets");
@@ -560,6 +725,9 @@ async function main() {
       "fournisseur différent de celui du ticket : refusé"
     );
     check((await opts.callbacks.signIn({ account: { provider: PROVIDER, providerAccountId: `libre-${run}` } })) === true, "compte libre : liaison autorisée");
+    let refused = false;
+    await opts.adapter.linkAccount({ userId: dave.id, type: "oauth", provider: PROVIDER, providerAccountId: `libre-${run}` }).catch(() => { refused = true; });
+    check(refused && !(await accountOf(`libre-${run}`)), "linkAccount (mode app) sans parcours en cours : refusé, aucun Account créé");
     await opts.events.signIn({ user: { id: dave.id }, account: { provider: PROVIDER } });
     check((await prisma.loginEvent.count()) === eventsBefore, "lier n'écrit pas dans l'historique de connexion");
     // Mode web inchangé : retour vers le profil, historique conservé.
@@ -614,7 +782,7 @@ async function main() {
 
   console.log("Invariants");
   {
-    check((await prisma.user.count()) === usersBefore + 4 + 6 + 5 + (process.env.OAUTH_TEST_ISSUER ? 1 : 0), "aucun utilisateur créé par la liaison (seuls ceux du test : gina, carol, dave, erin, vera, abandon, hana, rita, rita2, 6 racers, walt)");
+    check((await prisma.user.count()) === usersBefore + 4 + 6 + 5 + 7 + (process.env.OAUTH_TEST_ISSUER ? 4 : 0), "aucun utilisateur créé par la liaison (seuls ceux du test : gina, carol, dave, erin, vera, abandon, hana, rita, rita2, 6 racers, attacker, victim, quinn, rex, sam, thief, sam2, puis walt et oidc-attacker/victim/quit)");
     check((await prisma.loginEvent.count()) === eventsBefore + (process.env.OAUTH_TEST_ISSUER ? 1 : 0), "aucune connexion enregistrée par la liaison mobile (seule la liaison web, jouée en plus, en écrit une)");
     check((await prisma.mobileDevice.count()) === 0, "aucun appareil (donc aucune session) créé");
   }

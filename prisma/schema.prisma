@@ -169,6 +169,12 @@ model MobileLinkTicket {
   codeHash      String?   @unique
   codeExpiresAt DateTime?
   exchangedAt   DateTime?
+  // Identité OAuth obtenue au callback, EN ATTENTE : l'Account n'est créé qu'à
+  // l'échange du code (src/lib/mobileLink.ts). Jetons chiffrés (AES-256-GCM),
+  // purgés à l'échange ou à l'expiration.
+  pendingProviderAccountId String?
+  pendingEmail             String?
+  pendingTokens            String?   @db.Text
   createdAt     DateTime  @default(now())
 
   @@index([userId])

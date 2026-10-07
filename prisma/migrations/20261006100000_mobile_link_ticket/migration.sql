@@ -12,6 +12,9 @@ CREATE TABLE "MobileLinkTicket" (
     "codeHash" TEXT,
     "codeExpiresAt" TIMESTAMP(3),
     "exchangedAt" TIMESTAMP(3),
+    "pendingProviderAccountId" TEXT,
+    "pendingEmail" TEXT,
+    "pendingTokens" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "MobileLinkTicket_pkey" PRIMARY KEY ("id")
