@@ -17,6 +17,7 @@
     "test:drive": "tsx --test src/lib/drive/drive.test.ts",
     "test:ai-import": "tsx --test src/lib/ai/importPlanning.test.ts",
     "test:import-url": "tsx --test src/lib/importUrl.test.ts",
+    "test:seo": "node scripts/test-seo-canonical.mjs",
     "test:safe-fetch": "tsx --test src/lib/safeFetch.test.ts"
   },
   "dependencies": {

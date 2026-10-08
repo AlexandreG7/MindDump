@@ -39,11 +39,12 @@ export const metadata: Metadata = {
     "calendrier familial",
     "todo liste famille",
   ],
-  alternates: { canonical: "/" },
+  // Pas de canonical ici : une valeur au niveau du layout est héritée par toute
+  // page qui n'en déclare pas (connexion, 404…) et la ferait pointer vers
+  // l'accueil. Chaque page indexable déclare la sienne.
   openGraph: {
     type: "website",
     locale: "fr_FR",
-    url: "/",
     siteName,
     title: siteTitle,
     description: siteDescription,

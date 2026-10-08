@@ -11,7 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     {
-      url: `${siteUrl}/`,
+      url: siteUrl, // = canonique de la racine (Next la sert sans slash final)
       lastModified,
       changeFrequency: "weekly",
       priority: 1,

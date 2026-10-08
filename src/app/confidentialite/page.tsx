@@ -11,7 +11,6 @@ export const metadata: Metadata = {
   title: "Politique de confidentialité",
   description:
     "Quelles données MindDump collecte, pourquoi, combien de temps, avec qui elles sont partagées et comment exercer tes droits.",
-  alternates: { canonical: "/confidentialite" },
   // Page publique et accessible à tous, mais tenue hors des moteurs de
   // recherche : l'adresse de contact y est affichée en clair.
   robots: { index: false, follow: true },

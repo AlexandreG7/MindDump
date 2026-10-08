@@ -6,6 +6,13 @@ import { siteUrl } from "@/lib/site";
  * crawl : la landing et la documentation. Le reste est soit derrière
  * l'authentification, soit accessible par un lien à jeton qui ne doit jamais
  * se retrouver dans un index.
+ *
+ * Combinaison retenue pour ces pages : Disallow ici ET `noindex` dans leurs
+ * métadonnées. Le Disallow empêche d'abord le crawl (aucune URL à jeton n'est
+ * visitée, aucun doublon signalé) ; le noindex n'est qu'une ceinture si une URL
+ * fuite via un lien externe. Limite connue : Google ne lit pas un noindex sur
+ * une page bloquée. Pour retirer une URL déjà indexée, il faut donc lever le
+ * Disallow le temps qu'elle disparaisse, ou utiliser l'outil de suppression.
  */
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -30,6 +37,11 @@ export default function robots(): MetadataRoute.Robots {
           "/confidentialite",
           "/consentement",
           "/shared/",
+          "/wall/",
+          "/partager",
+          "/importer",
+          "/auth/",
+          "/hors-ligne",
           "/uploads/",
         ],
       },

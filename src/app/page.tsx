@@ -6,6 +6,22 @@ import { isAuthBypassEnabled } from "@/lib/devAuth";
 import { Dashboard } from "@/components/Dashboard";
 import { Landing } from "@/components/landing/Landing";
 import { NATIVE_APP_COOKIE, isNativeRequest } from "@/lib/native";
+import type { Metadata } from "next";
+import { siteDescription, siteName, siteTitle } from "@/lib/site";
+
+// Canonique de la racine : la seule page indexable qui n'a pas son fichier de
+// métadonnées dédié. Le layout racine ne déclare volontairement pas de canonical.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    url: "/",
+    siteName,
+    title: siteTitle,
+    description: siteDescription,
+  },
+};
 
 /**
  * Le choix landing / dashboard se fait côté serveur, et pas depuis
