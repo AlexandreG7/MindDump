@@ -25,6 +25,24 @@ let appleSecretCache: { value: string; createdAt: number } | null = null;
 
 const base64url = (input: Buffer | string) => Buffer.from(input).toString("base64url");
 
+/**
+ * Remet la clé .p8 au format PEM quel que soit le collage dans l'hébergeur :
+ * sur une ligne avec des "\n" littéraux (éventuellement doublés en "\\n" par
+ * l'interface), entre guillemets, en plusieurs lignes, ou seulement le corps
+ * base64. On extrait le corps, on retire tout ce qui n'est pas du base64, et on
+ * reconstruit l'en-tête et des lignes de 64 caractères.
+ */
+export function normalizeApplePrivateKey(raw: string): string {
+  let value = raw.trim().replace(/^["']|["']$/g, "");
+  value = value.replace(/(?:\\+r)?\\+n/g, "\n").replace(/\r/g, "");
+  const match = value.match(/-----BEGIN [A-Z ]*PRIVATE KEY-----([\s\S]*?)-----END [A-Z ]*PRIVATE KEY-----/);
+  const label = value.match(/-----BEGIN ([A-Z ]*PRIVATE KEY)-----/)?.[1] ?? "PRIVATE KEY";
+  const body = (match ? match[1] : value).replace(/[^A-Za-z0-9+/=]/g, "");
+  if (!body) return value;
+  const lines = body.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`;
+}
+
 export function appleClientSecret(): string {
   if (appleSecretCache && Date.now() - appleSecretCache.createdAt < APPLE_SECRET_RENEW_MS) {
     return appleSecretCache.value;
@@ -40,7 +58,7 @@ export function appleClientSecret(): string {
   };
   const signingInput = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(payload))}`;
   // La clé .p8 est souvent stockée sur une ligne avec des "\n" littéraux.
-  const key = createPrivateKey((process.env.APPLE_PRIVATE_KEY ?? "").replace(/\\n/g, "\n"));
+  const key = createPrivateKey(normalizeApplePrivateKey(process.env.APPLE_PRIVATE_KEY ?? ""));
   const signature = sign("sha256", Buffer.from(signingInput), { key, dsaEncoding: "ieee-p1363" });
   const value = `${signingInput}.${base64url(signature)}`;
   appleSecretCache = { value, createdAt: Date.now() };
