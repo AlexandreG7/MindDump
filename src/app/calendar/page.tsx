@@ -16,6 +16,7 @@ import { EventList } from "@/components/calendar/EventList";
 import { TimeGrid } from "@/components/calendar/TimeGrid";
 import { MonthGrid, YearGrid } from "@/components/calendar/MonthGrid";
 import { AgendaList } from "@/components/calendar/AgendaList";
+import { valueToReminder } from "@/lib/reminderOptions";
 import { EventDialog, emptyDraft, type EventDraft } from "@/components/calendar/EventDialog";
 import { FeedExportButton } from "@/components/calendar/FeedExportButton";
 import { SubscriptionChips, SubscriptionDialog } from "@/components/calendar/Subscriptions";
@@ -209,7 +210,8 @@ export default function CalendarPage() {
         recurrence: d.recurrence || null,
         color: d.color || null,
         groupId: currentGroupId,
-        notifyBefore: d.notifyBefore ? Number(d.notifyBefore) : null,
+        // 0 = à l'heure, null = pas de rappel ; une journée entière n'en a pas.
+        notifyBefore: d.time ? valueToReminder(d.notifyBefore) : null,
         assigneeIds: d.assigneeIds,
       }),
     });

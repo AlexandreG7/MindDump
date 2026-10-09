@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EVENT_COLORS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
+import { ReminderField } from "@/components/reminders/ReminderField";
+import { DEFAULT_REMINDER, NO_REMINDER, settleReminder } from "@/lib/reminderOptions";
 import { AssigneePicker } from "@/components/profiles/Assignees";
 import type { FamilyProfile } from "@/components/profiles/ProfileAvatar";
 
@@ -19,6 +21,7 @@ export interface EventDraft {
   endTime: string; // HH:mm, facultatif
   recurrence: string;
   color: string;
+  /** Valeur du menu de rappel (voir reminderOptions) : « none », « 0 », « 15 »… */
   notifyBefore: string;
   assigneeIds: string[];
 }
@@ -31,9 +34,16 @@ export const emptyDraft = (date = "", time = ""): EventDraft => ({
   endTime: "",
   recurrence: "",
   color: "",
-  notifyBefore: "",
+  notifyBefore: NO_REMINDER,
   assigneeIds: [],
 });
+
+/** Instant de début (ISO) d'un brouillon, null pour une journée entière. */
+const startOf = (date: string, time: string) => {
+  if (!date || !time) return null;
+  const d = new Date(`${date}T${time}`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+};
 
 /** Création d'un événement, éventuellement pré-rempli (clic sur un créneau). */
 export function EventDialog({
@@ -50,10 +60,35 @@ export function EventDialog({
   onSubmit: (draft: EventDraft) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<EventDraft>(initial);
+  // Rappel voulu avant un ajustement automatique (voir settleReminder).
+  const [wanted, setWanted] = useState(NO_REMINDER);
 
   useEffect(() => {
-    if (open) setDraft(initial);
+    if (!open) return;
+    // À la création, 15 min avant si l'événement a une heure (et si ce n'est
+    // pas déjà passé : un créneau cliqué dans le passé donne « Pas de rappel »).
+    const want = initial.time && initial.notifyBefore === NO_REMINDER ? DEFAULT_REMINDER : initial.notifyBefore;
+    setWanted(want);
+    setDraft({
+      ...initial,
+      notifyBefore: settleReminder(startOf(initial.date, initial.time), want, Date.now()),
+    });
   }, [open, initial]);
+
+  // Le rappel suit le début : sans heure (journée entière) il n'y a rien à
+  // rappeler ; la première heure saisie propose 15 min ; une heure plus proche
+  // ramène le rappel à la plus longue option encore possible.
+  const setStart = (date: string, time: string) => {
+    const want = time && !draft.time && wanted === NO_REMINDER ? DEFAULT_REMINDER : wanted;
+    setWanted(want);
+    setDraft({
+      ...draft,
+      date,
+      time,
+      endTime: time ? draft.endTime : "",
+      notifyBefore: time ? settleReminder(startOf(date, time), want, Date.now()) : NO_REMINDER,
+    });
+  };
 
   const endInvalid = !!draft.time && !!draft.endTime && draft.endTime <= draft.time;
 
@@ -86,14 +121,14 @@ export function EventDialog({
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="col-span-2 sm:col-span-1">
               <Label htmlFor="eventdialog-date">Date</Label>
-              <Input id="eventdialog-date" type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
+              <Input id="eventdialog-date" type="date" value={draft.date} onChange={(e) => setStart(e.target.value, draft.time)} />
             </div>
             <div>
               <Label htmlFor="eventdialog-debut">Début</Label>
               <Input id="eventdialog-debut"
                 type="time"
                 value={draft.time}
-                onChange={(e) => setDraft({ ...draft, time: e.target.value, endTime: e.target.value ? draft.endTime : "" })}
+                onChange={(e) => setStart(draft.date, e.target.value)}
               />
             </div>
             <div>
@@ -166,15 +201,18 @@ export function EventDialog({
               ))}
             </div>
           </div>
-          <div>
-            <Label htmlFor="eventdialog-rappel-minutes-avant">Rappel (minutes avant)</Label>
-            <Input id="eventdialog-rappel-minutes-avant"
-              type="number"
-              value={draft.notifyBefore}
-              onChange={(e) => setDraft({ ...draft, notifyBefore: e.target.value })}
-              placeholder="30"
-            />
-          </div>
+          <ReminderField
+            id="eventdialog-rappel"
+            dueIso={startOf(draft.date, draft.time)}
+            value={draft.notifyBefore}
+            wanted={wanted}
+            onChange={(v) => {
+              setWanted(v);
+              setDraft({ ...draft, notifyBefore: v });
+            }}
+            unavailableHint="Ajoute une heure de début pour recevoir un rappel. Une journée entière n'a pas d'heure à rappeler."
+            recurring={!!draft.recurrence && draft.recurrence !== "none"}
+          />
           <Button className="w-full" onClick={submit} disabled={!draft.title.trim() || !draft.date || endInvalid}>
             Ajouter
           </Button>
