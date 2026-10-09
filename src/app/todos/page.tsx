@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, AlertCircle, Bell, Calendar, Repeat, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { reminderLabel } from "@/lib/todoDue";
+import { reminderLabel } from "@/lib/reminderOptions";
 import { RECURRENCE_LABELS } from "@/lib/recurrence";
 import { TodoSheet, type Todo, type TodoPayload } from "@/components/todos/TodoSheet";
 import { useFeedback } from "@/components/ui/feedback";

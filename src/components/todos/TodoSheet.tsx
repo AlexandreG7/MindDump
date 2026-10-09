@@ -1,27 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, Bell, BellOff, Calendar, Check, RotateCcw, Trash2, X } from "lucide-react";
+import { AlertCircle, Calendar, Check, RotateCcw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ReminderField } from "@/components/reminders/ReminderField";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AssigneePicker } from "@/components/profiles/Assignees";
 import type { FamilyProfile } from "@/components/profiles/ProfileAvatar";
 import { RECURRENCE_OPTIONS } from "@/lib/recurrence";
-import {
-  DEFAULT_DUE_TIME,
-  DEFAULT_REMINDER,
-  NO_REMINDER,
-  REMINDER_OPTIONS,
-  joinDue,
-  reminderLabel,
-  reminderToValue,
-  splitDue,
-  valueToReminder,
-} from "@/lib/todoDue";
+import { DEFAULT_DUE_TIME, joinDue, splitDue } from "@/lib/todoDue";
+import { DEFAULT_REMINDER, NO_REMINDER, reminderToValue, settleReminder, valueToReminder } from "@/lib/reminderOptions";
 
 export interface Todo {
   id: string;
@@ -54,7 +46,8 @@ interface Draft {
   date: string; // yyyy-MM-dd
   time: string; // HH:mm
   recurrence: string; // "" = aucune
-  reminder: string; // valeur du sélecteur de rappel
+  reminder: string; // rappel retenu (valeur du menu)
+  wantedReminder: string; // rappel voulu avant un ajustement automatique
   assigneeIds: string[];
 }
 
@@ -66,6 +59,7 @@ const emptyDraft = (): Draft => ({
   time: "",
   recurrence: "",
   reminder: NO_REMINDER,
+  wantedReminder: NO_REMINDER,
   assigneeIds: [],
 });
 
@@ -79,6 +73,7 @@ function draftFrom(todo: Todo): Draft {
     time,
     recurrence: todo.recurrence ?? "",
     reminder: reminderToValue(todo.notifyBefore),
+    wantedReminder: reminderToValue(todo.notifyBefore),
     assigneeIds: todo.assigneeIds ?? [],
   };
 }
@@ -126,19 +121,27 @@ export function TodoSheet({
     ? Array.from(byId.values()).find((p) => p.userId === todo.userId)
     : undefined;
 
+  // Le rappel suit l'échéance : si l'option voulue serait déjà passée, on
+  // retient la plus longue qui ne l'est pas (voir settleReminder). Appliqué
+  // seulement quand l'échéance change, jamais à l'ouverture d'une tâche.
+  const withDue = (d: Draft, date: string, time: string, wanted: string): Draft => ({
+    ...d,
+    date,
+    time,
+    wantedReminder: wanted,
+    reminder: settleReminder(joinDue(date, time), wanted, Date.now()),
+  });
+
   const setDate = (date: string) =>
     setDraft((d) => {
-      if (!date) return { ...d, date: "", time: "", recurrence: "", reminder: NO_REMINDER };
-      const first = !d.date;
-      return {
-        ...d,
-        date,
-        time: d.time || DEFAULT_DUE_TIME,
-        // Première échéance : on propose un rappel plutôt que de laisser un
-        // champ vide qui ne déclenche rien.
-        reminder: first && d.reminder === NO_REMINDER ? DEFAULT_REMINDER : d.reminder,
-      };
+      if (!date) return { ...d, date: "", time: "", recurrence: "", reminder: NO_REMINDER, wantedReminder: NO_REMINDER };
+      // Première échéance : on propose un rappel plutôt que de laisser un
+      // champ vide qui ne déclenche rien.
+      const wanted = !d.date && d.wantedReminder === NO_REMINDER ? DEFAULT_REMINDER : d.wantedReminder;
+      return withDue(d, date, d.time || DEFAULT_DUE_TIME, wanted);
     });
+
+  const setTime = (time: string) => setDraft((d) => withDue(d, d.date, time, d.wantedReminder));
 
   const submit = async () => {
     if (!draft.title.trim() || saving) return;
@@ -255,48 +258,20 @@ export function TodoSheet({
                   type="time"
                   value={draft.time}
                   disabled={!hasDue}
-                  onChange={(e) => setDraft({ ...draft, time: e.target.value })}
+                  onChange={(e) => setTime(e.target.value)}
                   aria-label="Heure d'échéance"
                 />
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="todo-reminder">Rappel</Label>
-              <Select
-                value={draft.reminder}
-                disabled={!hasDue}
-                onValueChange={(v) => setDraft({ ...draft, reminder: v })}
-              >
-                <SelectTrigger id="todo-reminder">
-                  {hasDue && draft.reminder === NO_REMINDER ? (
-                    <BellOff className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" aria-hidden />
-                  ) : (
-                    <Bell className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" aria-hidden />
-                  )}
-                  <span className="flex-1 text-left">
-                    <SelectValue />
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {REMINDER_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                  {!REMINDER_OPTIONS.some((o) => o.value === draft.reminder) && (
-                    <SelectItem value={draft.reminder}>{reminderLabel(valueToReminder(draft.reminder))}</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                {!hasDue
-                  ? "Ajoute une échéance pour recevoir un rappel."
-                  : draft.reminder === NO_REMINDER
-                    ? "Tu ne recevras pas de notification pour cette tâche."
-                    : "Tu recevras une notification sur ton téléphone."}
-              </p>
-            </div>
+            <ReminderField
+              id="todo-reminder"
+              dueIso={hasDue ? joinDue(draft.date, draft.time) : null}
+              value={draft.reminder}
+              wanted={draft.wantedReminder}
+              onChange={(v) => setDraft({ ...draft, reminder: v, wantedReminder: v })}
+              unavailableHint="Ajoute une échéance pour recevoir un rappel."
+            />
 
             <div>
               <Label htmlFor="todo-recurrence">Récurrence</Label>
