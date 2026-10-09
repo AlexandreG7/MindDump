@@ -5,6 +5,7 @@ import {
   APP_INTRO_ATTRIBUTE,
   APP_INTRO_LOGO_SIZE,
   APP_INTRO_MAX_MS,
+  APP_INTRO_MESSAGE,
 } from "@/lib/appIntro";
 
 /**
@@ -62,6 +63,7 @@ export function AppIntro() {
           </svg>
         </div>
       </div>
+      <p className="app-intro-msg">{APP_INTRO_MESSAGE}</p>
     </div>
   );
 }

@@ -13,10 +13,19 @@ export const APP_INTRO_COLORS = {
   light: "#F8F7F5",
   dark: "#212226",
   logo: "#F97316",
+  /** Texte du message : 5,4:1 sur le fond clair, 6,5:1 sur le fond sombre (AA). */
+  messageLight: "#6B6560",
+  messageDark: "#A8A6A1",
 } as const;
 
 /** Côté du logo en points / px CSS, centré dans l'écran (écran natif identique). */
 export const APP_INTRO_LOGO_SIZE = 96;
+
+/**
+ * Message de chargement, fixe et unique (identique dans l'écran natif). Tutoyé,
+ * dans le ton de MindDump, sans manuscrit : la police est celle du système.
+ */
+export const APP_INTRO_MESSAGE = "On prépare ta journée…";
 
 /** Filet de sécurité : l'overlay est retiré du DOM au plus tard après ce délai. */
 export const APP_INTRO_MAX_MS = 2500;
