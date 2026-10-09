@@ -29,6 +29,9 @@ import java.io.OutputStream;
 
 public class MainActivity extends BridgeActivity {
 
+    /** Minuteries de la surcouche de lancement (filet de 8 s, retrait différé). */
+    private final Handler launchHandler = new Handler(Looper.getMainLooper());
+
     private static final String GO_BACK_SCRIPT =
         "(function(){var n=window.navigation;if(n&&n.canGoBack){history.back();return true}return false})()";
 
@@ -45,7 +48,11 @@ public class MainActivity extends BridgeActivity {
         // Fond clair ou sombre selon le téléphone tant que la page n'est pas
         // affichée (res/values*/colors.xml) : pas d'éclair blanc en mode sombre.
         bridge.getWebView().setBackgroundColor(ContextCompat.getColor(this, R.color.app_background));
-        showLaunchOverlay();
+        // Seulement au démarrage à froid : si Android recrée l'activité à chaud
+        // (processus tué en arrière-plan, rotation...), la page se recharge sans
+        // rejouer l'animation web (sessionStorage est déjà posé) et la surcouche
+        // resterait figée jusqu'au filet de 8 s.
+        if (savedInstanceState == null) showLaunchOverlay();
         // Bouton retour : page précédente du site, sinon l'app passe en
         // arrière-plan comme toute app Android. WebView.canGoBack() ignore les
         // navigations internes du site (history.pushState) : on demande à la
@@ -73,7 +80,7 @@ public class MainActivity extends BridgeActivity {
     private void showLaunchOverlay() {
         final View overlay = LayoutInflater.from(this).inflate(R.layout.launch_overlay, null);
         addContentView(overlay, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        final Handler handler = new Handler(Looper.getMainLooper());
+        final Handler handler = launchHandler;
         final Runnable remove = () -> {
             if (overlay.getParent() instanceof ViewGroup) ((ViewGroup) overlay.getParent()).removeView(overlay);
         };
@@ -91,6 +98,13 @@ public class MainActivity extends BridgeActivity {
                 });
             }
         });
+    }
+
+    @Override
+    public void onDestroy() {
+        // Pas de référence à l'activité détruite via les minuteries en attente.
+        launchHandler.removeCallbacksAndMessages(null);
+        super.onDestroy();
     }
 
     @Override
