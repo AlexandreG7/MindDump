@@ -19,7 +19,7 @@
     "test:import-url": "tsx --test src/lib/importUrl.test.ts",
     "test:seo": "node scripts/test-seo-canonical.mjs",
     "test:safe-fetch": "tsx --test src/lib/safeFetch.test.ts",
-    "test:date-input": "tsx --test src/lib/dateInput.test.ts"
+    "test:date-input": "tsx --test src/lib/dateInput.test.ts src/lib/todoDue.test.ts"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",

@@ -17,6 +17,7 @@ import { TimeGrid } from "@/components/calendar/TimeGrid";
 import { MonthGrid, YearGrid } from "@/components/calendar/MonthGrid";
 import { AgendaList } from "@/components/calendar/AgendaList";
 import { valueToReminder } from "@/lib/reminderOptions";
+import { joinDue } from "@/lib/todoDue";
 import { EventDialog, emptyDraft, type EventDraft } from "@/components/calendar/EventDialog";
 import { FeedExportButton } from "@/components/calendar/FeedExportButton";
 import { SubscriptionChips, SubscriptionDialog } from "@/components/calendar/Subscriptions";
@@ -50,7 +51,7 @@ function initialAnchor(): Date {
  * flux ICS). Horaire : l'instant saisi dans le fuseau du navigateur.
  */
 function toApiDate(date: string, time: string): string {
-  return time ? new Date(`${date}T${time}`).toISOString() : `${date}T00:00:00.000Z`;
+  return time ? (joinDue(date, time) ?? `${date}T${time}`) : `${date}T00:00:00.000Z`;
 }
 
 export default function CalendarPage() {
