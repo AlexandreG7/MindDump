@@ -101,7 +101,14 @@ export async function POST(req: NextRequest) {
     (c) => now >= c.fireAt
   );
 
-  for (const { event, occurrenceAt } of eventCandidates) {
+  for (const { event, occurrenceAt, fireAt } of eventCandidates) {
+    // Rappel périmé (plus d'une heure de retard) d'un événement unique : pas
+    // d'envoi, on le marque seulement traité. Les séries gardent leur délai
+    // de grâce propre (OCCURRENCE_GRACE_MS dans listEventCandidates).
+    if (!event.recurrence && isStaleReminder(fireAt, now)) {
+      await prisma.calendarEvent.update({ where: { id: event.id }, data: { notified: true } });
+      continue;
+    }
     const recipients = await recipientsForEvent(event, groupMembers);
     const content = eventReminderContent(event, occurrenceAt);
     const { attempted, delivered } = await sendReminder(recipients, {

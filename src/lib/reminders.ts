@@ -196,7 +196,8 @@ export async function listEventCandidates(
 
   const candidates: EventReminderCandidate[] = [];
   for (const event of events) {
-    if (!event.notifyBefore) continue;
+    // notifyBefore = 0 (à l'heure de l'événement) est un rappel valide.
+    if (event.notifyBefore == null) continue;
 
     if (!event.recurrence) {
       const fireAt = new Date(event.date.getTime() - event.notifyBefore * 60 * 1000);

@@ -4,6 +4,7 @@ import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
 import { isEventColor, isRecurrence } from "@/lib/recurrence";
 import { expandRecurrences } from "@/lib/calendarEvents";
+import { readDueDate, readEventDate, readNotifyBefore } from "@/lib/dateInput";
 import { assigneesInclude, sanitizeAssigneeIds, withAssigneeIds } from "@/lib/profiles";
 
 const MAX_RANGE_MS = 400 * 86400000;
@@ -95,18 +96,26 @@ export async function POST(req: NextRequest) {
   const err = await assertGroupMember(groupId, user.id);
   if (err) return err;
 
+  const date = readEventDate(body.date);
+  if (!date.ok) return NextResponse.json({ error: date.error }, { status: 400 });
+  const endDate = readDueDate(body.endDate);
+  if (!endDate.ok) return NextResponse.json({ error: endDate.error.replace("Échéance", "Fin") }, { status: 400 });
+  const notify = readNotifyBefore(body.notifyBefore);
+  if (!notify.ok) return NextResponse.json({ error: notify.error }, { status: 400 });
+
   const assigneeIds = await sanitizeAssigneeIds(body.assigneeIds, groupId);
 
   const event = await prisma.calendarEvent.create({
     data: {
       title: body.title,
       description: body.description || null,
-      date: new Date(body.date),
-      endDate: body.endDate ? new Date(body.endDate) : null,
+      date: date.value,
+      endDate: endDate.value,
       allDay: body.allDay || false,
       recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
       color: isEventColor(body.color) ? body.color : null,
-      notifyBefore: body.notifyBefore || null,
+      // 0 = « à l'heure de l'événement » : à ne pas confondre avec null (pas de rappel).
+      notifyBefore: notify.value,
       userId: user.id,
       groupId,
       assignees: { create: assigneeIds.map((profileId) => ({ profileId })) },

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseDateTimeInput, readDueDate, readNotifyBefore } from "./dateInput";
+import { parseDateTimeInput, readDueDate, readEventDate, readNotifyBefore } from "./dateInput";
 
 const invalid = (v: string) => Number.isNaN(parseDateTimeInput(v).getTime());
 
@@ -72,4 +72,17 @@ test("readNotifyBefore : 0 = à l'heure, null = pas de rappel", () => {
     assert.equal(r.ok, false, String(v));
     if (!r.ok) assert.match(r.error, /Rappel invalide/);
   }
+});
+
+test("readEventDate : obligatoire, lue à l'heure de Paris, 400 si impossible", () => {
+  for (const empty of [undefined, null, ""]) assert.equal(readEventDate(empty).ok, false);
+  assert.equal(readEventDate(42).ok, false);
+  assert.equal(readEventDate("2026-02-31T10:00").ok, false);
+  const local = readEventDate("2026-07-01T10:00");
+  assert.ok(local.ok && local.value.toISOString() === "2026-07-01T08:00:00.000Z");
+  // La page agenda envoie de l'ISO avec Z : inchangé.
+  const iso = readEventDate("2026-12-15T00:00:00.000Z");
+  assert.ok(iso.ok && iso.value.toISOString() === "2026-12-15T00:00:00.000Z");
+  const err = readEventDate("abc");
+  if (!err.ok) assert.match(err.error, /Date invalide/);
 });

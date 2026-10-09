@@ -92,6 +92,19 @@ export function readDueDate(raw: unknown): ParsedField<Date | null> {
   return { ok: true, value: date };
 }
 
+/**
+ * `date` d'un événement : obligatoire (contrairement à l'échéance d'une
+ * tâche), même lecture que `readDueDate` (heure sans fuseau lue à Paris).
+ */
+export function readEventDate(raw: unknown): ParsedField<Date> {
+  if (raw === undefined || raw === null || raw === "") {
+    return { ok: false, error: "Date invalide : une date est requise (AAAA-MM-JJThh:mm)." };
+  }
+  const parsed = readDueDate(raw);
+  if (!parsed.ok) return { ok: false, error: parsed.error.replace("Échéance invalide", "Date invalide") };
+  return { ok: true, value: parsed.value as Date };
+}
+
 export const MAX_NOTIFY_BEFORE_MINUTES = 525_600;
 
 /**

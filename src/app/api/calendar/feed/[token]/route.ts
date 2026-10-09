@@ -108,7 +108,8 @@ export async function GET(
       lines.push(`X-APPLE-CALENDAR-COLOR:${event.color}`);
     }
 
-    if (event.notifyBefore) {
+    // 0 = à l'heure (TRIGGER:-PT0M) ; null = pas d'alarme.
+    if (event.notifyBefore != null) {
       lines.push("BEGIN:VALARM");
       lines.push("ACTION:DISPLAY");
       lines.push("DESCRIPTION:Rappel");

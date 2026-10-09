@@ -11,6 +11,7 @@
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "crypto";
 import net from "net";
+import { readFileSync } from "fs";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 if (process.env.OWNERSHIP_TEST_DB !== "disposable") {
@@ -290,6 +291,143 @@ async function main() {
   const cleared = await api(carol, "PATCH", `/api/todos/${target.json.id}`, { notifyBefore: null });
   const clearedRow = await prisma.todo.findUnique({ where: { id: target.json.id } });
   check(cleared.status === 200 && clearedRow?.notifyBefore === null, "notifyBefore: null → rappel supprimé");
+
+  console.log("9. Agenda : « à l'heure » (notifyBefore = 0), rappels périmés, iCal");
+  const smtp2 = await startSmtpSink(Number(process.env.SMTP_PORT || 2599));
+  try {
+    const onTime = await api(carol, "POST", "/api/calendar", {
+      title: `Agenda pile a l heure ${run}`,
+      date: new Date(Date.now() - 5 * MIN).toISOString(),
+      notifyBefore: 0,
+    });
+    const staleEvent = await api(carol, "POST", "/api/calendar", {
+      title: `Agenda perime ${run}`,
+      date: new Date(Date.now() - 3 * 60 * MIN).toISOString(),
+      notifyBefore: 0,
+    });
+    const futureEvent = await api(carol, "POST", "/api/calendar", {
+      title: `Événement futur ${run}`,
+      date: new Date(Date.now() + 40 * MIN).toISOString(),
+      notifyBefore: 0,
+    });
+    const noReminder = await api(carol, "POST", "/api/calendar", {
+      title: `Événement sans rappel ${run}`,
+      date: new Date(Date.now() - 5 * MIN).toISOString(),
+      notifyBefore: null,
+    });
+    check([onTime, staleEvent, futureEvent, noReminder].every((r) => r.status === 201), "événements créés");
+    check(onTime.json.notifyBefore === 0, "notifyBefore = 0 conservé sur un événement");
+    check(noReminder.json.notifyBefore === null, "notifyBefore = null → pas de rappel");
+
+    const carolUpcoming = await upcomingReminders(carol);
+    check(has(carolUpcoming, futureEvent.json.id), "événement à notifyBefore = 0 → rappel local à l'heure");
+    check(!has(carolUpcoming, noReminder.json.id), "événement sans rappel → aucun rappel local");
+
+    const cron = await fetch(BASE_URL + "/api/cron/notify", {
+      method: "POST",
+      headers: { authorization: `Bearer ${process.env.NEXTAUTH_SECRET}` },
+    });
+    check(cron.status === 200, `cron exécuté (${cron.status})`);
+    const onTimeRow = await prisma.calendarEvent.findUnique({ where: { id: onTime.json.id } });
+    const staleRow2 = await prisma.calendarEvent.findUnique({ where: { id: staleEvent.json.id } });
+    const futureRow = await prisma.calendarEvent.findUnique({ where: { id: futureEvent.json.id } });
+    const noRow = await prisma.calendarEvent.findUnique({ where: { id: noReminder.json.id } });
+    check(smtp2.subjects.some((s) => s.includes(`Agenda pile a l heure ${run}`)), "événement à l'heure (5 min de retard) → rappel envoyé");
+    check(onTimeRow?.notified === true, "événement à l'heure → marqué notified");
+    check(!smtp2.subjects.some((s) => s.includes(`Agenda perime ${run}`)), "événement périmé de 3 h → aucun envoi");
+    check(staleRow2?.notified === true, "événement périmé de 3 h → marqué notified en silence");
+    check(futureRow?.notified === false, "événement futur → pas encore traité");
+    check(noRow?.notified === false && !smtp2.subjects.some((s) => s.includes(`Événement sans rappel ${run}`)), "événement sans rappel → ignoré par le cron");
+
+    // Flux iCal : 0 → alarme à l'heure, null → pas d'alarme.
+    const me = await prisma.user.findUnique({ where: { id: carol.id } });
+    const token = me?.calendarToken ?? `cal-${run}`;
+    if (!me?.calendarToken) await prisma.user.update({ where: { id: carol.id }, data: { calendarToken: token } });
+    const feed = await fetch(`${BASE_URL}/api/calendar/feed/${token}`);
+    const ics = await feed.text();
+    const vevent = (title) => ics.split("BEGIN:VEVENT").find((b) => b.includes(`SUMMARY:${title}`)) ?? "";
+    check(vevent(`Événement futur ${run}`).includes("TRIGGER:-PT0M"), "iCal : notifyBefore = 0 → TRIGGER:-PT0M");
+    check(!vevent(`Événement sans rappel ${run}`).includes("VALARM"), "iCal : notifyBefore = null → pas d'alarme");
+
+    // Une heure sans fuseau est lue à Paris, comme pour les tâches.
+    const localEvent = await api(carol, "POST", "/api/calendar", { title: `Heure locale ${run}`, date: "2026-12-15T14:30" });
+    check(localEvent.status === 201 && new Date(localEvent.json.date).toISOString() === "2026-12-15T13:30:00.000Z", "date sans fuseau lue à l'heure de Paris");
+    const isoEvent = await api(carol, "POST", "/api/calendar", { title: `Heure ISO ${run}`, date: "2026-12-15T00:00:00.000Z", allDay: true });
+    check(isoEvent.status === 201 && new Date(isoEvent.json.date).toISOString() === "2026-12-15T00:00:00.000Z", "ISO avec Z (page agenda) inchangé");
+  } finally {
+    smtp2.close();
+  }
+
+  console.log("10. API calendrier : validation stricte");
+  const badEvents = [
+    ["date absente", {}, true],
+    ["date illisible", { date: "abc" }],
+    ["date impossible (31 février)", { date: "2026-02-31T10:00" }],
+    ["fin impossible", { date: "2026-12-15T10:00", endDate: "2026-13-45T10:00" }],
+    ["notifyBefore négatif", { date: "2026-12-15T10:00", notifyBefore: -5 }],
+    ["notifyBefore décimal", { date: "2026-12-15T10:00", notifyBefore: 1.5 }],
+    ["notifyBefore trop grand", { date: "2026-12-15T10:00", notifyBefore: 525601 }],
+    ["notifyBefore texte", { date: "2026-12-15T10:00", notifyBefore: "10" }],
+  ];
+  for (const [label, extra] of badEvents) {
+    const r = await api(carol, "POST", "/api/calendar", { title: `Invalide ${run}`, ...extra });
+    check(r.status === 400 && typeof r.json?.error === "string", `POST agenda ${label} → 400 (${r.status})`);
+  }
+  const evTarget = await api(carol, "POST", "/api/calendar", {
+    title: `Cible agenda ${run}`,
+    date: new Date(Date.now() + 120 * MIN).toISOString(),
+    notifyBefore: 15,
+  });
+  for (const [label, extra] of badEvents.slice(1)) {
+    const patch = { ...extra };
+    if (label.startsWith("notifyBefore")) delete patch.date;
+    const r = await api(carol, "PATCH", `/api/calendar/${evTarget.json.id}`, patch);
+    check(r.status === 400, `PATCH agenda ${label} → 400 (${r.status})`);
+  }
+  const evNullDate = await api(carol, "PATCH", `/api/calendar/${evTarget.json.id}`, { date: null });
+  check(evNullDate.status === 400, `PATCH agenda date null → 400 (${evNullDate.status})`);
+  const evIntact = await prisma.calendarEvent.findUnique({ where: { id: evTarget.json.id } });
+  check(evIntact?.notifyBefore === 15 && evIntact?.endDate === null, "PATCH agenda invalide : rien n'est modifié");
+  const toZero = await api(carol, "PATCH", `/api/calendar/${evTarget.json.id}`, { notifyBefore: 0 });
+  const zeroRow = await prisma.calendarEvent.findUnique({ where: { id: evTarget.json.id } });
+  check(toZero.status === 200 && zeroRow?.notifyBefore === 0, "PATCH notifyBefore: 0 → rappel à l'heure (pas supprimé)");
+  const toNull = await api(carol, "PATCH", `/api/calendar/${evTarget.json.id}`, { notifyBefore: null });
+  const nullRow = await prisma.calendarEvent.findUnique({ where: { id: evTarget.json.id } });
+  check(toNull.status === 200 && nullRow?.notifyBefore === null, "PATCH notifyBefore: null → rappel supprimé");
+
+  console.log("11. Migration : les anciens notifyBefore = 0 deviennent « pas de rappel »");
+  // Lignes telles qu'elles existaient AVANT la migration (0 = pas de rappel),
+  // puis on rejoue le SQL de la migration (le test s'exécute après `migrate deploy`).
+  const legacyTodo = await prisma.todo.create({
+    data: { title: `Ancien 0 ${run}`, userId: carol.id, dueDate: new Date(Date.now() + 60 * MIN), notifyBefore: 0 },
+  });
+  const keptTodo = await prisma.todo.create({
+    data: { title: `Rappel 15 ${run}`, userId: carol.id, dueDate: new Date(Date.now() + 60 * MIN), notifyBefore: 15 },
+  });
+  const legacyEvent = await prisma.calendarEvent.create({
+    data: { title: `Ancien 0 agenda ${run}`, userId: carol.id, date: new Date(Date.now() + 60 * MIN), notifyBefore: 0 },
+  });
+  const keptEvent = await prisma.calendarEvent.create({
+    data: { title: `Rappel 30 agenda ${run}`, userId: carol.id, date: new Date(Date.now() + 60 * MIN), notifyBefore: 30 },
+  });
+  const sql = readFileSync("prisma/migrations/20261009100000_reminder_zero_means_on_time/migration.sql", "utf8");
+  const statements = sql.split("\n").filter((l) => !l.startsWith("--")).join("\n").split(";").map((x) => x.trim()).filter(Boolean);
+  check(statements.length === 2, `la migration contient 2 ordres UPDATE (${statements.length})`);
+  const before = { todos: await prisma.todo.count(), events: await prisma.calendarEvent.count() };
+  for (const st of statements) await prisma.$executeRawUnsafe(st);
+  const after = { todos: await prisma.todo.count(), events: await prisma.calendarEvent.count() };
+  check(before.todos === after.todos && before.events === after.events, "aucune ligne supprimée par la migration");
+  const rows = {
+    legacyTodo: await prisma.todo.findUnique({ where: { id: legacyTodo.id } }),
+    keptTodo: await prisma.todo.findUnique({ where: { id: keptTodo.id } }),
+    legacyEvent: await prisma.calendarEvent.findUnique({ where: { id: legacyEvent.id } }),
+    keptEvent: await prisma.calendarEvent.findUnique({ where: { id: keptEvent.id } }),
+  };
+  check(rows.legacyTodo?.notifyBefore === null, "tâche à notifyBefore = 0 → null");
+  check(rows.legacyEvent?.notifyBefore === null, "événement à notifyBefore = 0 → null");
+  check(rows.keptTodo?.notifyBefore === 15 && rows.keptEvent?.notifyBefore === 30, "les vrais rappels (15, 30) sont conservés");
+  check(rows.legacyTodo?.title === legacyTodo.title && rows.legacyTodo?.userId === carol.id, "l'ancienne tâche reste intacte et attachée à son auteur (ADR 0001)");
+  check(has(await upcomingReminders(carol), keptTodo.id) && !has(await upcomingReminders(carol), legacyTodo.id), "après migration : plus de rappel fantôme pour l'ancien 0");
 
   console.log(`\n${checks - failures}/${checks} vérifications OK`);
 }
