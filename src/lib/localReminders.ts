@@ -201,7 +201,7 @@ async function doSync(): Promise<void> {
   const pendingById = new Map(pending.map((n) => [n.id, n]));
 
   const toCancel = pending
-    .filter((n) => !desired.some((d) => d.id === n.id))
+    .filter((n) => n.id !== TEST_NOTIFICATION_ID && !desired.some((d) => d.id === n.id))
     .map((n) => ({ id: n.id }));
 
   const toSchedule = desired
@@ -225,11 +225,104 @@ async function doSync(): Promise<void> {
     }));
 
   if (toCancel.length) await p.cancel({ notifications: toCancel }).catch(() => {});
-  // schedule() (re)programme par id. Il demande lui-même l'autorisation
-  // système quand elle est encore « indéterminée » : l'invite peut donc
-  // apparaître à la première synchronisation après connexion, s'il existe des
-  // rappels à programmer. Jamais en boucle si elle a été refusée.
-  if (toSchedule.length) await p.schedule({ notifications: toSchedule }).catch(() => {});
+  if (!toSchedule.length) {
+    lastSync = { at: Date.now(), error: null };
+    return;
+  }
+
+  // Autorisation AVANT de programmer, de façon explicite : on ne compte plus
+  // sur la demande implicite de schedule() (invisible pour nous, sans suite si
+  // l'utilisateur répond après coup). Une fois accordée, on programme dans la
+  // même passe : rien à resynchroniser.
+  let permission = await reminderPermissionStatus();
+  if (permission === "prompt" || permission === "prompt-with-rationale") {
+    permission = await requestReminderPermission();
+  }
+  if (permission !== "granted") {
+    // Refusée (ou indéterminée) : rien ne peut être programmé. On le note pour
+    // le diagnostic ; la prochaine synchro (retour au premier plan, réglage
+    // activé) réessaiera.
+    lastSync = { at: Date.now(), error: `autorisation ${permission ?? "inconnue"}` };
+    return;
+  }
+
+  // schedule() (re)programme par id. Un échec n'est plus avalé : une seconde
+  // tentative, puis l'erreur est gardée pour le diagnostic.
+  let error: string | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await p.schedule({ notifications: toSchedule });
+      error = null;
+      break;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+      console.warn("[rappels] schedule a échoué :", error);
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+  lastSync = { at: Date.now(), error };
+}
+
+// Notification d'essai du diagnostic : jamais annulée par une synchronisation.
+const TEST_NOTIFICATION_ID = 1;
+
+/** Dernière synchronisation (pour le diagnostic de Profil → Rappels). */
+let lastSync: { at: number; error: string | null } | null = null;
+
+export type ReminderDiagnostics = {
+  permission: PermissionState | null;
+  pendingCount: number;
+  nextAt: Date | null;
+  lastSyncAt: Date | null;
+  lastError: string | null;
+};
+
+/** État réel des rappels programmés sur l'appareil, lu auprès de l'OS. */
+export async function reminderDiagnostics(): Promise<ReminderDiagnostics | null> {
+  const p = plugin();
+  if (!p) return null;
+  const permission = await reminderPermissionStatus();
+  const pending = await p.getPending().catch(() => ({ notifications: [] as PendingNotification[] }));
+  const reminders = pending.notifications.filter((n) => n.id !== TEST_NOTIFICATION_ID);
+  const times = reminders
+    .map((n) => new Date(n.schedule?.at ?? 0).getTime())
+    .filter((t) => t > 0)
+    .sort((a, b) => a - b);
+  return {
+    permission,
+    pendingCount: reminders.length,
+    nextAt: times.length ? new Date(times[0]) : null,
+    lastSyncAt: lastSync ? new Date(lastSync.at) : null,
+    lastError: lastSync?.error ?? null,
+  };
+}
+
+/** Notification d'essai dans `seconds` secondes (id réservé, hors rappels réels). */
+export async function scheduleTestReminder(seconds = 10): Promise<boolean> {
+  const p = plugin();
+  if (!p) return false;
+  let permission = await reminderPermissionStatus();
+  if (permission === "prompt" || permission === "prompt-with-rationale") {
+    permission = await requestReminderPermission();
+  }
+  if (permission !== "granted") return false;
+  try {
+    await p.schedule({
+      notifications: [
+        {
+          id: TEST_NOTIFICATION_ID,
+          title: "Notification d'essai",
+          body: "Les rappels fonctionnent sur ce téléphone.",
+          schedule: { at: new Date(Date.now() + seconds * 1000) },
+          extra: { url: "/profile", key: "test" },
+          isExactNotification: false,
+        },
+      ],
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

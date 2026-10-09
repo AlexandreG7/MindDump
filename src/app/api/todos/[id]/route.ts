@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Todo } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { parseDateTimeInput } from "@/lib/dateInput";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { buildItemAccessWhere } from "@/lib/groupAuth";
 import { isRecurrence } from "@/lib/recurrence";
@@ -32,7 +33,7 @@ export async function PATCH(
     ...(body.priority !== undefined && { priority: body.priority }),
     ...(body.completed !== undefined && { completed: body.completed }),
     ...(body.dueDate !== undefined && {
-      dueDate: body.dueDate ? new Date(body.dueDate) : null,
+      dueDate: body.dueDate ? parseDateTimeInput(body.dueDate) : null,
     }),
     ...(body.recurrence !== undefined && {
       recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
@@ -40,7 +41,7 @@ export async function PATCH(
     ...(body.notifyBefore !== undefined && { notifyBefore: body.notifyBefore }),
     // Déplacer l'échéance ou changer le rappel ré-arme le rappel.
     ...(((body.dueDate !== undefined &&
-      (body.dueDate ? new Date(body.dueDate).getTime() : null) !==
+      (body.dueDate ? parseDateTimeInput(body.dueDate).getTime() : null) !==
         (existing.dueDate?.getTime() ?? null)) ||
       (body.notifyBefore !== undefined &&
         (body.notifyBefore || null) !== existing.notifyBefore)) && {
