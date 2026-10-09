@@ -75,7 +75,7 @@ export function ReminderField({
         ? dueMs <= now
           ? "L'échéance est déjà passée : il n'y a plus de rappel possible."
           : `${wantedText} serait déjà passé, l'échéance est dans moins d'une minute.`
-        : `${wantedText} serait déjà passé : il est réglé sur ${value === "0" ? "l'heure de l'échéance" : `${reminderShort(value)} avant`}.`;
+        : `${wantedText} serait déjà passé : il est réglé sur ${value === "0" ? "l'heure prévue" : `${reminderShort(value)} avant`}.`;
   }
 
   return (

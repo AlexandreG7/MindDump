@@ -25,7 +25,7 @@ export interface ReminderOption {
 
 export const REMINDER_OPTIONS: ReminderOption[] = [
   { value: NO_REMINDER, label: "Pas de rappel", short: "", minutes: null },
-  { value: "0", label: "À l'heure de l'échéance", short: "à l'heure", minutes: 0 },
+  { value: "0", label: "À l'heure prévue", short: "à l'heure", minutes: 0 },
   { value: "5", label: "5 min avant", short: "5 min", minutes: 5 },
   { value: "15", label: "15 min avant", short: "15 min", minutes: 15 },
   { value: "30", label: "30 min avant", short: "30 min", minutes: 30 },
