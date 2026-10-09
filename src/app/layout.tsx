@@ -7,6 +7,8 @@ import { THEME_COLORS, themeInitScript } from "@/lib/theme";
 import { devServiceWorkerCleanupScript } from "@/lib/offlineCache";
 import { nativeAppCookieScript } from "@/lib/native";
 import { NativeDeviceSync } from "@/components/NativeDeviceSync";
+import { AppIntro } from "@/components/AppIntro";
+import { appIntroScript } from "@/lib/appIntro";
 import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 
 // next/font télécharge les polices au build et les sert depuis minddump.fr :
@@ -90,11 +92,13 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <script dangerouslySetInnerHTML={{ __html: nativeAppCookieScript }} />
+        <script dangerouslySetInnerHTML={{ __html: appIntroScript }} />
         {process.env.NODE_ENV !== "production" && (
           <script dangerouslySetInnerHTML={{ __html: devServiceWorkerCleanupScript }} />
         )}
       </head>
       <body className={`${sans.className} ${sans.variable} ${caveat.variable}`}>
+        <AppIntro />
         <Providers>
           <NativeDeviceSync />
           <div className="flex h-dvh overflow-hidden">
