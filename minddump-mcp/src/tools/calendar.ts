@@ -54,7 +54,11 @@ function formatEvent(e: CalendarEvent, names: Map<string, string> = new Map()): 
   const extras = [
     forWhom(e.assigneeIds, names),
     e.recurrence && RECURRENCE_LABELS[e.recurrence],
-    e.notifyBefore ? `rappel ${e.notifyBefore} min avant` : null,
+    e.notifyBefore == null
+      ? null
+      : e.notifyBefore === 0
+        ? "rappel à l'heure"
+        : `rappel ${e.notifyBefore} min avant`,
     e.source ? `calendrier « ${e.source} »` : null,
   ].filter(Boolean);
   const id = e.source ? "" : ` (id: ${e.id.split("_")[0]})`;
@@ -92,9 +96,14 @@ export function registerCalendarTools(server: McpServer) {
       notifyBefore: z
         .number()
         .int()
-        .positive()
+        .min(0)
+        .max(525600)
+        .nullable()
         .optional()
-        .describe("Rappel e-mail X minutes avant (1 jour = 1440, 1 semaine = 10080, 30 jours = 43200)"),
+        .describe(
+          "Rappel X minutes avant l'événement : 0 = à l'heure de l'événement, " +
+            "1 jour = 1440, 1 semaine = 10080, 30 jours = 43200. Omis ou null = pas de rappel."
+        ),
       color: z.string().optional().describe("Couleur hexadécimale (ex: #ef4444)"),
       groupId: z
         .string()
@@ -233,8 +242,13 @@ export function registerCalendarTools(server: McpServer) {
         .number()
         .int()
         .min(0)
+        .max(525600)
+        .nullable()
         .optional()
-        .describe("Rappel e-mail X minutes avant (0 pour le retirer)"),
+        .describe(
+          "Nouveau délai de rappel, en minutes avant l'événement : 0 = à l'heure de l'événement, " +
+            "null = supprimer le rappel. Omis = rappel inchangé."
+        ),
       assigneeIds: assigneeIdsParam.describe(
         "Remplace les personnes concernées ([] pour n'assigner personne). profileId donnés par list_groups"
       ),
@@ -247,11 +261,6 @@ export function registerCalendarTools(server: McpServer) {
         if (allDay !== undefined) body.allDay = allDay;
         if (updates.date) body.date = toApiDate(updates.date, allDay ?? false);
         if (updates.endDate) body.endDate = toApiDate(updates.endDate, allDay ?? false);
-        // À ALIGNER dans le chantier agenda : ici 0 supprime le rappel, alors que
-        // pour les tâches (todos.ts) 0 = « à l'heure » et null = supprimer. L'API
-        // calendrier ne gère pas encore 0 comme rappel valide (listEventCandidates
-        // ignore `!notifyBefore`), donc on ne change rien pour l'instant.
-        if (updates.notifyBefore === 0) body.notifyBefore = null;
 
         const id = eventId.split("_")[0];
         await client.patch(`/api/calendar/${id}`, body);
