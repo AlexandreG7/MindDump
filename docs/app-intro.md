@@ -65,3 +65,28 @@ en bas vers le milieu du vol (inévitable pour un tour complet).
 `prefers-reduced-motion` : image fixe 150 ms (logo + message) puis fondu de
 200 ms, aucun saut. Filet de sécurité : l'overlay est retiré du DOM après
 2,5 s au plus.
+
+## Partie native (faite)
+
+Reproduit la première image à l'identique. Nouveau build natif requis (écran de
+lancement), le reste de l'animation arrive par le site.
+
+- **iOS** : `LaunchScreen.storyboard` refait (fond `AppBackground`, `UIImageView`
+  96 x 96 centrée sur l'écran entier avec l'image `LaunchLogo` @1x/@2x/@3x, `UILabel`
+  Medium 15 pt sans ajustement de taille, couleur nommée `LaunchMessage` claire / sombre,
+  haut de la boîte à centre + 72 pt). `Splash` supprimée. iOS retire l'écran de
+  lancement dès le premier affichage de l'app, bien avant la page : `MainViewController`
+  (`showLaunchOverlay`) remet le même storyboard par-dessus la WebView jusqu'à la fin
+  du chargement plus deux images, avec un filet de 8 s.
+- **Android** : l'écran système 12+ n'accepte pas de texte. Choix : écran système (fond
+  + logo seul, cadre de 288 dp, logo de 96 dp visibles, sans disque, retiré sans fondu
+  par `MainActivity`) puis, dès que l'activité est dessinée, la vue `launch_overlay`
+  (logo + message, mêmes cotes) jusqu'à la première peinture de la page (`onPageLoaded`
+  + `postVisualStateCallback`, filet de 8 s). Le message n'est donc visible qu'à partir de
+  la première image de l'activité ; sur un appareil lent la phase « logo seul » est plus
+  longue. `SystemBars.initialViewportFitValueHint = "cover"` (`capacitor.config.ts`) :
+  sans lui la WebView est d'abord décalée des barres système, puis remise plein écran,
+  et le logo web sautait de 15 dp.
+- Vérification : simulateur iPhone 17 Pro et émulateur Pixel_9 (API 36), clair et sombre.
+  Logo mesuré au pixel : même boîte en natif et en web (iOS 3x : x 460-746, y 1168-1454 ;
+  Android 2,625x : x 414-664, y 1086-1336).

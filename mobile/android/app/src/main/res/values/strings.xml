@@ -4,4 +4,5 @@
     <string name="title_activity_main">MindDump</string>
     <string name="package_name">fr.minddump.app</string>
     <string name="custom_url_scheme">fr.minddump.app</string>
+    <string name="launch_message">On prépare ta journée…</string>
 </resources>

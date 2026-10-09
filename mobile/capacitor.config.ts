@@ -33,6 +33,10 @@ const config: CapacitorConfig = {
   plugins: {
     // Bouton retour Android géré par MainActivity.
     App: { disableBackButtonHandler: true },
+    // Le site déclare viewport-fit=cover : sans cette indication, Android
+    // décale d'abord la WebView des barres système puis la remet plein écran
+    // une fois la page affichée (saut de 15 dp du logo d'ouverture).
+    SystemBars: { initialViewportFitValueHint: "cover" },
   },
   ios: {
     // WKAppBoundDomains (Info.plist) : nécessaire pour le service worker.

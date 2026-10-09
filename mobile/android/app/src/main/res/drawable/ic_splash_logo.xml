@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Logo MindDump (src/app/icon.svg) : tuile orange de 96 dp, rayon 24 dp, « M » blanc
+     de 10,5 dp. Mêmes cotes que l'écran de lancement iOS et que la première image
+     web (docs/app-intro.md). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <path
+        android:fillColor="#F97316"
+        android:pathData="M120,96L168,96A24,24 0 0 1 192,120L192,168A24,24 0 0 1 168,192L120,192A24,24 0 0 1 96,168L96,120A24,24 0 0 1 120,96Z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M123,165L123,126L144,150L165,126L165,165"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="10.5" />
+</vector>

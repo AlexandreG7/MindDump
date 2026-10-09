@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Première image de l'app (docs/app-intro.md), posée par-dessus la WebView jusqu'à
+     ce que la page ait peint. Le logo reste centré sur l'écran : la pile
+     [espace 44][logo 96][24][message 20] est centrée, donc le centre du logo est
+     le centre de l'écran et le haut du message est 72 dp plus bas. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/app_background"
+    android:clickable="true"
+    android:focusable="false"
+    android:gravity="center"
+    android:importantForAccessibility="no"
+    android:orientation="vertical">
+
+    <Space
+        android:layout_width="0dp"
+        android:layout_height="44dp" />
+
+    <ImageView
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_launch_logo" />
+
+    <!-- 15 dp (et non sp) : taille fixe, comme le logo et la première image web. -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="20dp"
+        android:layout_marginTop="24dp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:importantForAccessibility="no"
+        android:singleLine="true"
+        android:text="@string/launch_message"
+        android:textColor="@color/launch_message"
+        android:textSize="15dp" />
+</LinearLayout>
