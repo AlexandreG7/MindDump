@@ -1864,3 +1864,98 @@
     transform: none !important;
   }
 }
+
+/* ── Ouverture de l'app (src/components/AppIntro.tsx, src/lib/appIntro.ts) ──
+   Dans l'app uniquement, au démarrage à froid : le logo et son message,
+   identiques à l'écran de lancement natif (fond AppBackground, logo de 96 px
+   centré, message 24 px dessous), puis le logo saute en tournant à plat comme
+   une crêpe, retombe, et l'overlay se dissout. 1 s au total, en CSS pur
+   (transform/opacity) : il disparaît même si le JavaScript échoue. Couleurs
+   figées sur le thème du téléphone, comme l'écran natif. */
+.app-intro {
+  display: none;
+}
+html[data-app-intro] .app-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f7f5;
+  pointer-events: none;
+  animation: app-intro-out 220ms cubic-bezier(0.4, 0, 0.2, 1) 780ms forwards;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-app-intro] .app-intro {
+    background: #212226;
+  }
+}
+.app-intro-hop,
+.app-intro-flip {
+  display: flex;
+  will-change: transform;
+}
+.app-intro svg {
+  display: block;
+  width: 96px;
+  height: 96px;
+}
+/* Message : posé à 24 px sous le logo (centre de l'écran + 48 + 24), immobile.
+   Police système (San Francisco / Roboto), 15 pt, graisse 500, interligne 20. */
+.app-intro-msg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% + 72px);
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  font: 500 15px/20px -apple-system, system-ui, "Roboto", sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  color: #6b6560;
+}
+@media (prefers-color-scheme: dark) {
+  .app-intro-msg {
+    color: #a8a6a1;
+  }
+}
+.app-intro-hop {
+  animation: app-intro-hop 1000ms linear forwards;
+}
+.app-intro-flip {
+  animation: app-intro-flip 1000ms linear forwards;
+}
+/* 0-10 % : image fixe = écran natif. 10-20 % : on s'accroupit. 20-42 % : saut.
+   42-64 % : retombée. 64-78 % : écrasement puis rebond. 78-100 % : léger zoom
+   pendant le fondu. */
+@keyframes app-intro-hop {
+  0%, 10% { transform: none; animation-timing-function: ease-in-out; }
+  20% { transform: translateY(4px) scale(1.05, 0.93); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); }
+  42% { transform: translateY(-64px) scale(1); animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.5); }
+  64% { transform: translateY(0) scale(1); animation-timing-function: ease-out; }
+  70% { transform: translateY(3px) scale(1.06, 0.92); animation-timing-function: ease-in-out; }
+  78% { transform: scale(1); animation-timing-function: ease-in; }
+  100% { transform: scale(1.12); }
+}
+/* Rotation à plat (axe Z) : un tour complet pendant le vol, terminé à l'impact. */
+@keyframes app-intro-flip {
+  0%, 20% { transform: rotate(0); animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1); }
+  62%, 100% { transform: rotate(360deg); }
+}
+@keyframes app-intro-out {
+  from { opacity: 1; visibility: visible; }
+  to { opacity: 0; visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-intro-hop,
+  .app-intro-flip {
+    animation: none;
+  }
+  html[data-app-intro] .app-intro {
+    animation: app-intro-out 200ms ease-out 150ms forwards;
+    /* la règle globale ci-dessus impose 0,01 ms : on garde le fondu de 200 ms */
+    animation-duration: 200ms !important;
+  }
+}

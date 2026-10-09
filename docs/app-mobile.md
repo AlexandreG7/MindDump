@@ -524,9 +524,18 @@ survivent via `LocalNotificationReceiver` ; à confirmer sur appareil).
       Icônes de la barre d'état réglées par `SystemBars.setStyle` depuis
       `ThemeContext`, y compris quand l'utilisateur force un thème différent
       de celui du téléphone. Fond avant chargement et écran de lancement :
-      couleur `AppBackground` et image `Splash` claire / sombre (iOS),
-      `@color/app_background` avec `values-night` (Android 12+ ; parent
-      `Theme.SplashScreen.IconBackground` pour garder le disque orange).
+      couleur `AppBackground` (iOS), `@color/app_background` avec `values-night`
+      (Android). Écran de lancement refait pour l'animation d'ouverture
+      (`docs/app-intro.md`) : logo 96 pt / 96 dp centré et message
+      « On prépare ta journée… », identiques à la première image web.
+      iOS : `LaunchScreen.storyboard` (images `LaunchLogo`, couleurs
+      `AppBackground` et `LaunchMessage`), repris en surcouche par
+      `MainViewController` jusqu'à ce que la page ait peint. Android : écran
+      système 12+ (`Theme.SplashScreen`, logo `ic_splash_logo`, sans disque,
+      retiré sans fondu) puis vue `launch_overlay` posée par `MainActivity`
+      jusqu'à la première peinture de la page ; `SystemBars.initialViewportFitValueHint`
+      évite le saut de 15 dp de la WebView. Ancienne image `Splash` et
+      `drawable*/splash.png` supprimées. **Nouveau build natif requis.**
 - [x] Bouton retour Android : page précédente du site, sinon l'app passe en
       arrière-plan (`MainActivity`). `WebView.canGoBack()` ignore les
       navigations internes de Next (history.pushState) : on interroge

@@ -8,11 +8,19 @@ import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.OpenableColumns;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.CookieManager;
+import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.content.ContextCompat;
+import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.WebViewListener;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -26,12 +34,18 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Écran de lancement système : retiré d'un coup (sans fondu) dès que
+        // l'activité est dessinée, car la vue launch_overlay (même logo, même
+        // position, plus le message) est déjà dessous. Un fondu ferait clignoter
+        // le logo entre les deux.
+        SplashScreen.installSplashScreen(this).setOnExitAnimationListener(splashScreenView -> splashScreenView.remove());
         registerPlugin(SharedFilePlugin.class);
         registerPlugin(MatchDrivePlugin.class);
         super.onCreate(savedInstanceState);
         // Fond clair ou sombre selon le téléphone tant que la page n'est pas
         // affichée (res/values*/colors.xml) : pas d'éclair blanc en mode sombre.
         bridge.getWebView().setBackgroundColor(ContextCompat.getColor(this, R.color.app_background));
+        showLaunchOverlay();
         // Bouton retour : page précédente du site, sinon l'app passe en
         // arrière-plan comme toute app Android. WebView.canGoBack() ignore les
         // navigations internes du site (history.pushState) : on demande à la
@@ -46,6 +60,37 @@ public class MainActivity extends BridgeActivity {
             }
         });
         openShared(getIntent());
+    }
+
+    /**
+     * Première image de l'app (docs/app-intro.md) : Android 12+ n'accepte pas de
+     * texte dans l'écran de lancement système (logo seul, sur le fond de l'app).
+     * Cette vue, identique à la première image de l'animation web (logo de 96 dp
+     * centré, message 72 dp sous le centre), prend le relais dès que l'activité
+     * est dessinée et reste jusqu'à ce que la page ait peint : le passage
+     * natif -> web ne fait ni flash ni saut.
+     */
+    private void showLaunchOverlay() {
+        final View overlay = LayoutInflater.from(this).inflate(R.layout.launch_overlay, null);
+        addContentView(overlay, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        final Handler handler = new Handler(Looper.getMainLooper());
+        final Runnable remove = () -> {
+            if (overlay.getParent() instanceof ViewGroup) ((ViewGroup) overlay.getParent()).removeView(overlay);
+        };
+        // Filet de sécurité : site injoignable, page d'erreur... on ne bloque jamais l'écran.
+        handler.postDelayed(remove, 8000);
+        bridge.addWebViewListener(new WebViewListener() {
+            @Override
+            public void onPageLoaded(WebView webView) {
+                // Attend que la WebView ait réellement peint la page (et son overlay d'intro).
+                webView.postVisualStateCallback(1, new WebView.VisualStateCallback() {
+                    @Override
+                    public void onComplete(long requestId) {
+                        handler.postDelayed(remove, 50);
+                    }
+                });
+            }
+        });
     }
 
     @Override
