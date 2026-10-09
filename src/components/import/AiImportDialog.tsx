@@ -16,6 +16,7 @@ import type { FamilyProfile } from "@/components/profiles/ProfileAvatar";
 import { RECURRENCE_LABELS } from "@/lib/recurrence";
 import type { ProposedEvent, ProposedTodo } from "@/lib/ai/importPlanning";
 import { cn } from "@/lib/utils";
+import { joinDue } from "@/lib/todoDue";
 import { prepareImage } from "@/lib/image";
 
 export interface AiImportStatus {
@@ -202,11 +203,11 @@ export function AiImportDialog({
         body: JSON.stringify({
           title: e.title.trim(),
           description: e.description.trim() || null,
-          date: timed ? new Date(`${e.date}T${e.time}`).toISOString() : `${e.date}T00:00:00.000Z`,
+          date: timed ? (joinDue(e.date, e.time) ?? `${e.date}T${e.time}`) : `${e.date}T00:00:00.000Z`,
           // Journées entières : fin exclusive, le lendemain du dernier jour.
           endDate: timed
             ? e.endTime
-              ? new Date(`${e.date}T${e.endTime}`).toISOString()
+              ? (joinDue(e.date, e.endTime) ?? `${e.date}T${e.endTime}`)
               : null
             : e.endDate && e.endDate > e.date
               ? `${nextDay(e.endDate)}T00:00:00.000Z`

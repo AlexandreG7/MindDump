@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EVENT_COLORS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
 import { ReminderField } from "@/components/reminders/ReminderField";
+import { joinDue } from "@/lib/todoDue";
 import { DEFAULT_REMINDER, NO_REMINDER, settleReminder } from "@/lib/reminderOptions";
 import { AssigneePicker } from "@/components/profiles/Assignees";
 import type { FamilyProfile } from "@/components/profiles/ProfileAvatar";
@@ -41,8 +42,7 @@ export const emptyDraft = (date = "", time = ""): EventDraft => ({
 /** Instant de début (ISO) d'un brouillon, null pour une journée entière. */
 const startOf = (date: string, time: string) => {
   if (!date || !time) return null;
-  const d = new Date(`${date}T${time}`);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  return joinDue(date, time);
 };
 
 /** Création d'un événement, éventuellement pré-rempli (clic sur un créneau). */
