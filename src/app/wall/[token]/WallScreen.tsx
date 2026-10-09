@@ -81,7 +81,9 @@ export function WallScreen({ token }: { token: string }) {
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [offline, setOffline] = useState(false);
   const [revoked, setRevoked] = useState(false);
-  const [now, setNow] = useState(() => new Date());
+  // Horloge : null au rendu serveur et à l'hydratation (le fuseau du serveur n'est pas
+  // celui de la tablette), posée dès le montage avec le fuseau du navigateur.
+  const [now, setNow] = useState<Date | null>(null);
   const [wokeAt, setWokeAt] = useState(0);
   const requestId = useRef(0);
 
@@ -131,6 +133,7 @@ export function WallScreen({ token }: { token: string }) {
   }, [refresh]);
 
   useEffect(() => {
+    setNow(new Date());
     const timer = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(timer);
   }, []);
@@ -155,15 +158,16 @@ export function WallScreen({ token }: { token: string }) {
 
   const profilesById = useMemo(() => new Map((snapshot?.profiles ?? []).map((p) => [p.id, p])), [snapshot]);
 
+  // Clé du jour dans le fuseau du navigateur ; les jours sont recalculés à son changement seulement.
+  const dayKey = now ? format(now, "yyyy-MM-dd") : "";
   const days = useMemo(() => {
-    const start = startOfDay(now);
+    if (!dayKey) return [];
+    const start = startOfDay(new Date());
     return Array.from({ length: DAYS }, (_, i) => addDays(start, i));
-    // Recalculé au changement de jour seulement.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [now.toDateString()]);
+  }, [dayKey]);
 
-  const hour = now.getHours();
-  const night = (hour >= NIGHT_START || hour < NIGHT_END) && Date.now() - wokeAt > WAKE_MS;
+  const hour = now ? now.getHours() : 12;
+  const night = !!now && (hour >= NIGHT_START || hour < NIGHT_END) && Date.now() - wokeAt > WAKE_MS;
 
   // Un appui coche visiblement ; la validation part après UNDO_MS, un second
   // appui l'annule (écran partagé : enfant, geste accidentel).
@@ -240,8 +244,8 @@ export function WallScreen({ token }: { token: string }) {
         onClick={() => setWokeAt(Date.now())}
         aria-label="Rallumer l'écran"
       >
-        <span className="text-8xl font-light tabular-nums">{format(now, "HH:mm")}</span>
-        <span className="mt-2 text-xl first-letter:uppercase">{format(now, "EEEE d MMMM", { locale: fr })}</span>
+        <span className="text-8xl font-light tabular-nums">{now ? format(now, "HH:mm") : "00:00"}</span>
+        <span className="mt-2 text-xl first-letter:uppercase">{now ? format(now, "EEEE d MMMM", { locale: fr }) : "\u00A0"}</span>
       </button>
     );
   }
@@ -249,8 +253,7 @@ export function WallScreen({ token }: { token: string }) {
   const WeatherIcon = weatherIcon(snapshot?.weather?.code ?? null);
   const listItems = (snapshot?.lists ?? []).flatMap((l) => l.items.map((i) => ({ ...i, list: l.name })));
   // Au menu : les repas planifiés du jour, sinon les recettes « prévues » (sans date).
-  const todayKey = format(now, "yyyy-MM-dd");
-  const todayMeals = (snapshot?.mealPlan ?? []).filter((m) => m.date === todayKey);
+  const todayMeals = (snapshot?.mealPlan ?? []).filter((m) => m.date === dayKey);
   const menu: Array<{ id: string; title: string; image: string | null; slot?: string }> = todayMeals.length
     ? todayMeals
     : (snapshot?.meals ?? []);
@@ -261,10 +264,12 @@ export function WallScreen({ token }: { token: string }) {
         {/* En-tête : heure, date, météo, foyer */}
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-end gap-5">
-            <span className="text-6xl md:text-7xl font-semibold tabular-nums leading-none">{format(now, "HH:mm")}</span>
+            <span className="text-6xl md:text-7xl font-semibold tabular-nums leading-none">
+              <span className={now ? undefined : "invisible"}>{now ? format(now, "HH:mm") : "00:00"}</span>
+            </span>
             <div className="pb-1">
               <p className="text-xl md:text-2xl font-medium first-letter:uppercase">
-                {format(now, "EEEE d MMMM", { locale: fr })}
+                {now ? format(now, "EEEE d MMMM", { locale: fr }) : "\u00A0"}
               </p>
               <p className="text-muted-foreground">{snapshot?.group.name ?? " "}</p>
             </div>
