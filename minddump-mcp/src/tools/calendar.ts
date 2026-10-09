@@ -247,6 +247,10 @@ export function registerCalendarTools(server: McpServer) {
         if (allDay !== undefined) body.allDay = allDay;
         if (updates.date) body.date = toApiDate(updates.date, allDay ?? false);
         if (updates.endDate) body.endDate = toApiDate(updates.endDate, allDay ?? false);
+        // À ALIGNER dans le chantier agenda : ici 0 supprime le rappel, alors que
+        // pour les tâches (todos.ts) 0 = « à l'heure » et null = supprimer. L'API
+        // calendrier ne gère pas encore 0 comme rappel valide (listEventCandidates
+        // ignore `!notifyBefore`), donc on ne change rien pour l'instant.
         if (updates.notifyBefore === 0) body.notifyBefore = null;
 
         const id = eventId.split("_")[0];

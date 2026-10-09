@@ -28,8 +28,15 @@ export function registerTodoTools(server: McpServer) {
         .describe("Répétition (nécessite dueDate) : l'occurrence suivante est créée quand la tâche est cochée"),
       notifyBefore: z
         .number()
+        .int()
+        .min(0)
+        .max(525600)
+        .nullable()
         .optional()
-        .describe("Envoyer une notification X minutes avant la date d'échéance (1 jour = 1440, 30 jours = 43200)"),
+        .describe(
+          "Rappel X minutes avant la date d'échéance (nécessite dueDate) : 0 = à l'heure de l'échéance, " +
+            "1 jour = 1440, 30 jours = 43200. Omis ou null = pas de rappel."
+        ),
       groupId: z.string().optional().describe("ID du groupe pour partager la tâche"),
       assigneeIds: assigneeIdsParam,
     },
@@ -157,7 +164,17 @@ export function registerTodoTools(server: McpServer) {
         .enum(["daily", "weekly", "biweekly", "monthly", "yearly", "none"])
         .optional()
         .describe("Nouvelle répétition, ou \"none\" pour la retirer"),
-      notifyBefore: z.number().optional().describe("Nouveau délai de rappel, en minutes avant l'échéance"),
+      notifyBefore: z
+        .number()
+        .int()
+        .min(0)
+        .max(525600)
+        .nullable()
+        .optional()
+        .describe(
+          "Nouveau délai de rappel, en minutes avant l'échéance : 0 = à l'heure de l'échéance, " +
+            "null = supprimer le rappel. Omis = rappel inchangé."
+        ),
       completed: z.boolean().optional().describe("Marquer comme terminée ou non"),
       assigneeIds: assigneeIdsParam.describe(
         "Remplace les personnes concernées ([] pour n'assigner personne). profileId donnés par list_groups"
