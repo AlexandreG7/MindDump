@@ -27,6 +27,10 @@ export async function PATCH(
     return NextResponse.json({ error: "Non trouve" }, { status: 404 });
   }
 
+  // 0 = « à l'heure de l'échéance » : à ne pas confondre avec null (pas de rappel).
+  const notifyBefore =
+    Number.isInteger(body.notifyBefore) && body.notifyBefore >= 0 ? (body.notifyBefore as number) : null;
+
   const data = {
     ...(body.title !== undefined && { title: body.title }),
     ...(body.description !== undefined && { description: body.description }),
@@ -38,13 +42,13 @@ export async function PATCH(
     ...(body.recurrence !== undefined && {
       recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
     }),
-    ...(body.notifyBefore !== undefined && { notifyBefore: body.notifyBefore }),
+    ...(body.notifyBefore !== undefined && { notifyBefore }),
     // Déplacer l'échéance ou changer le rappel ré-arme le rappel.
     ...(((body.dueDate !== undefined &&
       (body.dueDate ? parseDateTimeInput(body.dueDate).getTime() : null) !==
         (existing.dueDate?.getTime() ?? null)) ||
       (body.notifyBefore !== undefined &&
-        (body.notifyBefore || null) !== existing.notifyBefore)) && {
+        notifyBefore !== existing.notifyBefore)) && {
       notified: false,
     }),
     ...(body.position !== undefined && { position: body.position }),
