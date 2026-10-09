@@ -24,6 +24,16 @@ export const dayParam = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: T
 // entre deux rafraîchissements de l'app mobile.
 export const OCCURRENCE_GRACE_MS = 60 * 60 * 1000;
 
+/**
+ * Un rappel de tâche dont l'heure est dépassée depuis plus d'OCCURRENCE_GRACE_MS
+ * est périmé : le cron ne l'envoie plus, il le marque seulement `notified`
+ * (évite une rafale de rappels anciens, par exemple des tâches enregistrées
+ * avec notifyBefore = 0 avant que 0 ne soit un rappel valide).
+ */
+export function isStaleReminder(fireAt: Date, now: Date): boolean {
+  return now.getTime() - fireAt.getTime() > OCCURRENCE_GRACE_MS;
+}
+
 const USER_SELECT = { id: true, email: true, notifyEmail: true, name: true } as const;
 
 /** Clauses `where` des requêtes ci-dessous, exposées pour le diagnostic du cron

@@ -11,6 +11,7 @@ import {
   eventReminderContent,
   formatDate,
   formatTime,
+  isStaleReminder,
   TODO_REMINDER_WHERE,
   EVENT_REMINDER_WHERE,
 } from "@/lib/reminders";
@@ -56,7 +57,13 @@ export async function POST(req: NextRequest) {
   // Check todos with notifications
   const todoCandidates = (await listTodoCandidates(now)).filter((c) => now >= c.fireAt);
 
-  for (const { todo } of todoCandidates) {
+  for (const { todo, fireAt } of todoCandidates) {
+    // Rappel périmé (plus d'une heure de retard) : pas d'envoi, on le marque
+    // seulement traité pour qu'il ne revienne pas.
+    if (isStaleReminder(fireAt, now)) {
+      await prisma.todo.update({ where: { id: todo.id }, data: { notified: true } });
+      continue;
+    }
     const recipients = await recipientsForTodo(todo, groupMembers);
     const content = todoReminderContent(todo);
     const date = formatDate(todo.dueDate!);

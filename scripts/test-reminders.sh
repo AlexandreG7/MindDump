@@ -41,6 +41,11 @@ export OWNERSHIP_TEST_DB=disposable
 export NEXTAUTH_SECRET="reminders-test-secret"
 export NEXTAUTH_URL="http://127.0.0.1:$PORT_APP"
 export BASE_URL="http://127.0.0.1:$PORT_APP"
+# Le cron envoie ses e-mails à un serveur SMTP factice lancé par le test
+# (tests/reminders.test.mjs) : jamais de vrai envoi.
+export SMTP_HOST=127.0.0.1
+export SMTP_PORT="${REMINDERS_TEST_SMTP_PORT:-2599}"
+export SMTP_FROM="rappels@test.local"
 unset SKIP_AUTH || true
 
 node ./node_modules/prisma/build/index.js migrate deploy >/dev/null

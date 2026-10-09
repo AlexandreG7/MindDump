@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseDateTimeInput } from "@/lib/dateInput";
+import { readDueDate, readNotifyBefore } from "@/lib/dateInput";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
 import { isRecurrence } from "@/lib/recurrence";
@@ -38,6 +38,11 @@ export async function POST(req: NextRequest) {
   const err = await assertGroupMember(groupId, user.id);
   if (err) return err;
 
+  const due = readDueDate(body.dueDate);
+  if (!due.ok) return NextResponse.json({ error: due.error }, { status: 400 });
+  const notify = readNotifyBefore(body.notifyBefore);
+  if (!notify.ok) return NextResponse.json({ error: notify.error }, { status: 400 });
+
   const assigneeIds = await sanitizeAssigneeIds(body.assigneeIds, groupId);
 
   const todo = await prisma.todo.create({
@@ -45,10 +50,10 @@ export async function POST(req: NextRequest) {
       title: body.title,
       description: body.description || null,
       priority: body.priority || "URGENT",
-      dueDate: body.dueDate ? parseDateTimeInput(body.dueDate) : null,
+      dueDate: due.value,
       recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
       // 0 = « à l'heure de l'échéance » : à ne pas confondre avec null (pas de rappel).
-      notifyBefore: Number.isInteger(body.notifyBefore) && body.notifyBefore >= 0 ? body.notifyBefore : null,
+      notifyBefore: notify.value,
       userId: user.id,
       groupId,
       assignees: { create: assigneeIds.map((profileId) => ({ profileId })) },

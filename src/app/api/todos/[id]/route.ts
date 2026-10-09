@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Todo } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { parseDateTimeInput } from "@/lib/dateInput";
+import { readDueDate, readNotifyBefore } from "@/lib/dateInput";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { buildItemAccessWhere } from "@/lib/groupAuth";
 import { isRecurrence } from "@/lib/recurrence";
@@ -17,6 +17,12 @@ export async function PATCH(
 
   const body = await req.json();
 
+  // Validation avant tout accès base : une saisie invalide n'écrase rien.
+  const due = body.dueDate !== undefined ? readDueDate(body.dueDate) : null;
+  if (due && !due.ok) return NextResponse.json({ error: due.error }, { status: 400 });
+  const notify = body.notifyBefore !== undefined ? readNotifyBefore(body.notifyBefore) : null;
+  if (notify && !notify.ok) return NextResponse.json({ error: notify.error }, { status: 400 });
+
   const access = await buildItemAccessWhere(user.id);
   const existing = await prisma.todo.findFirst({
     where: { id: params.id, ...access },
@@ -28,25 +34,21 @@ export async function PATCH(
   }
 
   // 0 = « à l'heure de l'échéance » : à ne pas confondre avec null (pas de rappel).
-  const notifyBefore =
-    Number.isInteger(body.notifyBefore) && body.notifyBefore >= 0 ? (body.notifyBefore as number) : null;
+  const notifyBefore = notify?.ok ? notify.value : null;
+  const dueDate = due?.ok ? due.value : null;
 
   const data = {
     ...(body.title !== undefined && { title: body.title }),
     ...(body.description !== undefined && { description: body.description }),
     ...(body.priority !== undefined && { priority: body.priority }),
     ...(body.completed !== undefined && { completed: body.completed }),
-    ...(body.dueDate !== undefined && {
-      dueDate: body.dueDate ? parseDateTimeInput(body.dueDate) : null,
-    }),
+    ...(due && { dueDate }),
     ...(body.recurrence !== undefined && {
       recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
     }),
     ...(body.notifyBefore !== undefined && { notifyBefore }),
     // Déplacer l'échéance ou changer le rappel ré-arme le rappel.
-    ...(((body.dueDate !== undefined &&
-      (body.dueDate ? parseDateTimeInput(body.dueDate).getTime() : null) !==
-        (existing.dueDate?.getTime() ?? null)) ||
+    ...(((due && (dueDate?.getTime() ?? null) !== (existing.dueDate?.getTime() ?? null)) ||
       (body.notifyBefore !== undefined &&
         notifyBefore !== existing.notifyBefore)) && {
       notified: false,
