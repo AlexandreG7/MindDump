@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseDateTimeInput } from "@/lib/dateInput";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { assertGroupMember, buildResourceWhere, resolveGroupId } from "@/lib/groupAuth";
 import { isRecurrence } from "@/lib/recurrence";
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
       title: body.title,
       description: body.description || null,
       priority: body.priority || "URGENT",
-      dueDate: body.dueDate ? new Date(body.dueDate) : null,
+      dueDate: body.dueDate ? parseDateTimeInput(body.dueDate) : null,
       recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
       notifyBefore: body.notifyBefore || null,
       userId: user.id,

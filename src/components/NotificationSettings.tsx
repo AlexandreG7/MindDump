@@ -14,9 +14,19 @@ import {
   cancelAllLocalReminders,
   localRemindersAvailable,
   reminderPermissionStatus,
+  reminderDiagnostics,
   requestReminderPermission,
+  scheduleTestReminder,
   syncLocalReminders,
+  type ReminderDiagnostics,
 } from "@/lib/localReminders";
+
+function permissionLabel(p: string | null): string {
+  if (p === "granted") return "accordée";
+  if (p === "denied") return "refusée (Réglages → MindDump → Notifications)";
+  if (p === "prompt" || p === "prompt-with-rationale") return "pas encore demandée";
+  return "inconnue";
+}
 
 type Prefs = { notifyEmail: boolean; notifyReminders: boolean; pushPublicKey: string | null };
 
@@ -102,6 +112,8 @@ export function NotificationSettings() {
   const [remindersAvailable, setRemindersAvailable] = useState(false);
   const [remindersPermission, setRemindersPermission] = useState<string | null>(null);
   const [remindersBusy, setRemindersBusy] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<ReminderDiagnostics | null>(null);
+  const [testMessage, setTestMessage] = useState<string | null>(null);
 
   const refreshDevice = useCallback(async () => {
     const s = pushSupport();
@@ -114,6 +126,7 @@ export function NotificationSettings() {
   const refreshRemindersPermission = useCallback(async () => {
     if (!localRemindersAvailable()) return;
     setRemindersPermission(await reminderPermissionStatus());
+    setDiagnostics(await reminderDiagnostics());
   }, []);
 
   useEffect(() => {
@@ -163,6 +176,25 @@ export function NotificationSettings() {
       await cancelAllLocalReminders();
     }
     setRemindersBusy(false);
+  };
+
+  // Diagnostic : resynchronise puis relit l'état réel auprès de l'OS.
+  const refreshDiagnostics = async () => {
+    setRemindersBusy(true);
+    await syncLocalReminders();
+    await refreshRemindersPermission();
+    setRemindersBusy(false);
+  };
+
+  const sendLocalTest = async () => {
+    setTestMessage(null);
+    const ok = await scheduleTestReminder(10);
+    setTestMessage(
+      ok
+        ? "Notification d'essai dans 10 secondes : ferme l'app ou reste dessus."
+        : "Impossible : autorise d'abord les notifications dans les réglages du téléphone."
+    );
+    await refreshRemindersPermission();
   };
 
   const setDevicePush = async (enabled: boolean) => {
@@ -281,6 +313,40 @@ export function NotificationSettings() {
           </Row>
         )}
       </div>
+
+      {native && remindersAvailable && diagnostics && (
+        <div className="rounded-xl bg-secondary/50 p-3 text-xs text-muted-foreground space-y-1" data-testid="reminders-diagnostics">
+          <p>
+            Autorisation : <span className="font-medium text-foreground">{permissionLabel(diagnostics.permission)}</span>
+          </p>
+          <p>
+            Rappels programmés : <span className="font-medium text-foreground">{diagnostics.pendingCount}</span>
+            {diagnostics.nextAt && (
+              <>
+                {" "}— prochain le{" "}
+                <span className="font-medium text-foreground">
+                  {diagnostics.nextAt.toLocaleString("fr-FR", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </>
+            )}
+          </p>
+          {diagnostics.lastError && <p className="text-destructive">Dernier échec : {diagnostics.lastError}</p>}
+          <div className="flex flex-wrap gap-x-4">
+            <button onClick={refreshDiagnostics} disabled={remindersBusy} className="py-2.5 font-medium text-primary underline disabled:opacity-50">
+              Actualiser
+            </button>
+            <button onClick={sendLocalTest} className="py-2.5 font-medium text-primary underline">
+              Notification d&apos;essai
+            </button>
+          </div>
+          {testMessage && <p>{testMessage}</p>}
+        </div>
+      )}
 
       {message && <p className="text-xs text-destructive">{message}</p>}
     </section>
