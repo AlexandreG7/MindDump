@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
       priority: body.priority || "URGENT",
       dueDate: body.dueDate ? new Date(body.dueDate) : null,
       recurrence: isRecurrence(body.recurrence) ? body.recurrence : null,
-      notifyBefore: body.notifyBefore || null,
+      // 0 = « à l'heure de l'échéance » : à ne pas confondre avec null (pas de rappel).
+      notifyBefore: Number.isInteger(body.notifyBefore) && body.notifyBefore >= 0 ? body.notifyBefore : null,
       userId: user.id,
       groupId,
       assignees: { create: assigneeIds.map((profileId) => ({ profileId })) },

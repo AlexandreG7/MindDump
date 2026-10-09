@@ -12,48 +12,28 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Plus, Trash2, AlertCircle, Calendar, Repeat, Sparkles } from "lucide-react";
-import { RECURRENCE_LABELS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
+import { Plus, Trash2, AlertCircle, Bell, Calendar, Repeat, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { reminderLabel } from "@/lib/todoDue";
+import { RECURRENCE_LABELS } from "@/lib/recurrence";
+import { TodoSheet, type Todo, type TodoPayload } from "@/components/todos/TodoSheet";
 import { useFeedback } from "@/components/ui/feedback";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AssigneeAvatars,
-  AssigneePicker,
   PeopleFilter,
   matchesPeople,
   useFamilyProfiles,
 } from "@/components/profiles/Assignees";
 import { AiImportDialog, useAiImportStatus } from "@/components/import/AiImportDialog";
 
-interface Todo {
-  id: string;
-  title: string;
-  description: string | null;
-  priority: "URGENT" | "PLANNED";
-  dueDate: string | null;
-  completed: boolean;
-  recurrence: string | null;
-  notifyBefore: number | null;
-  assigneeIds?: string[];
-}
-
 const PEOPLE_KEY = "todos:people";
+
+/** « 12/10/2026 à 14:30 » en heure locale. */
+function formatDue(iso: string): string {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("fr-FR")} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+}
 
 // useSearchParams exige une frontière Suspense pour le rendu statique.
 export default function TodosPage() {
@@ -73,16 +53,9 @@ function TodosPageContent() {
   // Suppressions en attente : la tâche disparaît tout de suite, la requête part
   // à la fin du délai d'annulation.
   const { hidden, requestDelete } = useDeferredDelete({ affectsReminders: true });
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newTodo, setNewTodo] = useState({
-    title: "",
-    description: "",
-    priority: "URGENT" as "URGENT" | "PLANNED",
-    dueDate: "",
-    recurrence: "",
-    notifyBefore: "",
-  });
-  const [newAssignees, setNewAssignees] = useState<string[]>([]);
+  // Fiche ouverte : une tâche existante (openId) ou une nouvelle (creating).
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const profiles = useFamilyProfiles(currentGroupId);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiStatus, setAiStatus] = useAiImportStatus();
@@ -106,6 +79,7 @@ function TodosPageContent() {
   useEffect(() => {
     if (!taskParam) return;
     setHighlightId(taskParam);
+    setOpenId(taskParam);
     // Paramètre consommé : on le retire pour qu'un second appui sur le même
     // rappel (URL identique sinon) déclenche de nouveau la mise en évidence.
     router.replace("/todos", { scroll: false });
@@ -135,34 +109,23 @@ function TodosPageContent() {
     if (isReady) fetchTodos();
   }, [isReady, fetchTodos, currentGroupId]);
 
-  const addTodo = async () => {
-    if (!newTodo.title.trim()) return;
-    await fetch("/api/todos", {
-      method: "POST",
+  // Création ou modification depuis la fiche. Renvoie true si ça a marché.
+  const saveTodo = async (payload: TodoPayload, existing: Todo | null): Promise<boolean> => {
+    const res = await fetch(existing ? `/api/todos/${existing.id}` : "/api/todos", {
+      method: existing ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: newTodo.title,
-        description: newTodo.description || null,
-        priority: newTodo.priority,
-        dueDate: newTodo.dueDate || null,
-        recurrence: newTodo.dueDate ? newTodo.recurrence || null : null,
-        notifyBefore: newTodo.notifyBefore ? Number(newTodo.notifyBefore) : null,
-        groupId: currentGroupId,
-        assigneeIds: newAssignees,
-      }),
-    });
-    setNewTodo({
-      title: "",
-      description: "",
-      priority: "URGENT",
-      dueDate: "",
-      recurrence: "",
-      notifyBefore: "",
-    });
-    setNewAssignees([]);
-    setDialogOpen(false);
+      body: JSON.stringify(existing ? payload : { ...payload, groupId: currentGroupId }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      toast(
+        existing ? "La tâche n'a pas pu être enregistrée." : "La tâche n'a pas pu être ajoutée.",
+        "error"
+      );
+      return false;
+    }
     fetchTodos();
     notifyRemindersChanged();
+    return true;
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
@@ -227,6 +190,17 @@ function TodosPageContent() {
     };
   }, [highlightedTodoId, highlightedPriority]);
 
+  const openTodo = openId ? (todos ?? []).find((t) => t.id === openId) ?? null : null;
+  const sheetOpen = creating || !!openTodo;
+
+  // Lien profond vers une tâche supprimée ou hors de portée.
+  useEffect(() => {
+    if (openId && todos && !todos.some((t) => t.id === openId)) {
+      setOpenId(null);
+      toast("Cette tâche n'existe plus.", "error");
+    }
+  }, [openId, todos, toast]);
+
   if (!isReady) return null;
 
   const visibleTodos = (todos ?? []).filter((t) => !hidden.has(t.id));
@@ -256,89 +230,97 @@ function TodosPageContent() {
     const pending = items.filter((t) => !t.completed);
     const done = items.filter((t) => t.completed);
 
-    return (
-      <div className="space-y-2">
-        {pending.map((todo) => (
-          <Card
-            key={todo.id}
-            id={`todo-${todo.id}`}
-            className={
-              highlightId === todo.id ? "ring-2 ring-primary transition-shadow" : undefined
-            }
+    // Toute la ligne ouvre la fiche (souris, toucher, Entrée ou Espace) ; la
+    // case et la corbeille gardent leur propre action.
+    const renderRow = (todo: Todo) => (
+      <Card
+        key={todo.id}
+        id={`todo-${todo.id}`}
+        onClick={() => setOpenId(todo.id)}
+        className={cn(
+          "cursor-pointer transition-[box-shadow,background-color] hover:bg-accent/40 focus-within:ring-2 focus-within:ring-ring/60",
+          todo.completed && "opacity-60",
+          highlightId === todo.id && "ring-2 ring-primary"
+        )}
+      >
+        <CardContent className="flex items-center gap-3 p-4">
+          <span
+            className="-m-3 flex h-11 w-11 shrink-0 items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
           >
-            <CardContent className="flex items-center gap-3 p-4">
-              <Checkbox
-                checked={todo.completed}
-                onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
-                aria-label={`Cocher « ${todo.title} »`}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium flex items-center gap-2">
-                  <span className="min-w-0">{todo.title}</span>
-                  <AssigneeAvatars ids={todo.assigneeIds} byId={profiles.byId} />
-                </p>
-                {todo.description && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {todo.description}
-                  </p>
+            <Checkbox
+              checked={todo.completed}
+              onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
+              aria-label={`${todo.completed ? "Décocher" : "Cocher"} « ${todo.title} »`}
+            />
+          </span>
+          {/* Cible clavier et lecteur d'écran de la ligne ; le clic souris ou tactile est capté par la carte. */}
+          <button
+            type="button"
+            aria-label={`Ouvrir la tâche « ${todo.title} »`}
+            className="flex-1 min-w-0 text-left rounded-sm focus-visible:outline-none"
+          >
+            <div
+              className={cn(
+                "text-sm font-medium flex items-center gap-2",
+                todo.completed && "line-through font-normal"
+              )}
+            >
+              <span className="min-w-0">{todo.title}</span>
+              <AssigneeAvatars ids={todo.assigneeIds} byId={profiles.byId} />
+            </div>
+            {todo.description && !todo.completed && (
+              <div className="text-xs text-muted-foreground truncate">{todo.description}</div>
+            )}
+            {(todo.dueDate || todo.recurrence) && !todo.completed && (
+              <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                {todo.dueDate && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {formatDue(todo.dueDate)}
+                  </span>
                 )}
-                {(todo.dueDate || todo.recurrence) && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-3 mt-1">
-                    {todo.dueDate && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(todo.dueDate).toLocaleDateString("fr-FR")}
-                      </span>
-                    )}
-                    {todo.recurrence && RECURRENCE_LABELS[todo.recurrence] && (
-                      <span className="flex items-center gap-1">
-                        <Repeat className="h-3 w-3" />
-                        {RECURRENCE_LABELS[todo.recurrence]}
-                      </span>
-                    )}
-                  </div>
+                {todo.dueDate && todo.notifyBefore !== null && (
+                  <span className="flex items-center gap-1">
+                    <Bell className="h-3 w-3" />
+                    {reminderLabel(todo.notifyBefore)}
+                  </span>
+                )}
+                {todo.recurrence && RECURRENCE_LABELS[todo.recurrence] && (
+                  <span className="flex items-center gap-1">
+                    <Repeat className="h-3 w-3" />
+                    {RECURRENCE_LABELS[todo.recurrence]}
+                  </span>
                 )}
               </div>
-              <Button aria-label="Supprimer la tâche"
-                variant="ghost"
-                size="icon"
-                onClick={() => deleteTodo(todo)}
-                className="shrink-0"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+            )}
+          </button>
+          <Button
+            aria-label="Supprimer la tâche"
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteTodo(todo);
+            }}
+            className="shrink-0 -mr-2"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </CardContent>
+      </Card>
+    );
+
+    return (
+      <div className="space-y-2">
+        {pending.map(renderRow)}
 
         {done.length > 0 && (
           <div className="mt-4">
             <p className="text-xs text-muted-foreground mb-2">
               Terminées ({done.length})
             </p>
-            {done.map((todo) => (
-              <Card
-                key={todo.id}
-                id={`todo-${todo.id}`}
-                className={`opacity-50 mb-2${highlightId === todo.id ? " ring-2 ring-primary" : ""}`}
-              >
-                <CardContent className="flex items-center gap-3 p-4">
-                  <Checkbox
-                    checked={todo.completed}
-                    onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
-                    aria-label={`Décocher « ${todo.title} »`}
-                  />
-                  <p className="text-sm line-through flex-1">{todo.title}</p>
-                  <Button aria-label="Supprimer la tâche"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteTodo(todo)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+            {done.map(renderRow)}
           </div>
         )}
 
@@ -366,147 +348,26 @@ function TodosPageContent() {
             <Sparkles className="h-4 w-4" />
           </button>
         )}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle tâche
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Ajouter une tâche</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="todo-title">Titre</Label>
-                <Input
-                  id="todo-title"
-                  value={newTodo.title}
-                  onChange={(e) =>
-                    setNewTodo({ ...newTodo, title: e.target.value })
-                  }
-                  placeholder="Qu'est-ce qu'il faut faire ?"
-                />
-              </div>
-              <div>
-                <Label htmlFor="todo-description">Description (optionnel)</Label>
-                <Textarea
-                  id="todo-description"
-                  value={newTodo.description}
-                  onChange={(e) =>
-                    setNewTodo({ ...newTodo, description: e.target.value })
-                  }
-                  placeholder="Détails…"
-                />
-              </div>
-              {profiles.assignable.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label>Pour qui ?</Label>
-                  <AssigneePicker
-                    profiles={profiles.assignable}
-                    value={newAssignees}
-                    onChange={setNewAssignees}
-                  />
-                </div>
-              )}
-              <div>
-                <Label id="todo-priority">Priorité</Label>
-                <div className="flex gap-2 mt-1" role="group" aria-labelledby="todo-priority">
-                  <Button
-                    type="button"
-                    variant={
-                      newTodo.priority === "URGENT" ? "default" : "outline"
-                    }
-                    size="sm"
-                    aria-pressed={newTodo.priority === "URGENT"}
-                    onClick={() =>
-                      setNewTodo({ ...newTodo, priority: "URGENT" })
-                    }
-                  >
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    Urgent
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={
-                      newTodo.priority === "PLANNED" ? "default" : "outline"
-                    }
-                    size="sm"
-                    aria-pressed={newTodo.priority === "PLANNED"}
-                    onClick={() =>
-                      setNewTodo({ ...newTodo, priority: "PLANNED" })
-                    }
-                  >
-                    <Calendar className="h-4 w-4 mr-1" />
-                    Planifié
-                  </Button>
-                </div>
-              </div>
-              {newTodo.priority === "PLANNED" && (
-                <>
-                  <div>
-                    <Label htmlFor="todo-due">Date d&apos;échéance</Label>
-                    <Input
-                      id="todo-due"
-                      type="datetime-local"
-                      value={newTodo.dueDate}
-                      onChange={(e) =>
-                        setNewTodo({ ...newTodo, dueDate: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="todo-recurrence">Récurrence</Label>
-                    <Select
-                      value={newTodo.recurrence}
-                      onValueChange={(v) =>
-                        setNewTodo({
-                          ...newTodo,
-                          recurrence: v === "none" ? "" : v,
-                        })
-                      }
-                    >
-                      <SelectTrigger id="todo-recurrence">
-                        <SelectValue placeholder="Aucune" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Aucune</SelectItem>
-                        {RECURRENCE_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {newTodo.recurrence && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Une nouvelle occurrence sera créée automatiquement quand
-                        tu coches la tâche.
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="todo-notify">Rappel (minutes avant)</Label>
-                    <Input
-                      id="todo-notify"
-                      type="number"
-                      value={newTodo.notifyBefore}
-                      onChange={(e) =>
-                        setNewTodo({ ...newTodo, notifyBefore: e.target.value })
-                      }
-                      placeholder="30"
-                    />
-                  </div>
-                </>
-              )}
-              <Button className="w-full" onClick={addTodo}>
-                Ajouter
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setCreating(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nouvelle tâche
+        </Button>
         </div>
+        <TodoSheet
+          open={sheetOpen}
+          onOpenChange={(o) => {
+            if (!o) {
+              setCreating(false);
+              setOpenId(null);
+            }
+          }}
+          todo={creating ? null : openTodo}
+          profiles={profiles.assignable}
+          byId={profiles.byId}
+          onSubmit={(payload) => saveTodo(payload, creating ? null : openTodo)}
+          onToggle={(t) => toggleTodo(t.id, t.completed)}
+          onDelete={deleteTodo}
+        />
         <AiImportDialog
           open={aiDialogOpen}
           onOpenChange={setAiDialogOpen}

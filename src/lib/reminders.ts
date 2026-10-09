@@ -114,7 +114,8 @@ export async function listTodoCandidates(
 
   const candidates: TodoReminderCandidate[] = [];
   for (const todo of todos) {
-    if (!todo.dueDate || !todo.notifyBefore) continue;
+    // notifyBefore = 0 (à l'heure de l'échéance) est un rappel valide.
+    if (!todo.dueDate || todo.notifyBefore == null) continue;
     const fireAt = new Date(todo.dueDate.getTime() - todo.notifyBefore * 60 * 1000);
     if (fireAt > windowEnd) continue;
     candidates.push({ kind: "todo", todo, fireAt });
