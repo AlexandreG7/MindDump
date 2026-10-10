@@ -83,6 +83,9 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   const firstLoad = useRef(true);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attempts = useRef(0);
+  // Incrémenté à chaque changement d'utilisateur : les requêtes et relances
+  // d'un cycle périmé n'écrivent plus rien.
+  const genRef = useRef(0);
   // Sentinelle distincte de `null` : force la (ré)initialisation même quand le
   // premier id d'utilisateur résolu est `null` (session pas encore chargée).
   const lastUserId = useRef<string | null | undefined>(undefined);
@@ -102,6 +105,9 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (userId === lastUserId.current) return;
     lastUserId.current = userId;
+    genRef.current += 1;
+    attempts.current = 0;
+    if (retryTimer.current) clearTimeout(retryTimer.current);
     firstLoad.current = true;
     setGroups([]);
     setReady(false);
@@ -123,6 +129,9 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     const isAuthed = skipAuth || status === "authenticated";
     if (!isAuthed || !userId) return;
 
+    // Génération du cycle en cours : si l'utilisateur change pendant la requête,
+    // sa réponse et ses relances sont ignorées.
+    const gen = genRef.current;
     setLoading(true);
     let failed = false;
     try {
@@ -130,8 +139,10 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       // de réseau), la requête resterait en attente et `ready` ne passerait
       // jamais à vrai, d'où des pages vides jusqu'à la relance de l'app.
       const res = await fetchWithTimeout("/api/groups", {}, 8000);
-      if (!res.ok) return;
+      if (gen !== genRef.current) return;
+      if (!res.ok) throw new Error(`groups ${res.status}`);
       const data = await res.json();
+      if (gen !== genRef.current) return;
 
       const allGroups: GroupInfo[] = [
         ...(data.owned || []),
@@ -153,17 +164,28 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         }
       }
       attempts.current = 0;
-    } catch {
-      // Réseau indisponible ou trop lent : on garde le groupe enregistré, et on
-      // réessaie (le groupe par défaut n'est connu qu'après une réponse).
-      failed = true;
-    } finally {
-      setLoading(false);
       setReady(true);
+    } catch {
+      // Réseau indisponible, trop lent ou réponse en erreur.
+      if (gen !== genRef.current) return;
+      failed = true;
     }
-    if (failed && attempts.current < 3) {
+    setLoading(false);
+    if (!failed) return;
+
+    const canRetry = attempts.current < 3;
+    // Sans groupe enregistré, le groupe par défaut n'est connu qu'après une
+    // réponse : les pages restent en chargement (sinon une tâche ou une liste
+    // créée maintenant serait rangée hors groupe). On ne les débloque qu'après
+    // la dernière tentative, pour ne pas charger indéfiniment ; une réponse
+    // tardive (relance manuelle, retour du réseau) applique ensuite le défaut.
+    if (savedGroupId(userId) || !canRetry) setReady(true);
+    if (canRetry) {
       attempts.current += 1;
-      retryTimer.current = setTimeout(() => fetchGroups(), 3000 * attempts.current);
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+      retryTimer.current = setTimeout(() => {
+        if (gen === genRef.current) fetchGroups();
+      }, 3000 * attempts.current);
     }
   }, [status, userId]);
 

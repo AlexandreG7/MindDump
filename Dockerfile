@@ -13,6 +13,10 @@ FROM base AS builder
 WORKDIR /app
 ARG NEXT_PUBLIC_SKIP_AUTH
 ENV NEXT_PUBLIC_SKIP_AUTH=${NEXT_PUBLIC_SKIP_AUTH}
+# Coolify transmet le commit en argument de build : il sert d'identifiant de
+# build (next.config.mjs). Sans lui, un UUID est tiré à chaque build.
+ARG SOURCE_COMMIT
+ENV SOURCE_COMMIT=${SOURCE_COMMIT}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate

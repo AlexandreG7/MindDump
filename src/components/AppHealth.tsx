@@ -13,10 +13,23 @@ const CHECK_AFTER_HIDDEN_MS = 20_000;
 const SLOW_BANNER_MS = 10_000;
 const SLOW_RELOAD_MS = 25_000;
 
+/** Une fiche ou un formulaire est en cours d'usage : un rechargement ferait perdre la saisie. */
+function userIsBusy(): boolean {
+  if (document.querySelector('[role="dialog"], dialog[open]')) return true;
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  return (
+    ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) ||
+    el.isContentEditable ||
+    el.closest('[contenteditable]:not([contenteditable="false"])') !== null
+  );
+}
+
 /**
  * Filets de sécurité contre l'écran vide dans l'app (et la PWA) :
  * - un morceau de JS introuvable (déploiement entre deux ouvertures) recharge la page ;
- * - au retour au premier plan, si le serveur a une autre version, la page se recharge ;
+ * - au retour au premier plan, si le serveur a une autre version, la page se recharge
+ *   (différé tant qu'une fiche ou un champ est en cours d'édition) ;
  * - si la session n'arrive pas (connexion morte au retour d'arrière-plan), un
  *   bandeau « Recharger » apparaît, puis la page se recharge d'elle-même.
  */
@@ -44,17 +57,28 @@ export function AppHealth() {
   useEffect(() => {
     if (BUILD_ID === "dev") return;
     let hiddenAt = 0;
+    let pending = false;
     const onVisibility = async () => {
       if (document.visibilityState === "hidden") {
         hiddenAt = Date.now();
         return;
       }
-      if (!hiddenAt || Date.now() - hiddenAt < CHECK_AFTER_HIDDEN_MS) return;
+      const longEnough = hiddenAt > 0 && Date.now() - hiddenAt >= CHECK_AFTER_HIDDEN_MS;
+      if (!longEnough && !pending) return;
       hiddenAt = 0;
+      pending = false;
       try {
         const res = await fetchWithTimeout("/api/version", { cache: "no-store" }, 5000);
         const data = (await res.json()) as { build?: string };
-        if (data.build && data.build !== BUILD_ID) reloadOnce();
+        if (data.build && data.build !== BUILD_ID) {
+          if (userIsBusy()) {
+            // Saisie en cours : on refera le contrôle au prochain passage au
+            // premier plan.
+            pending = true;
+            return;
+          }
+          reloadOnce();
+        }
       } catch {
         // Hors ligne ou serveur injoignable : on garde la page affichée.
       }

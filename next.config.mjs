@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import withSerwistInit from "@serwist/next";
 
 // En-têtes de sécurité appliqués à toutes les réponses (M1 de l'audit).
@@ -32,7 +32,12 @@ const withSerwist = withSerwistInit({
 
 // Identifiant du build, figé dans le code client et serveur (src/lib/buildId.ts) :
 // le client le compare à /api/version pour se recharger après un déploiement.
-const buildId = process.env.SOURCE_COMMIT || randomUUID();
+// SOURCE_COMMIT (transmis par Coolify, déclaré en ARG dans le Dockerfile) donne
+// un identifiant stable pour un même commit ; on n'en expose que l'empreinte
+// (12 caractères d'un SHA-256), jamais le SHA du commit. Sans lui : UUID.
+const buildId = process.env.SOURCE_COMMIT
+  ? createHash("sha256").update(process.env.SOURCE_COMMIT).digest("hex").slice(0, 12)
+  : randomUUID();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
