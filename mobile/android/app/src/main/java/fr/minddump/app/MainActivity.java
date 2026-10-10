@@ -15,6 +15,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.content.ContextCompat;
@@ -48,6 +49,16 @@ public class MainActivity extends BridgeActivity {
         // Fond clair ou sombre selon le téléphone tant que la page n'est pas
         // affichée (res/values*/colors.xml) : pas d'éclair blanc en mode sombre.
         bridge.getWebView().setBackgroundColor(ContextCompat.getColor(this, R.color.app_background));
+        // Android tue le processus de rendu de la WebView sous pression mémoire.
+        // Sans réponse « traité », le système arrête toute l'app ; avec, on
+        // recrée l'activité (donc une WebView neuve) et le site se recharge.
+        bridge.addWebViewListener(new WebViewListener() {
+            @Override
+            public boolean onRenderProcessGone(WebView webView, RenderProcessGoneDetail detail) {
+                runOnUiThread(MainActivity.this::recreate);
+                return true;
+            }
+        });
         // Seulement au démarrage à froid : si Android recrée l'activité à chaud
         // (processus tué en arrière-plan, rotation...), la page se recharge sans
         // rejouer l'animation web (sessionStorage est déjà posé) et la surcouche
