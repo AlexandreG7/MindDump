@@ -112,13 +112,13 @@ export function PeopleFilter({
 }) {
   if (profiles.length < 2) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5 touch:gap-3" role="group" aria-label="Filtrer par personne">
+    <div className="flex flex-nowrap sm:flex-wrap items-center gap-1.5 touch:gap-3 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]" role="group" aria-label="Filtrer par personne">
       <button
         type="button"
         onClick={() => onChange([])}
         aria-pressed={value.length === 0}
         className={cn(
-          "px-2.5 py-1 touch:px-4 touch:min-h-12 touch:text-sm rounded-full border text-xs transition-[background-color,transform] duration-150 active:scale-95",
+          "shrink-0 whitespace-nowrap px-2.5 py-1 touch:px-4 touch:min-h-12 touch:text-sm rounded-full border text-xs transition-[background-color,transform] duration-150 active:scale-95",
           value.length === 0 ? "border-primary bg-primary/10 text-primary font-medium" : "border-border text-muted-foreground hover:bg-secondary"
         )}
       >
@@ -133,7 +133,7 @@ export function PeopleFilter({
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((v) => v !== p.id) : [...value, p.id])}
             className={cn(
-              "flex items-center gap-1 pl-0.5 pr-2 py-0.5 touch:min-h-12 touch:gap-1.5 touch:pl-1.5 touch:pr-4 touch:text-sm rounded-full border text-xs transition-[background-color,transform] duration-150 active:scale-95",
+              "shrink-0 whitespace-nowrap flex items-center gap-1 pl-0.5 pr-2 py-0.5 touch:min-h-12 touch:gap-1.5 touch:pl-1.5 touch:pr-4 touch:text-sm rounded-full border text-xs transition-[background-color,transform] duration-150 active:scale-95",
               on ? "border-transparent font-medium" : "border-border text-muted-foreground hover:bg-secondary"
             )}
             style={on ? { backgroundColor: p.color, color: textOn(p.color) } : undefined}

@@ -7,7 +7,7 @@ import { EVENT_COLORS, RECURRENCE_LABELS } from "@/lib/recurrence";
 import type { CalendarEvent } from "./types";
 import { AssigneeAvatars, AssigneePicker } from "@/components/profiles/Assignees";
 import { textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
-import { eventEnd, eventStart, isAllDayLike } from "./utils";
+import { daySpan, eventEnd, eventStart, isAllDayLike } from "./utils";
 
 function timeLabel(e: CalendarEvent, day?: Date): string | null {
   if (e.allDay) return null;
@@ -46,6 +46,8 @@ export function EventList({
     <ul className="space-y-3">
       {events.map((event) => {
         const time = timeLabel(event, day);
+        const span = day ? daySpan(event, day) : null;
+        const spanLabel = span ? `Jour ${span.index}/${span.total}` : null;
         return (
           <li key={event.id} className="group flex items-start justify-between gap-2">
             <div className="flex items-start gap-2 min-w-0">
@@ -54,8 +56,8 @@ export function EventList({
                 style={event.displayColor ?? event.color ? { backgroundColor: (event.displayColor ?? event.color)! } : undefined}
               />
               <div className="min-w-0">
-                <p className="text-sm font-medium flex items-center gap-1.5">
-                  <span className="truncate">{event.title}</span>
+                <p className="text-sm font-medium flex items-center flex-wrap gap-x-1.5">
+                  <span className="break-words min-w-0">{event.title}</span>
                   <AssigneeAvatars ids={event.assigneeIds} byId={profiles.byId} />
                   {event.recurrence && RECURRENCE_LABELS[event.recurrence] && (
                     <span className="text-muted-foreground shrink-0" title={RECURRENCE_LABELS[event.recurrence]}>
@@ -63,9 +65,9 @@ export function EventList({
                     </span>
                   )}
                 </p>
-                {(time || event.subscriptionName) && (
+                {(time || spanLabel || event.subscriptionName) && (
                   <p className="text-xs text-muted-foreground">
-                    {[time, event.subscriptionName].filter(Boolean).join(" · ")}
+                    {[spanLabel, time, event.subscriptionName].filter(Boolean).join(" · ")}
                   </p>
                 )}
                 {event.description && (
@@ -86,7 +88,7 @@ export function EventList({
                         onClick={() => setPeopleMenuFor(peopleMenuFor === event.id ? null : event.id)}
                         title="Pour qui ?"
                         aria-label="Choisir les personnes"
-                        className={`p-1.5 touch:p-[17px] rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
+                        className={`p-1.5 touch:p-[15px] touch:sm:p-[17px] rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
                           peopleMenuFor === event.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
                         }`}
                       >
@@ -113,7 +115,7 @@ export function EventList({
                     onClick={() => setColorMenuFor(colorMenuFor === event.id ? null : event.id)}
                     title="Couleur"
                     aria-label="Choisir la couleur"
-                    className={`p-1.5 touch:p-[17px] rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
+                    className={`p-1.5 touch:p-[15px] touch:sm:p-[17px] rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
                       colorMenuFor === event.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
                     }`}
                   >
@@ -161,7 +163,7 @@ export function EventList({
                   onClick={() => onDelete(event.id)}
                   title="Supprimer"
                   aria-label="Supprimer l'événement"
-                  className="p-1.5 touch:p-[17px] rounded-md text-muted-foreground hover:bg-secondary hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
+                  className="p-1.5 touch:p-[15px] touch:sm:p-[17px] rounded-md text-muted-foreground hover:bg-secondary hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

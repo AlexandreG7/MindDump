@@ -110,8 +110,8 @@ export function EventDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Défile si l'écran est bas (tablette en paysage) : titre et bouton restent atteignables. */}
-      <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
+      {/* Défile si l'écran est bas (téléphone, tablette en paysage) et laisse la place de l'encoche et de la barre d'accueil. */}
+      <DialogContent className="max-h-[calc(100dvh_-_1rem_-_2*max(env(safe-area-inset-top),env(safe-area-inset-bottom)))] overflow-y-auto overscroll-contain">
         <DialogHeader>
           <DialogTitle>Ajouter un événement</DialogTitle>
         </DialogHeader>
