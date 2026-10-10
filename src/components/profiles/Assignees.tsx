@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProfileAvatar, textOn, type FamilyProfile } from "./ProfileAvatar";
 
@@ -38,7 +39,7 @@ export function AssigneePicker({
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
 
   return (
-    <div className="flex flex-wrap gap-1.5 touch:gap-2">
+    <div className="flex flex-wrap gap-1.5 touch:gap-3">
       {profiles.map((p) => {
         const on = value.includes(p.id);
         return (
@@ -49,13 +50,15 @@ export function AssigneePicker({
             aria-checked={on}
             onClick={() => toggle(p.id)}
             className={cn(
-              "flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 touch:py-1.5 touch:pl-1 touch:pr-3 rounded-full border text-sm transition-colors",
+              "flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 touch:min-h-12 touch:pl-1.5 touch:pr-4 touch:text-base rounded-full border text-sm transition-[background-color,transform] duration-150 active:scale-95",
               on ? "border-transparent font-medium" : "border-border text-muted-foreground hover:bg-secondary"
             )}
             style={on ? { backgroundColor: p.color, color: textOn(p.color) } : undefined}
           >
-            <ProfileAvatar profile={p} size="sm" className={on ? "ring-2 ring-white/70" : undefined} />
+            <ProfileAvatar profile={p} size="sm" className={cn("touch:w-9 touch:h-9 touch:text-base", on && "ring-2 ring-white/70")} />
             {p.name}
+            {/* Sélection lisible sans la couleur */}
+            {on && <Check className="h-4 w-4 touch:h-5 touch:w-5" strokeWidth={3} aria-hidden />}
           </button>
         );
       })}
@@ -109,13 +112,13 @@ export function PeopleFilter({
 }) {
   if (profiles.length < 2) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5 touch:gap-2" role="group" aria-label="Filtrer par personne">
+    <div className="flex flex-nowrap sm:flex-wrap items-center gap-1.5 touch:gap-3 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]" role="group" aria-label="Filtrer par personne">
       <button
         type="button"
         onClick={() => onChange([])}
         aria-pressed={value.length === 0}
         className={cn(
-          "px-2.5 py-1 touch:px-3 touch:py-2 rounded-full border text-xs transition-colors",
+          "shrink-0 whitespace-nowrap px-2.5 py-1 touch:px-4 touch:min-h-12 touch:text-sm rounded-full border text-xs transition-[background-color,transform] duration-150 active:scale-95",
           value.length === 0 ? "border-primary bg-primary/10 text-primary font-medium" : "border-border text-muted-foreground hover:bg-secondary"
         )}
       >
@@ -130,13 +133,14 @@ export function PeopleFilter({
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((v) => v !== p.id) : [...value, p.id])}
             className={cn(
-              "flex items-center gap-1 pl-0.5 pr-2 py-0.5 touch:py-1.5 touch:pl-1 touch:pr-3 rounded-full border text-xs transition-colors",
+              "shrink-0 whitespace-nowrap flex items-center gap-1 pl-0.5 pr-2 py-0.5 touch:min-h-12 touch:gap-1.5 touch:pl-1.5 touch:pr-4 touch:text-sm rounded-full border text-xs transition-[background-color,transform] duration-150 active:scale-95",
               on ? "border-transparent font-medium" : "border-border text-muted-foreground hover:bg-secondary"
             )}
             style={on ? { backgroundColor: p.color, color: textOn(p.color) } : undefined}
           >
-            <ProfileAvatar profile={p} size="sm" className="w-5 h-5 text-[11px]" />
+            <ProfileAvatar profile={p} size="sm" className="w-5 h-5 text-[11px] touch:w-9 touch:h-9 touch:text-base" />
             {p.name}
+            {on && <Check className="h-3.5 w-3.5 touch:h-5 touch:w-5" strokeWidth={3} aria-hidden />}
           </button>
         );
       })}

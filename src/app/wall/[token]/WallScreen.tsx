@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { textOn } from "@/components/profiles/ProfileAvatar";
-import { occursOn, sortEvents } from "@/components/calendar/utils";
+import { daySpan, eventEnd, occursOn, sortEvents } from "@/components/calendar/utils";
 import type { WallSnapshot } from "@/lib/wall";
 
 const DAYS = 7;
@@ -62,6 +62,33 @@ function writeCache(snapshot: WallSnapshot) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ snapshot, savedAt: new Date().toISOString() }));
   } catch {}
+}
+
+type WallEvent = WallSnapshot["events"][number];
+
+/**
+ * Libellés d'un événement un jour donné. Sur plusieurs jours, l'heure n'a de
+ * sens que le premier jour (début) et le dernier (fin) ; entre les deux, « Journée ».
+ */
+function eventLabels(e: WallEvent, day: Date): { time: string; span: string | null } {
+  const span = daySpan(e, day);
+  const start = new Date(e.date);
+  let time: string;
+  if (e.allDay) time = "Journée";
+  else if (!span) time = format(start, "HH:mm");
+  else if (span.index === 1) time = `dès ${format(start, "HH:mm")}`;
+  else if (span.index === span.total) {
+    const end = format(eventEnd(e), "HH:mm");
+    time = end === "23:59" || end === "00:00" ? "Journée" : `jusqu'à ${end}`;
+  } else time = "Journée";
+  return {
+    time,
+    span: span
+      ? `${span.index}/${span.total} · ${
+          span.index === span.total ? "dernier jour" : `jusqu'à ${format(span.lastDay, "EEE", { locale: fr })}`
+        }`
+      : null,
+  };
 }
 
 function Avatar({ profile, size = 28 }: { profile: Profile; size?: number }) {
@@ -331,6 +358,7 @@ export function WallScreen({ token }: { token: string }) {
                     {dayEvents.map((e) => {
                       const people = e.assigneeIds.map((id) => profilesById.get(id)).filter((p): p is Profile => !!p);
                       const color = e.color ?? people[0]?.color ?? null;
+                      const labels = eventLabels(e, day);
                       return (
                         <div
                           key={e.id}
@@ -348,9 +376,10 @@ export function WallScreen({ token }: { token: string }) {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {e.allDay ? "Journée" : format(new Date(e.date), "HH:mm")}
+                            {labels.time}
                             {e.source ? ` · ${e.source}` : ""}
                           </p>
+                          {labels.span && <p className="text-sm font-medium text-foreground/80">{labels.span}</p>}
                         </div>
                       );
                     })}
@@ -373,7 +402,7 @@ export function WallScreen({ token }: { token: string }) {
             </section>
 
             {/* Colonne pratique */}
-            <aside className="grid gap-4 md:grid-cols-3 items-start">
+            <aside className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
               <section className="rounded-2xl border border-border bg-card p-4">
                 <h2 className="font-semibold text-lg mb-2">À faire</h2>
                 {snapshot.todos.length === 0 ? (
@@ -382,7 +411,7 @@ export function WallScreen({ token }: { token: string }) {
                     Tout est fait
                   </p>
                 ) : (
-                  <ul className="space-y-1">
+                  <ul className="space-y-2">
                     {snapshot.todos.slice(0, 10).map((t) => {
                       const people = t.assigneeIds.map((id) => profilesById.get(id)).filter((p): p is Profile => !!p);
                       const done = pending.has(`todos:${t.id}`);
@@ -392,21 +421,21 @@ export function WallScreen({ token }: { token: string }) {
                             onClick={() => tap("todos", t.id)}
                             aria-pressed={done}
                             aria-label={done ? `Annuler : « ${t.title} » faite` : `Marquer « ${t.title} » comme faite`}
-                            className="w-full flex items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-secondary active:bg-secondary transition-colors"
+                            className="w-full min-h-14 flex items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-secondary active:bg-secondary active:scale-[0.98] transition-[background-color,transform] duration-150 motion-reduce:transition-none"
                           >
                             <span
                               className={cn(
-                                "w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
+                                "w-9 h-9 rounded-full border-[3px] flex items-center justify-center shrink-0 transition-colors",
                                 done ? "bg-primary border-primary" : "border-primary/60"
                               )}
                               aria-hidden
                             >
-                              {done && <Check className="h-4 w-4 text-primary-foreground" />}
+                              {done && <Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} />}
                             </span>
-                            <span className={cn("flex-1 text-base leading-snug", done && "line-through text-muted-foreground")}>
+                            <span className={cn("flex-1 text-lg leading-snug", done && "line-through text-muted-foreground")}>
                               {t.title}
                             </span>
-                            {done && <span className="text-sm font-medium text-primary">Annuler</span>}
+                            {done && <span className="text-base font-semibold text-primary">Annuler</span>}
                             {people.slice(0, 2).map((p) => (
                               <Avatar key={p.id} profile={p} size={24} />
                             ))}
@@ -424,7 +453,7 @@ export function WallScreen({ token }: { token: string }) {
                     <ShoppingCart className="h-5 w-5 text-primary" />
                     Courses
                   </h2>
-                  <ul className="space-y-0.5">
+                  <ul className="space-y-2">
                     {listItems.slice(0, 15).map((i) => {
                       const done = pending.has(`items:${i.id}`);
                       return (
@@ -433,20 +462,20 @@ export function WallScreen({ token }: { token: string }) {
                             onClick={() => tap("items", i.id)}
                             aria-pressed={done}
                             aria-label={done ? `Annuler : « ${i.name} » pris` : `Marquer « ${i.name} » comme pris`}
-                            className="w-full flex items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-secondary active:bg-secondary transition-colors"
+                            className="w-full min-h-14 flex items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-secondary active:bg-secondary active:scale-[0.98] transition-[background-color,transform] duration-150 motion-reduce:transition-none"
                           >
                             <span
                               className={cn(
-                                "w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors",
+                                "w-8 h-8 rounded-lg border-[3px] flex items-center justify-center shrink-0 transition-colors",
                                 done ? "bg-primary border-primary" : "border-primary/60"
                               )}
                               aria-hidden
                             >
-                              {done && <Check className="h-4 w-4 text-primary-foreground" />}
+                              {done && <Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} />}
                             </span>
-                            <span className={cn("flex-1", done && "line-through text-muted-foreground")}>{i.name}</span>
+                            <span className={cn("flex-1 text-lg", done && "line-through text-muted-foreground")}>{i.name}</span>
                             {done ? (
-                              <span className="text-sm font-medium text-primary">Annuler</span>
+                              <span className="text-base font-semibold text-primary">Annuler</span>
                             ) : (
                               i.quantity && <span className="text-sm text-muted-foreground">{i.quantity}</span>
                             )}
