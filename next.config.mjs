@@ -30,8 +30,13 @@ const withSerwist = withSerwistInit({
   additionalPrecacheEntries: [{ url: "/hors-ligne", revision: randomUUID() }],
 });
 
+// Identifiant du build, figé dans le code client et serveur (src/lib/buildId.ts) :
+// le client le compare à /api/version pour se recharger après un déploiement.
+const buildId = process.env.SOURCE_COMMIT || randomUUID();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: { NEXT_PUBLIC_BUILD_ID: buildId },
   output: "standalone",
   poweredByHeader: false,
   typescript: {

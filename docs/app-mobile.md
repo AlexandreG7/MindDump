@@ -617,6 +617,24 @@ le service worker, car la popup se ferme à l'ouverture de l'onglet Match),
 l'app garde la liste à ajouter côté natif et le script injecté la récupère
 quand la page Match est prête, plutôt que de la pousser à l'ouverture.
 
+### Écran vide, chargement qui ne finit pas
+
+Symptôme : « plus rien ne charge », il faut fermer et relancer l'app.
+
+- Cause prouvée : `GroupContext` attendait `/api/groups` sans délai maximal ;
+  sur une connexion morte (retour d'arrière-plan, Wi-Fi vers 4G), `ready` ne
+  passait jamais à vrai et les pages restaient vides. Corrigé : délai de 8 s,
+  trois reprises, relecture au retour du réseau (`src/lib/fetchWithTimeout.ts`).
+- Filets ajoutés (web, arrivent par déploiement) : `error.tsx` et
+  `global-error.tsx` avec bouton « Recharger » ; `AppHealth` recharge sur
+  morceau de JS introuvable, ou au retour au premier plan si `/api/version`
+  annonce un autre build, et propose « Recharger » quand la session n'arrive pas ;
+  la page hors ligne se quitte seule au retour du réseau.
+- iOS : Capacitor recharge déjà la page quand le processus WebKit meurt
+  (`webViewWebContentProcessDidTerminate`), vérifié sur simulateur.
+- Android (**nouveau build natif**) : `MainActivity` traite
+  `onRenderProcessGone` (recrée l'activité) ; sans cela, Android arrêtait l'app.
+
 ---
 
 ## Phase 4 — Publication

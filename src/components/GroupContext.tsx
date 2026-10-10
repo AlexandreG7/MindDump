@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useSession } from "next-auth/react";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 const skipAuth = process.env.NEXT_PUBLIC_SKIP_AUTH === "true" && process.env.NODE_ENV !== "production";
 
@@ -80,6 +81,8 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const firstLoad = useRef(true);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attempts = useRef(0);
   // Sentinelle distincte de `null` : force la (ré)initialisation même quand le
   // premier id d'utilisateur résolu est `null` (session pas encore chargée).
   const lastUserId = useRef<string | null | undefined>(undefined);
@@ -121,8 +124,12 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     if (!isAuthed || !userId) return;
 
     setLoading(true);
+    let failed = false;
     try {
-      const res = await fetch("/api/groups");
+      // Délai maximal : sur une connexion morte (retour d'arrière-plan, changement
+      // de réseau), la requête resterait en attente et `ready` ne passerait
+      // jamais à vrai, d'où des pages vides jusqu'à la relance de l'app.
+      const res = await fetchWithTimeout("/api/groups", {}, 8000);
       if (!res.ok) return;
       const data = await res.json();
 
@@ -145,13 +152,33 @@ export function GroupProvider({ children }: { children: ReactNode }) {
           } catch {}
         }
       }
+      attempts.current = 0;
     } catch {
-      // Réseau indisponible : on garde le groupe enregistré.
+      // Réseau indisponible ou trop lent : on garde le groupe enregistré, et on
+      // réessaie (le groupe par défaut n'est connu qu'après une réponse).
+      failed = true;
     } finally {
       setLoading(false);
       setReady(true);
     }
+    if (failed && attempts.current < 3) {
+      attempts.current += 1;
+      retryTimer.current = setTimeout(() => fetchGroups(), 3000 * attempts.current);
+    }
   }, [status, userId]);
+
+  // Le réseau revient : on relit les groupes sans attendre le prochain essai.
+  useEffect(() => {
+    const onOnline = () => {
+      attempts.current = 0;
+      fetchGroups();
+    };
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+    };
+  }, [fetchGroups]);
 
   useEffect(() => {
     fetchGroups();
