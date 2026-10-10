@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,13 +13,15 @@ import { ReminderField } from "@/components/reminders/ReminderField";
 import { joinDue } from "@/lib/todoDue";
 import { DEFAULT_REMINDER, NO_REMINDER, settleReminder } from "@/lib/reminderOptions";
 import { AssigneePicker } from "@/components/profiles/Assignees";
-import type { FamilyProfile } from "@/components/profiles/ProfileAvatar";
+import { textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
 
 export interface EventDraft {
   title: string;
   description: string;
   date: string; // yyyy-MM-dd
   time: string; // HH:mm, vide = journée entière
+  /** Dernier jour (yyyy-MM-dd), facultatif : vide = événement d'un seul jour. */
+  endDate: string;
   endTime: string; // HH:mm, facultatif
   recurrence: string;
   color: string;
@@ -32,6 +35,7 @@ export const emptyDraft = (date = "", time = ""): EventDraft => ({
   description: "",
   date,
   time,
+  endDate: "",
   endTime: "",
   recurrence: "",
   color: "",
@@ -85,12 +89,18 @@ export function EventDialog({
       ...draft,
       date,
       time,
+      // Un dernier jour antérieur au nouveau début n'a plus de sens.
+      endDate: draft.endDate && draft.endDate > date ? draft.endDate : "",
       endTime: time ? draft.endTime : "",
       notifyBefore: time ? settleReminder(startOf(date, time), want, Date.now()) : NO_REMINDER,
     });
   };
 
-  const endInvalid = !!draft.time && !!draft.endTime && draft.endTime <= draft.time;
+  const multiDay = !!draft.endDate && draft.endDate > draft.date;
+  const endDateInvalid = !!draft.endDate && !!draft.date && draft.endDate < draft.date;
+  // Le même jour, la fin suit le début ; sur plusieurs jours, toute heure de fin convient.
+  const endInvalid =
+    endDateInvalid || (!multiDay && !!draft.time && !!draft.endTime && draft.endTime <= draft.time);
 
   const submit = async () => {
     if (!draft.title.trim() || !draft.date || endInvalid) return;
@@ -100,7 +110,8 @@ export function EventDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      {/* Défile si l'écran est bas (tablette en paysage) : titre et bouton restent atteignables. */}
+      <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Ajouter un événement</DialogTitle>
         </DialogHeader>
@@ -118,8 +129,8 @@ export function EventDialog({
             <Label htmlFor="eventdialog-description-optionnel">Description (optionnel)</Label>
             <Textarea id="eventdialog-description-optionnel" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="col-span-2 sm:col-span-1">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <Label htmlFor="eventdialog-date">Date</Label>
               <Input id="eventdialog-date" type="date" value={draft.date} onChange={(e) => setStart(e.target.value, draft.time)} />
             </div>
@@ -129,6 +140,15 @@ export function EventDialog({
                 type="time"
                 value={draft.time}
                 onChange={(e) => setStart(draft.date, e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="eventdialog-date-fin">Dernier jour (optionnel)</Label>
+              <Input id="eventdialog-date-fin"
+                type="date"
+                value={draft.endDate}
+                min={draft.date || undefined}
+                onChange={(e) => setDraft({ ...draft, endDate: e.target.value })}
               />
             </div>
             <div>
@@ -142,13 +162,21 @@ export function EventDialog({
             </div>
           </div>
           <p className={`text-xs -mt-2 ${endInvalid ? "text-destructive" : "text-muted-foreground"}`}>
-            {endInvalid
-              ? "L'heure de fin doit suivre l'heure de début."
-              : !draft.time
-                ? "Sans heure, l'événement occupe toute la journée."
-                : !draft.endTime
-                  ? "Sans heure de fin, l'événement dure une heure dans l'agenda."
-                  : "\u00a0"}
+            {endDateInvalid
+              ? "Le dernier jour ne peut pas précéder la date."
+              : endInvalid
+                ? "L'heure de fin doit suivre l'heure de début."
+                : multiDay
+                  ? !draft.time
+                    ? "Sur plusieurs jours, sans heure : chaque jour est affiché en journée entière."
+                    : !draft.endTime
+                      ? "Sans heure de fin, le dernier jour dure jusqu'au soir."
+                      : "\u00a0"
+                  : !draft.time
+                    ? "Sans heure, l'événement occupe toute la journée."
+                    : !draft.endTime
+                      ? "Sans heure de fin, l'événement dure une heure dans l'agenda."
+                      : "\u00a0"}
           </p>
           {profiles.length > 0 && (
             <div className="space-y-1.5">
@@ -178,27 +206,35 @@ export function EventDialog({
           </div>
           <div>
             <Label>Couleur</Label>
-            <div className="flex items-center gap-2 flex-wrap mt-2">
-              <button
-                type="button"
-                onClick={() => setDraft({ ...draft, color: "" })}
-                title="Par défaut"
-                className={`w-6 h-6 rounded-full border border-border bg-primary/10 transition-transform ${
-                  !draft.color ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110" : "hover:scale-110"
-                }`}
-              />
-              {EVENT_COLORS.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  onClick={() => setDraft({ ...draft, color: c.value })}
-                  title={c.label}
-                  style={{ backgroundColor: c.value }}
-                  className={`w-6 h-6 rounded-full transition-transform ${
-                    draft.color === c.value ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110" : "hover:scale-110"
-                  }`}
-                />
-              ))}
+            <div className="flex items-center gap-2 touch:gap-3 flex-wrap mt-2" role="radiogroup" aria-label="Couleur">
+              {[{ value: "", label: "Par défaut" }, ...EVENT_COLORS].map((c) => {
+                const on = draft.color === c.value;
+                return (
+                  <button
+                    key={c.value || "default"}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    aria-label={c.label}
+                    title={c.label}
+                    onClick={() => setDraft({ ...draft, color: c.value })}
+                    style={c.value ? { backgroundColor: c.value } : undefined}
+                    className={`relative flex items-center justify-center rounded-full w-6 h-6 touch:w-12 touch:h-12 transition-transform duration-150 active:scale-90 ${
+                      c.value ? "" : "border border-border bg-primary/10"
+                    } ${on ? "ring-2 ring-offset-2 ring-offset-background ring-primary" : "hover:scale-110"}`}
+                  >
+                    {/* Sélection lisible sans la couleur : coche sur la pastille */}
+                    {on && (
+                      <Check
+                        className="h-3.5 w-3.5 touch:h-6 touch:w-6"
+                        strokeWidth={3}
+                        style={{ color: c.value ? textOn(c.value) : undefined }}
+                        aria-hidden
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <ReminderField

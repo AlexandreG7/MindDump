@@ -54,6 +54,22 @@ function toApiDate(date: string, time: string): string {
   return time ? (joinDue(date, time) ?? `${date}T${time}`) : `${date}T00:00:00.000Z`;
 }
 
+/**
+ * Fin envoyée à l'API. Journée entière sur plusieurs jours : minuit UTC du
+ * lendemain du dernier jour (fin exclusive, comme le flux ICS). Horaire : le
+ * dernier jour à l'heure de fin (jusqu'à 23:59 sans heure de fin).
+ */
+function apiEndDate(d: EventDraft): string | null {
+  const multiDay = !!d.endDate && d.endDate > d.date;
+  if (!d.time) {
+    if (!multiDay) return null;
+    const [y, m, day] = d.endDate.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, day + 1)).toISOString();
+  }
+  if (multiDay) return toApiDate(d.endDate, d.endTime || "23:59");
+  return d.endTime ? toApiDate(d.date, d.endTime) : null;
+}
+
 export default function CalendarPage() {
   const { isReady } = useAuth();
   const { currentGroupId, currentGroup } = useGroupContext();
@@ -206,7 +222,7 @@ export default function CalendarPage() {
         title: d.title,
         description: d.description || null,
         date: toApiDate(d.date, d.time),
-        endDate: d.time && d.endTime ? toApiDate(d.date, d.endTime) : null,
+        endDate: apiEndDate(d),
         allDay: !d.time,
         recurrence: d.recurrence || null,
         color: d.color || null,

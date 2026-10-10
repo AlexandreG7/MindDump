@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { Palette, Repeat, Trash2, Users } from "lucide-react";
+import { Check, Palette, Repeat, Trash2, Users } from "lucide-react";
 import { EVENT_COLORS, RECURRENCE_LABELS } from "@/lib/recurrence";
 import type { CalendarEvent } from "./types";
 import { AssigneeAvatars, AssigneePicker } from "@/components/profiles/Assignees";
-import type { FamilyProfile } from "@/components/profiles/ProfileAvatar";
+import { textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
 import { eventEnd, eventStart, isAllDayLike } from "./utils";
 
 function timeLabel(e: CalendarEvent, day?: Date): string | null {
@@ -86,7 +86,7 @@ export function EventList({
                         onClick={() => setPeopleMenuFor(peopleMenuFor === event.id ? null : event.id)}
                         title="Pour qui ?"
                         aria-label="Choisir les personnes"
-                        className={`p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
+                        className={`p-1.5 touch:p-[17px] rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
                           peopleMenuFor === event.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
                         }`}
                       >
@@ -112,7 +112,8 @@ export function EventList({
                   <button
                     onClick={() => setColorMenuFor(colorMenuFor === event.id ? null : event.id)}
                     title="Couleur"
-                    className={`p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
+                    aria-label="Choisir la couleur"
+                    className={`p-1.5 touch:p-[17px] rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-all ${
                       colorMenuFor === event.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
                     }`}
                   >
@@ -121,23 +122,37 @@ export function EventList({
                   {colorMenuFor === event.id && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setColorMenuFor(null)} />
-                      <div className="absolute right-0 bottom-full mb-1 z-50 w-max bg-popover border border-border rounded-xl shadow-lg p-2 grid grid-cols-5 gap-1.5">
-                        <button
-                          onClick={() => { setColorMenuFor(null); onSetColor(event.id, null); }}
-                          title="Par défaut"
-                          className="w-5 h-5 rounded-full border border-border bg-primary/10 hover:scale-110 transition-transform"
-                        />
-                        {EVENT_COLORS.map((c) => (
-                          <button
-                            key={c.value}
-                            onClick={() => { setColorMenuFor(null); onSetColor(event.id, c.value); }}
-                            title={c.label}
-                            style={{ backgroundColor: c.value }}
-                            className={`w-5 h-5 rounded-full hover:scale-110 transition-transform ${
-                              event.color === c.value ? "ring-2 ring-offset-1 ring-offset-popover ring-foreground" : ""
-                            }`}
-                          />
-                        ))}
+                      <div
+                        role="radiogroup"
+                        aria-label="Couleur de l'événement"
+                        className="absolute right-0 bottom-full mb-1 z-50 w-max bg-popover border border-border rounded-xl shadow-lg p-2 touch:p-3 grid grid-cols-5 gap-1.5 touch:gap-2"
+                      >
+                        {[{ value: null as string | null, label: "Par défaut" }, ...EVENT_COLORS].map((c) => {
+                          const on = (event.color ?? null) === c.value;
+                          return (
+                            <button
+                              key={c.value ?? "default"}
+                              role="radio"
+                              aria-checked={on}
+                              aria-label={c.label}
+                              onClick={() => { setColorMenuFor(null); onSetColor(event.id, c.value); }}
+                              title={c.label}
+                              style={c.value ? { backgroundColor: c.value } : undefined}
+                              className={`flex items-center justify-center w-5 h-5 touch:w-12 touch:h-12 rounded-full hover:scale-110 active:scale-90 transition-transform duration-150 ${
+                                c.value ? "" : "border border-border bg-primary/10"
+                              } ${on ? "ring-2 ring-offset-1 ring-offset-popover ring-foreground" : ""}`}
+                            >
+                              {on && (
+                                <Check
+                                  className="h-3 w-3 touch:h-6 touch:w-6"
+                                  strokeWidth={3}
+                                  style={{ color: c.value ? textOn(c.value) : undefined }}
+                                  aria-hidden
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </>
                   )}
@@ -145,7 +160,8 @@ export function EventList({
                 <button
                   onClick={() => onDelete(event.id)}
                   title="Supprimer"
-                  className="p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
+                  aria-label="Supprimer l'événement"
+                  className="p-1.5 touch:p-[17px] rounded-md text-muted-foreground hover:bg-secondary hover:text-destructive transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 touch:opacity-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

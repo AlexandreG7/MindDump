@@ -126,6 +126,31 @@ export function occursOn(e: Timed, day: Date): boolean {
   return start >= dayStart || eventEnd(e) > dayStart;
 }
 
+/**
+ * Place d'un jour dans un événement qui en couvre plusieurs : rang (1 pour le
+ * premier jour), nombre de jours, dernier jour. null pour un événement d'un jour.
+ * Journée entière : jours calendaires (fin exclusive) ; horaire : jours locaux.
+ */
+export function daySpan(e: Timed, day: Date): { index: number; total: number; lastDay: Date } | null {
+  const toUtc = (k: string) => Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
+  let first: string;
+  let last: string;
+  if (e.allDay) {
+    const start = eventStart(e);
+    const end = e.endDate ? new Date(e.endDate) : null;
+    first = utcDayKey(start);
+    last = utcDayKey(end && end > start ? new Date(end.getTime() - 1) : start);
+  } else {
+    first = localDayKey(eventStart(e));
+    last = localDayKey(new Date(eventEnd(e).getTime() - 1));
+  }
+  const total = Math.round((toUtc(last) - toUtc(first)) / 86400000) + 1;
+  if (total < 2) return null;
+  const index = Math.round((toUtc(localDayKey(day)) - toUtc(first)) / 86400000) + 1;
+  const lastDay = new Date(+last.slice(0, 4), +last.slice(5, 7) - 1, +last.slice(8, 10));
+  return { index, total, lastDay };
+}
+
 /** Sur plusieurs jours, ou journée entière : affiché dans la bande du haut de la grille horaire. */
 export function isAllDayLike(e: Timed): boolean {
   if (e.allDay) return true;
