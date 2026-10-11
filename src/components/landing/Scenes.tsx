@@ -24,7 +24,7 @@ const SCENES: Scene[] = [
       "Menus de la semaine planifiés recette par recette",
       "Liste de courses partagée, cochée en temps réel",
       "Mode cuisine plein écran : l'écran reste allumé",
-      "Panier du drive Match rempli depuis ta liste",
+      "Connecteurs aux drives en ligne : ta liste remplit ton panier",
     ],
     tint: "var(--peach)",
     Mock: LoopMock,

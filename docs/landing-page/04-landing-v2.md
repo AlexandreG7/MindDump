@@ -27,9 +27,9 @@ couleur forte.
 |---|---|---|---|
 | 0 | En-tête collant | Ancres + « Créer mon espace » | Fond flouté après 16 px de défilement |
 | 1 | Hero : « Vide ta charge mentale. » | Reconnaître, proposer, agir | Titre mot à mot (CSS, flou vers net), soulignement dessiné, téléphone et cartes flottantes, parallaxe |
-| 2 | Bandeau | « Il se branche sur ce que tu utilises déjà » (HelloFresh, Jow, Quitoque, Google/Apple Agenda, Match, Claude), texte seul, pas de logos | Défilement continu, pausé au survol |
+| 2 | Bandeau | « Il se branche sur ce que tu utilises déjà » (HelloFresh, Jow, Quitoque, Google/Apple Agenda, drives en ligne, Claude), texte seul, pas de logos | Défilement continu, pausé au survol |
 | 3 | Chaos → ordre | Le problème, raconté par l'image | Scrub GSAP : des notes manuscrites éparpillées se rangent dans Tâches / Courses & repas / Agenda |
-| 4 | Quatre scènes empilées | Preuves : recette → courses → panier Match ; agenda et tâches du foyer ; assistant (Claude via MCP) ; écran mural, mode enfant, rappels | Cartes `sticky` qui se recouvrent, maquettes d'interface codées qui jouent leur séquence en entrant à l'écran |
+| 4 | Quatre scènes empilées | Preuves : recette → courses → panier drive ; agenda et tâches du foyer ; assistant (Claude via MCP) ; écran mural, mode enfant, rappels | Cartes `sticky` qui se recouvrent, maquettes d'interface codées qui jouent leur séquence en entrant à l'écran |
 | 5 | « À la carte » | Le reste, sans rien imposer (modules, iCal, météo, rappels, partage, connexion) | Cartes à halo qui suit le pointeur (React Bits) |
 | 6 | Appel final + guides | « Arrête d'être le seul cerveau du foyer. » vers `/register` | Dégradé orange qui dérive ; liens vers les guides (maillage interne) |
 
@@ -40,7 +40,7 @@ liste de courses »). Rien que le code ne fasse : l'assistant passe par Claude o
 un client MCP (l'app n'a pas d'appareil photo, c'est dit dans la scène 3) ;
 aucun chiffre d'usage, témoignage, logo client ni promesse de prix. Les
 maquettes sont légendées « Interface de l'app, données d'exemple ». Les noms de
-services (HelloFresh, Jow, Quitoque, Match, Google, Apple, Claude) désignent des
+services (HelloFresh, Jow, Quitoque, Google, Apple, Claude) désignent des
 intégrations réelles, en texte seul.
 
 ## Technique
@@ -78,7 +78,7 @@ intégrations réelles, en texte seul.
 - Disponibilité réelle des apps iPhone et Android sur les stores avant d'y
   renvoyer explicitement (la page parle de « rappels sur iPhone et Android » et
   d'« installable sur l'écran d'accueil », sans badge de store).
-- « Panier du drive Match rempli depuis ta liste » : vrai sur main, à confirmer
+- « Connecteurs aux drives en ligne » : formulation générique demandée par Alexandre (pas de nom d enseigne)
   comme publié.
 - Intérêt d'ajouter des données structurées (`SoftwareApplication`) : écarté
   tant que le modèle économique n'est pas tranché.

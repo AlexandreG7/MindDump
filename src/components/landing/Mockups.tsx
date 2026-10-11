@@ -72,7 +72,7 @@ export function LoopMock() {
           <ShoppingCart className="h-4 w-4" style={{ color: "hsl(24 40% 8%)" }} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-extrabold">Panier Match prêt à remplir</p>
+          <p className="font-extrabold">Panier drive prêt à remplir</p>
           <p className="mk-muted">6 articles, un produit proposé pour chacun</p>
         </div>
         <span className="mk-chip ok">Revoir</span>
