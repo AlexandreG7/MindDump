@@ -11,10 +11,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { OAuthButtons } from "@/components/OAuthButtons";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
 
-export function RegisterForm() {
+/**
+ * Inscription par lien d'invitation (/register?invite=…) : l'adresse invitée est
+ * pré-remplie et verrouillée (le serveur la revérifie, src/app/api/auth/register).
+ */
+export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string; inviteEmail: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email] = useState(inviteEmail);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -44,7 +48,7 @@ export function RegisterForm() {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, consent }),
+      body: JSON.stringify({ name, email, password, consent, invite: inviteToken }),
     });
 
     const data = await res.json();
@@ -73,7 +77,7 @@ export function RegisterForm() {
         {/* Card */}
         <div className="bg-card rounded-2xl border border-border shadow-sm p-8 space-y-6">
           <div>
-            <h2 className="text-xl font-semibold">Créer un compte</h2>
+            <h2 className="text-xl font-semibold">Créer ton compte</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Déjà un compte ?{" "}
               <Link href="/login" className="text-primary font-medium hover:underline">
@@ -83,7 +87,23 @@ export function RegisterForm() {
           </div>
 
           {/* Un compte créé via Google ou Apple passe ensuite par /consentement. */}
-          <OAuthButtons callbackUrl="/" label="S'inscrire avec" />
+          <OAuthButtons
+            callbackUrl="/"
+            label="S'inscrire avec"
+            beforeStart={async () => {
+              // Le jeton passe dans un cookie httpOnly (pas dans l'URL du fournisseur).
+              const res = await fetch("/api/signup-invite", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ invite: inviteToken }),
+              });
+              if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || "Ce lien d'invitation n'est plus valable.");
+              }
+            }}
+            webOnlyHint="Pour t'inscrire avec Google ou Apple, ouvre ce lien dans le navigateur de ton téléphone ou de ton ordinateur. Dans l'app, tu peux créer ton compte avec un mot de passe ci-dessous, ou te connecter avec Google ou Apple une fois ton compte créé."
+          />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
@@ -106,10 +126,15 @@ export function RegisterForm() {
                 type="email"
                 placeholder="prenom@exemple.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                readOnly
+                aria-describedby="email-locked"
                 required
                 autoComplete="email"
+                className="bg-muted text-muted-foreground"
               />
+              <p id="email-locked" className="text-xs text-muted-foreground">
+                Ton invitation est liée à cette adresse.
+              </p>
             </div>
 
             <div className="space-y-1.5">

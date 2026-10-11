@@ -1,8 +1,9 @@
 #!/bin/sh
-# Test de non-régression de la liste blanche d'inscription (src/lib/signupAllowlist.ts,
-# docs/oauth.md « Inscriptions fermées ») : personne hors ALLOWED_SIGNUP_EMAILS ne crée
-# de compte (e-mail/mot de passe, Google/Apple), mais les comptes existants se
-# connectent et lient un fournisseur comme avant (ADR 0001).
+# Test de non-régression des inscriptions fermées : liste blanche (src/lib/signupAllowlist.ts,
+# docs/oauth.md « Inscriptions fermées ») ET bêta privée sur invitation (demandes d'accès,
+# liens à usage unique, admin : tests/beta.test.mjs). Personne hors liste blanche ou sans
+# invitation valide ne crée de compte (e-mail/mot de passe, Google/Apple), mais les comptes
+# existants se connectent et lient un fournisseur comme avant (ADR 0001).
 #
 # Même principe que scripts/test-mobile-link.sh : base PostgreSQL JETABLE, deux
 # serveurs construits (next build) : l'un avec une liste d'adresses, l'autre sans,
@@ -65,7 +66,7 @@ node ./node_modules/prisma/build/index.js migrate deploy >/dev/null
 # Serveur B : liste vide. Le suffixe d'exécution est partagé avec le test (RUN_ID).
 RUN_ID="$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
 export SIGNUP_TEST_RUN_ID="$RUN_ID"
-LIST=" ALICE-$RUN_ID@Test.Local , bob-$RUN_ID@test.local ,, "
+LIST=" ALICE-$RUN_ID@Test.Local , bob-$RUN_ID@test.local ,, kelly-$RUN_ID@test.local "
 
 start_server() {
   port="$1"; list="$2"; log="$3"
@@ -92,7 +93,7 @@ export BASE_URL="http://127.0.0.1:$PORT_APP"
 export BASE_URL_CLOSED="http://127.0.0.1:$PORT_CLOSED"
 export NEXTAUTH_URL="$BASE_URL"
 
-if ! ./node_modules/.bin/tsx tests/signup.test.mjs; then
+if ! ./node_modules/.bin/tsx tests/signup.test.mjs || ! ./node_modules/.bin/tsx tests/beta.test.mjs; then
   echo "--- journal du serveur (liste) ---"; tail -n 50 "$WORK/app.log"
   echo "--- journal du serveur (fermé) ---"; tail -n 50 "$WORK/closed.log"
   exit 1

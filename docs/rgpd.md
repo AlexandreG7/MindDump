@@ -24,6 +24,20 @@
   pour rester lisible hors ligne ; il est effacé quand le lien est révoqué.
 - **Disposition de l'accueil** (`User.dashboardLayout`, `src/lib/dashboardLayout.ts`) : modules affichés,
   ordre et largeur. Simple préférence d'interface, incluse dans l'export, supprimée avec le compte.
+- **Demandes d'accès à la bêta** (`BetaAccessRequest`, `SignupInvite`, `src/lib/betaAccess.ts`,
+  `src/lib/signupInvite.ts`) : formulaire public de `/register`. Données : e-mail (normalisé),
+  prénom, message facultatif de 500 caractères, version du texte de confidentialité acceptée (la date
+  du consentement est `createdAt`), statut. **Finalité** : répondre à la demande et décider d'inviter
+  la personne. **Base légale** : consentement (case obligatoire, vérifiée côté serveur). Les
+  invitations ne stockent que l'empreinte SHA-256 du jeton, l'adresse invitée et les dates (14 jours,
+  usage unique). **Conservation : 6 mois** après la dernière mise à jour, quel que soit le statut ;
+  la purge s'exécute à chaque dépôt de demande et à chaque ouverture de l'onglet admin
+  (`purgeOldBetaData`). La suppression d'un compte efface la demande et les invitations de son
+  adresse (`src/lib/account.ts`). Visibles des seuls administrateurs. Non incluses dans l'export du
+  compte : elles concernent des personnes sans compte, et celles d'un compte sont supprimées avec lui.
+  **À faire dans `/confidentialite`** : une courte section pour les visiteurs sans compte (qui est
+  collecté, pourquoi, 6 mois). Elle ne change rien pour les comptes existants : ne pas incrémenter
+  `CONSENT_VERSION`, sinon tout le monde repasserait par `/consentement`.
 - **Mot de passe oublié** (`src/lib/passwordReset.ts`) : table `VerificationToken` de NextAuth,
   `identifier` = adresse du compte, `token` = empreinte SHA-256 du jeton envoyé par e-mail (jamais le
   jeton lui-même). Valable une heure, à usage unique, un seul lien actif, un envoi au plus toutes les

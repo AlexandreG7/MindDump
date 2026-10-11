@@ -18,27 +18,104 @@ section « Connexion » du profil, n'affichent que les fournisseurs actifs.
   fournisseur). À la déliaison et à la suppression du compte, les jetons Apple sont révoqués.
 - Clés API : elles ne peuvent ni lister, ni lier, ni délier les moyens de connexion.
 
-## Inscriptions fermées (`ALLOWED_SIGNUP_EMAILS`)
+## Bêta privée : inscriptions sur invitation
 
-MindDump est privé jusqu'à la V1. Variable d'environnement **d'exécution** (pas de build), à
-définir dans Coolify : e-mails séparés par des virgules, comparés sans casse ni espaces
-(`alice@exemple.fr, Bob@exemple.fr`). **Absente ou vide = aucune nouvelle inscription.**
-Logique unique : `src/lib/signupAllowlist.ts` (`isSignupAllowed`, `isSignupOpen`).
+MindDump est en bêta privée. **Fermé par défaut** : un compte ne peut être créé que si l'adresse est
+dans `ALLOWED_SIGNUP_EMAILS` **ou** si une invitation valide la vise. Les deux voies passent par
+`createUserWithGrant` (`src/lib/signupInvite.ts`), seul chemin de création d'un utilisateur.
 
-Seule la création d'un **nouvel** utilisateur est contrôlée, côté serveur, à chaque endroit qui en crée :
+### Parcours
 
-- `POST /api/auth/register` : 403 « Les inscriptions sont fermées pour le moment. », avant toute
-  lecture de la base (même réponse que l'adresse existe ou non, pas d'énumération) ;
-- Google/Apple : callback `signIn` de `src/lib/auth.ts` (renvoie vers
-  `/login?error=SignupClosed`) et, en filet, `createUser` de l'adaptateur ;
-- `/register` affiche le message à la place du formulaire si la liste est vide ; `/login` masque
-  « Créer un compte » dans ce cas.
+1. `/register` (sans jeton) : « Demander un accès à la bêta » (e-mail, prénom, message de 500
+   caractères au plus, consentement). `POST /api/beta-requests` répond **toujours** « Merci, on revient
+   vers toi » : adresse déjà inscrite, déjà demandée, déjà invitée ou nouvelle (aucune énumération des
+   comptes). Les doublons sont fusionnés (une demande par adresse normalisée). Seules la saisie
+   invalide (400) et la limite de débit (429) se distinguent.
+2. `/admin`, onglet « Demandes d'accès » (`src/app/admin/BetaRequestsPanel.tsx`) : liste (e-mail, prénom,
+   message, date, statut : en attente, invitée, inscrite, refusée), « Accepter », « Régénérer le
+   lien », « Refuser », et « Créer un lien pour un e-mail » (sans demande préalable). Routes
+   `/api/admin/beta-requests`, `/api/admin/signup-invites` : `requireAdmin()` (401 / 403).
+3. « Accepter » crée un **lien à usage unique**, lié à l'adresse, valable **14 jours**, affiché une
+   seule fois avec « Copier ». Alexandre le transmet lui-même. Il n'y a pas d'envoi d'e-mail.
+   En stock : seule l'empreinte SHA-256 du jeton (32 octets aléatoires, base64url), comme
+   `passwordReset.ts`. Générer un nouveau lien pour la même adresse, ou refuser, **invalide** les
+   précédents.
+4. `/register?invite=<jeton>` : jeton valide = formulaire d'inscription, e-mail pré-rempli et
+   verrouillé ; invalide, expiré, utilisé ou remplacé = message clair et lien vers la demande d'accès.
+5. Le jeton est **consommé dans la transaction de création du compte** (`updateMany` conditionnel sur
+   jeton + adresse + non utilisé + non révoqué + non expiré, et verrou `pg_advisory_xact_lock` sur
+   l'adresse) : deux inscriptions simultanées, un seul compte.
 
-Non concernés, volontairement : la connexion d'un compte existant (mot de passe, OAuth déjà lié),
-la liaison d'un fournisseur depuis le profil ou l'app (`linkAuthOptions` ne crée personne), le
-circuit mobile (`/api/mobile-auth/*` ne crée aucun utilisateur, il passe par NextAuth), les
+### Google / Apple avec un lien
+
+Avant de lancer le fournisseur, `POST /api/signup-invite` valide le jeton et le pose dans un cookie
+**httpOnly** de 15 minutes (`minddump.signup-invite`, limité à `/api/auth`, `SameSite=None; Secure` en
+HTTPS comme `oauthCookies` pour survivre au `form_post` d'Apple). Sur le callback, la route
+`[...nextauth]` construit les options avec `authOptionsWithInvite(jeton)` et efface le cookie. Le
+callback `signIn` autorise une **création** seulement si :
+
+- l'e-mail du fournisseur est **vérifié** (`email_verified === true` ou `"true"`, sinon refus) ;
+- ET il est dans `ALLOWED_SIGNUP_EMAILS`, OU il correspond (normalisé) à l'invitation du cookie.
+
+E-mail du fournisseur différent de l'invitation : `/login?error=InviteEmailMismatch`, « Utilise
+l'adresse à laquelle tu as été invité ». Sans cookie : `/login?error=SignupClosed`. Un compte
+existant (même adresse sans tenir compte de la casse) n'est jamais concerné : connexion habituelle
+ou refus « compte existant ». Le filet `createUser` de l'adaptateur refuse tout ce que le callback
+n'a pas autorisé et consomme l'invitation.
+
+### Circuit mobile
+
+`/api/mobile-auth/*` ne crée aucun utilisateur : il passe par NextAuth, dans le **navigateur
+système**, dont les cookies ne sont pas ceux de la WebView de l'app. Le cookie d'invitation posé
+depuis la WebView n'y serait pas, et faire transiter le jeton par l'URL de `start` l'exposerait
+davantage. Choix : **pas d'inscription Google/Apple depuis l'app avec un lien**. Dans l'app, sur
+`/register?invite=`, les boutons Google/Apple sont remplacés par une explication ; l'inscription par
+mot de passe fonctionne dans l'app. Parcours conseillé pour Google/Apple : ouvrir le lien dans le
+navigateur du téléphone, créer le compte, puis se connecter dans l'app (connexion d'un compte
+existant : inchangée).
+
+### `ALLOWED_SIGNUP_EMAILS` (contournement manuel, facultatif)
+
+Variable d'**exécution** (Coolify) pour l'administrateur et les proches : adresses séparées par une
+virgule, un point-virgule, un espace ou un retour à la ligne ; guillemets en bordure retirés ; casse
+ignorée. Une entrée qui n'est pas une adresse ASCII valide est **ignorée**, avec un seul
+avertissement dans les journaux (le nombre d'entrées, jamais les adresses). Logique :
+`src/lib/signupAllowlist.ts`, e-mails : `src/lib/email.ts`.
+
+**Risque restant** : sans jeton, l'inscription par **mot de passe** d'une adresse de la liste ne
+prouve pas que l'on possède cette boîte mail (`emailVerified` est posé sans envoi de message). Qui
+connaît une adresse de la liste peut créer le compte avant son titulaire. Atténuation : liste
+courte et secrète, limite de débit sur `/api/auth/register`. Pour tout autre invité, c'est le lien qui
+prouve que la personne a été choisie. Google/Apple exigent, eux, un e-mail vérifié.
+
+### Adresses e-mail
+
+Une seule normalisation (`trim`, NFKC, minuscules), adresses ASCII strictes seulement (le signe
+Kelvin « K », que NFKC replierait sur « K », est refusé). Les **nouveaux** comptes sont stockés en
+minuscules. Les comptes existants à casse mixte ne sont pas réécrits : `authorize` cherche l'adresse
+exacte, puis sans tenir compte de la casse si le résultat est unique (deux comptes qui ne diffèrent
+que par la casse et aucune correspondance exacte : refus, on ne devine pas). L'inscription, le
+callback `signIn`, `getUserByEmail` de l'adaptateur et le mot de passe oublié font la même recherche.
+
+### Limite de débit
+
+`src/lib/rateLimit.ts`, **en mémoire** : 10 essais / 15 min / IP sur `/api/auth/register`, 5 demandes /
+heure / IP sur `/api/beta-requests`, 30 essais / 15 min / IP sur `/api/signup-invite`. Une seule
+instance (Coolify) : exact, mais remis à zéro à chaque déploiement, non partagé entre instances, et
+sans effet contre un attaquant qui change d'IP. L'IP est la **dernière** entrée de `X-Forwarded-For`
+(celle que le proxy ajoute ; les précédentes sont inventées par le client). Si plusieurs proxys sont
+chaînés devant l'app, tous les visiteurs partageraient un seau : à revoir.
+
+Correction d'une affirmation erronée de la version précédente (« pas d'énumération ») : contrôler la
+liste avant de lire la base ne protège que les adresses **hors** liste ; pour une adresse de la liste
+ou invitée, le 409 « Un compte existe déjà » révèle qu'elle est inscrite, et la liste elle-même
+peut être sondée par essais. C'est la limite de débit qui freine l'essai en masse.
+
+Hors périmètre, volontairement : la connexion d'un compte existant (mot de passe, OAuth déjà lié),
+la liaison d'un fournisseur depuis le profil ou l'app (`linkAuthOptions` ne crée personne), les
 invitations de groupe (elles exigent un compte connecté) et les profils du foyer (sans compte).
-Test : `npm run test:signup` (bloquant au déploiement).
+Test : `npm run test:signup` (enchaîne `tests/signup.test.mjs` et `tests/beta.test.mjs`, bloquant au
+déploiement).
 
 ## Pourquoi un « cookie d'intention » pour lier
 

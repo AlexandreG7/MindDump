@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { OAuthButtons, oauthErrorMessage } from "@/components/OAuthButtons";
 
-export function LoginForm({ signupOpen }: { signupOpen: boolean }) {
+export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,15 +62,13 @@ export function LoginForm({ signupOpen }: { signupOpen: boolean }) {
         <div className="bg-card rounded-2xl border border-border shadow-sm p-8 space-y-6">
           <div>
             <h2 className="text-xl font-semibold">Connexion</h2>
-            {/* Masqué tant que les inscriptions sont fermées (signupAllowlist.ts). */}
-            {signupOpen && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Pas encore de compte ?{" "}
-                <Link href="/register" className="text-primary font-medium hover:underline">
-                  Créer un compte
-                </Link>
-              </p>
-            )}
+            {/* Bêta privée : on demande un accès, on ne crée pas de compte directement. */}
+            <p className="text-sm text-muted-foreground mt-1">
+              Pas encore de compte ?{" "}
+              <Link href="/register" className="text-primary font-medium hover:underline">
+                Demander un accès
+              </Link>
+            </p>
           </div>
 
           <OAuthButtons callbackUrl={callbackUrl} />

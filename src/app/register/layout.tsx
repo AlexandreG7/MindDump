@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Créer un compte",
+  title: "Demander un accès à la bêta",
   robots: { index: false, follow: false },
 };
 

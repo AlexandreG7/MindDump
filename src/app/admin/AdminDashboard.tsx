@@ -15,7 +15,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AdminOverview, AdminStorage, AdminUsersPage } from "@/lib/adminStats";
 import { DailyBarChart } from "./DailyBarChart";
+import type { AdminBetaRequest } from "@/lib/betaAccess";
 import { UsersTable } from "./UsersTable";
+import { BetaRequestsPanel } from "./BetaRequestsPanel";
 import { formatBytes, formatDate, formatNumber, formatPercent } from "./format";
 
 function Panel({
@@ -72,10 +74,12 @@ export function AdminDashboard({
   overview,
   storage,
   initialUsers,
+  betaRequests,
 }: {
   overview: AdminOverview;
   storage: AdminStorage;
   initialUsers: AdminUsersPage;
+  betaRequests: AdminBetaRequest[];
 }) {
   const { totals, ai } = overview;
   const tableMax = Math.max(1, ...storage.database.tables.map((t) => t.bytes));
@@ -93,6 +97,11 @@ export function AdminDashboard({
         <TabsList>
           <TabsTrigger value="overview">Vue d&apos;ensemble</TabsTrigger>
           <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+          <TabsTrigger value="beta">
+            Demandes d&apos;accès
+            {betaRequests.some((r) => r.status === "pending") &&
+              ` (${betaRequests.filter((r) => r.status === "pending").length})`}
+          </TabsTrigger>
           <TabsTrigger value="storage">Stockage</TabsTrigger>
         </TabsList>
 
@@ -150,6 +159,11 @@ export function AdminDashboard({
         {/* ── Utilisateurs ──────────────────────────────────── */}
         <TabsContent value="users">
           <UsersTable initial={initialUsers} />
+        </TabsContent>
+
+        {/* ── Demandes d'accès à la bêta ─────────────────────── */}
+        <TabsContent value="beta">
+          <BetaRequestsPanel initial={betaRequests} />
         </TabsContent>
 
         {/* ── Stockage ───────────────────────────────────────── */}
