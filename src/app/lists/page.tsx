@@ -18,7 +18,11 @@ import {
 } from "@/lib/offlineLists";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { SegmentedList, SegmentedTrigger } from "@/components/ui/segmented";
+import { PageHeader } from "@/components/ui/page-header";
+import { ProgressRing } from "@/components/ui/progress-ring";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
@@ -294,18 +298,23 @@ export default function ListsPage() {
   const visibleLists = lists.filter((l) => !hiddenLists.has(l.id));
   const groceryLists = visibleLists.filter((l) => l.type === "GROCERY");
   const onlineLists = visibleLists.filter((l) => l.type === "ONLINE");
+  const toBuy = groceryLists.reduce((n, l) => n + l.items.filter((i) => !i.checked).length, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold">Mes listes</h1>
-          <OfflineStatus online={online} pending={pending} onRetry={sync} />
-        </div>
+    <div className="mx-auto w-full max-w-3xl space-y-6 md:mx-0">
+      <PageHeader
+        title="Mes listes"
+        meta={
+          <>
+            {toBuy > 0 ? `${toBuy} ${toBuy > 1 ? "articles" : "article"} à prendre` : lists.length > 0 ? "Tout est dans le chariot" : null}
+            <OfflineStatus online={online} pending={pending} onRetry={sync} />
+          </>
+        }
+        action={
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button disabled={!online}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button disabled={!online} className="h-11 rounded-xl px-4 text-[0.9375rem]">
+              <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} />
               Nouvelle liste
             </Button>
           </DialogTrigger>
@@ -353,21 +362,20 @@ export default function ListsPage() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
       <Tabs defaultValue="grocery">
-        <TabsList>
-          <TabsTrigger value="grocery" className="gap-1">
-            <ShoppingCart className="h-4 w-4" />
-            Courses ({groceryLists.length})
-          </TabsTrigger>
-          <TabsTrigger value="online" className="gap-1">
-            <Globe className="h-4 w-4" />
-            En ligne ({onlineLists.length})
-          </TabsTrigger>
-        </TabsList>
+        <SegmentedList>
+          <SegmentedTrigger value="grocery" icon={<ShoppingCart className="h-4 w-4" />} count={groceryLists.length}>
+            Courses
+          </SegmentedTrigger>
+          <SegmentedTrigger value="online" icon={<Globe className="h-4 w-4" />} count={onlineLists.length}>
+            En ligne
+          </SegmentedTrigger>
+        </SegmentedList>
 
-        <TabsContent value="grocery">
+        <TabsContent value="grocery" className="mt-4">
           <ListGroup
             lists={groceryLists}
             type="GROCERY"
@@ -384,7 +392,7 @@ export default function ListsPage() {
           />
         </TabsContent>
 
-        <TabsContent value="online">
+        <TabsContent value="online" className="mt-4">
           <ListGroup
             lists={onlineLists}
             type="ONLINE"
@@ -493,17 +501,21 @@ function ListGroup({
 
   if (lists.length === 0) {
     return (
-      <div className="text-center py-12 space-y-3">
-        <p className="text-sm text-muted-foreground">
-          {type === "GROCERY"
-            ? "Pas encore de liste de courses. Crée-la ici, ou génère-la depuis une recette."
-            : "Pas encore de liste d’achats en ligne. Idées cadeaux, articles à comparer : garde le lien, le prix et le magasin."}
-        </p>
-        <Button size="sm" onClick={onCreate}>
-          <Plus className="h-4 w-4 mr-1.5" />
-          Créer une liste
-        </Button>
-      </div>
+      <EmptyState
+        icon={type === "GROCERY" ? ShoppingCart : Globe}
+        tone="list"
+        title={type === "GROCERY" ? "Pas encore de liste de courses" : "Pas encore d’achats en ligne"}
+        action={
+          <Button onClick={onCreate} className="h-11 rounded-xl px-5">
+            <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} />
+            Créer une liste
+          </Button>
+        }
+      >
+        {type === "GROCERY"
+          ? "Crée-la ici, ou génère-la depuis une recette."
+          : "Idées cadeaux, articles à comparer : garde le lien, le prix et le magasin."}
+      </EmptyState>
     );
   }
 
@@ -523,23 +535,20 @@ function ListGroup({
         const hasRecipeItems = unchecked.some((i) => i.recipeId);
 
         return (
-          <div key={list.id} className="grocery-list rounded-2xl overflow-hidden">
+          <div key={list.id} className="grocery-list overflow-hidden rounded-[1.25rem]">
             {/* Header */}
             <div className="grocery-list-header">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-semibold truncate">{list.name}</h2>
+              {list.items.length > 0 && (
+                <ProgressRing value={progress / 100} size={46} tone="list">
+                  {checkedUniqueCount}/{uniqueCount + checkedUniqueCount}
+                </ProgressRing>
+              )}
+              <div className="min-w-0 flex-1">
+                <h2 className="line-clamp-2 break-words text-[1.0625rem] font-semibold leading-tight">{list.name}</h2>
                 {list.items.length > 0 && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="grocery-progress-bar">
-                      <div
-                        className="grocery-progress-fill"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {checkedUniqueCount}/{uniqueCount + checkedUniqueCount}
-                    </span>
-                  </div>
+                  <p className="mt-0.5 text-[0.8125rem] tabular-nums text-tone-list-ink/80">
+                    {uniqueCount > 0 ? `${uniqueCount} ${uniqueCount > 1 ? "articles" : "article"} à prendre` : "Tout est pris"}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -561,7 +570,7 @@ function ListGroup({
                 {online && type === "GROCERY" && recipes.length > 0 && (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <button className="grocery-icon-btn" title="Ajouter une recette">
+                      <button className="grocery-icon-btn" title="Ajouter une recette" aria-label="Ajouter une recette">
                         <CookingPot className="h-4 w-4" />
                       </button>
                     </DialogTrigger>
@@ -594,6 +603,8 @@ function ListGroup({
                     className={`grocery-icon-btn ${showRecipeTags ? "grocery-icon-btn-active" : ""}`}
                     onClick={() => setShowRecipeTags(!showRecipeTags)}
                     title={showRecipeTags ? "Masquer les recettes" : "Voir les recettes"}
+                    aria-label={showRecipeTags ? "Masquer les recettes" : "Voir les recettes"}
+                    aria-pressed={showRecipeTags}
                   >
                     <Tag className="h-4 w-4" />
                   </button>
@@ -642,7 +653,7 @@ function ListGroup({
                         if (e.key === "Enter") handleAddItem(list.id);
                       }}
                       autoFocus
-                      className="text-base"
+                      className="h-12 rounded-xl text-base"
                     />
                     <Input
                       placeholder="Qté"
@@ -651,7 +662,7 @@ function ListGroup({
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleAddItem(list.id);
                       }}
-                      className="w-20"
+                      className="h-12 w-24 rounded-xl"
                     />
                   </div>
                   {type === "ONLINE" && (
@@ -662,8 +673,8 @@ function ListGroup({
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleAddItem(list.id)}>Ajouter</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setAddingTo(null)}>Annuler</Button>
+                    <Button className="h-11 rounded-xl px-5" onClick={() => handleAddItem(list.id)}>Ajouter</Button>
+                    <Button className="h-11 rounded-xl" variant="ghost" onClick={() => setAddingTo(null)}>Annuler</Button>
                   </div>
                 </div>
               ) : (
@@ -671,7 +682,7 @@ function ListGroup({
                   className="grocery-add-btn"
                   onClick={() => setAddingTo(list.id)}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-5 w-5" strokeWidth={2.5} />
                   Ajouter un article
                 </button>
               )}

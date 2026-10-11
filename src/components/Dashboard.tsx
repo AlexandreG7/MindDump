@@ -24,6 +24,8 @@ import {
   Sun,
   Thermometer,
   UtensilsCrossed,
+  Users,
+  Sparkles,
   Wind,
 } from "lucide-react";
 import { useAuth } from "@/lib/useAuth";
@@ -34,9 +36,12 @@ import { useGroupContext } from "@/components/GroupContext";
 import { useFamilyProfiles, AssigneeAvatars } from "@/components/profiles/Assignees";
 import { occursOn, sortEvents } from "@/components/calendar/utils";
 import type { CalendarEvent } from "@/components/calendar/types";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { CheckCircle } from "@/components/ui/check-circle";
+import { QuickAdd } from "@/components/ui/quick-add";
+import { ToneIcon } from "@/components/ui/tone-icon";
+import { TONE_CLASSES, type Tone } from "@/components/ui/tone";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFeedback } from "@/components/ui/feedback";
 import { notifyRemindersChanged } from "@/lib/localReminders";
@@ -364,8 +369,8 @@ export function Dashboard() {
     setTimeout(fetchTodos, 600);
   };
 
-  const addTodo = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const addTodo = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     const title = quickAdd.trim();
     if (!title || adding) return;
     setAdding(true);
@@ -429,37 +434,36 @@ export function Dashboard() {
     switch (id) {
       case "today":
         return (
-          <section aria-labelledby="today-title" className="bg-card border border-border rounded-2xl overflow-hidden">
-            <div className="flex items-baseline justify-between gap-3 px-5 pt-5 pb-3">
-              <h2 id="today-title" className="text-lg font-semibold">
+          <section aria-labelledby="today-title" className="overflow-hidden rounded-[1.25rem] bg-card shadow-surface">
+            <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+              <ToneIcon icon={Sparkles} tone="todo" />
+              <h2 id="today-title" className="min-w-0 flex-1 text-[1.0625rem] font-semibold leading-tight text-balance">
                 Ce qui t&apos;attend aujourd&apos;hui
               </h2>
               {!dayLoading && visibleEntries.length > 0 && (
-                <span className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">
+                <span className="shrink-0 rounded-full bg-tone-todo-soft px-2.5 py-1 text-xs font-semibold tabular-nums text-tone-todo-ink">
                   {visibleEntries.length} {visibleEntries.length > 1 ? "choses" : "chose"}
                 </span>
               )}
             </div>
 
             {dayLoading ? (
-              <div className="px-5 pb-5 space-y-3" aria-busy="true" aria-label="Chargement de la journée">
+              <div className="px-4 pb-4 space-y-3" aria-busy="true" aria-label="Chargement de la journée">
                 {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-10 rounded-lg" />
+                  <Skeleton key={i} className="h-12 rounded-xl" />
                 ))}
               </div>
             ) : visibleEntries.length === 0 ? (
-              <div className="px-5 pb-6 pt-2">
-                <p className="font-medium">Rien de prévu aujourd&apos;hui.</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Une chose te trotte dans la tête ? Note-la ci-dessous, le foyer la verra.
-                </p>
-              </div>
+              <EmptyState icon={Check} tone="todo" title="Rien de prévu aujourd'hui" className="py-6">
+                Une chose te trotte dans la tête ? Note-la ci-dessous, le foyer la verra.
+              </EmptyState>
             ) : (
               <ul className="divide-y divide-border/60 border-t border-border/60">
-                {visibleEntries.map((entry) => (
+                {visibleEntries.map((entry, i) => (
                   <DayRow
                     key={entry.key}
                     entry={entry}
+                    index={i}
                     byId={profiles.byId}
                     onComplete={completeTodo}
                   />
@@ -468,18 +472,17 @@ export function Dashboard() {
             )}
 
             {flags.todos && (
-              <form onSubmit={addTodo} className="flex items-center gap-2 border-t border-border/60 bg-secondary/40 px-3 py-3">
-                <Plus className="h-4 w-4 text-muted-foreground shrink-0 ml-1" aria-hidden="true" />
-                <Input
+              <div className="border-t border-border/60 p-3">
+                <QuickAdd
                   value={quickAdd}
-                  onChange={(e) => setQuickAdd(e.target.value)}
+                  onChange={setQuickAdd}
+                  onSubmit={() => addTodo()}
                   placeholder="Ajouter une chose à faire…"
-                  aria-label="Ajouter une tâche à faire"
-                  enterKeyHint="done"
-                  className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-1"
+                  label="Ajouter une tâche à faire"
                   disabled={adding}
+                  className="bg-secondary/70 shadow-none"
                 />
-              </form>
+              </div>
             )}
           </section>
         );
@@ -487,17 +490,23 @@ export function Dashboard() {
         return <MealsCard meals={meals} />;
       case "lists":
         return (
-          <AsideCard title="Courses" icon={ShoppingCart} href="/lists" linkLabel="Voir les listes">
+          <AsideCard title="Courses" icon={ShoppingCart} tone="list" href="/lists" linkLabel="Voir les listes">
             {activeLists.length === 0 ? (
               <p className="text-sm text-muted-foreground">Tout est coché.</p>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="-mx-2">
                 {activeLists.slice(0, 3).map((l) => (
-                  <li key={l.id} className="flex items-baseline justify-between gap-3 text-sm">
-                    <span className="truncate">{l.name}</span>
-                    <span className="text-muted-foreground tabular-nums shrink-0">
-                      {l.remaining} {l.remaining > 1 ? "articles" : "article"}
-                    </span>
+                  <li key={l.id}>
+                    <Link
+                      href="/lists"
+                      className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-2 text-[0.9375rem] transition-colors hover:bg-accent/60 active:bg-accent"
+                    >
+                      <span className="truncate">{l.name}</span>
+                      <span className="shrink-0 rounded-full bg-tone-list-soft px-2.5 py-0.5 text-xs font-semibold tabular-nums text-tone-list-ink">
+                        {l.remaining}
+                        <span className="sr-only"> {l.remaining > 1 ? "articles" : "article"}</span>
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -506,17 +515,20 @@ export function Dashboard() {
         );
       case "week":
         return (
-          <AsideCard title="Cette semaine" icon={CalendarDays} href="/calendar" linkLabel="Ouvrir l'agenda">
+          <AsideCard title="Cette semaine" icon={CalendarDays} tone="agenda" href="/calendar" linkLabel="Ouvrir l'agenda">
             {upcoming.length === 0 ? (
               <p className="text-sm text-muted-foreground">Rien de prévu les 7 prochains jours.</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-1">
                 {upcoming.map((e) => (
-                  <li key={`${e.id}-${e.date}`} className="flex items-center gap-3 text-sm">
-                    <span className="w-14 shrink-0 text-muted-foreground tabular-nums first-letter:uppercase">
-                      {format(new Date(e.date), "EEE d", { locale: fr })}
+                  <li key={`${e.id}-${e.date}`} className="flex min-h-12 items-center gap-3 text-[0.9375rem]">
+                    <span className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-tone-agenda-soft leading-none text-tone-agenda-ink">
+                      <span className="text-[0.625rem] font-semibold uppercase tracking-wide">
+                        {format(new Date(e.date), "EEE", { locale: fr }).replace(".", "")}
+                      </span>
+                      <span className="mt-0.5 text-base font-bold tabular-nums">{format(new Date(e.date), "d")}</span>
                     </span>
-                    <span className="truncate flex-1">{e.title}</span>
+                    <span className="min-w-0 flex-1 truncate">{e.title}</span>
                     <AssigneeAvatars ids={e.assigneeIds} byId={profiles.byId} />
                   </li>
                 ))}
@@ -535,25 +547,25 @@ export function Dashboard() {
     <div className="relative space-y-6">
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight">Bonjour {firstName}</h1>
-          <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="first-letter:uppercase">{dateLabel}</span>
-            {/* Le séparateur voyage avec l'élément qu'il précède : jamais seul en fin de ligne. */}
-            {currentGroup && (
-              <span className="whitespace-nowrap">
-                <span aria-hidden="true" className="mr-2">·</span>
-                {currentGroup.name}
-              </span>
-            )}
-            {weather && WeatherIcon && (
-              <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                <span aria-hidden="true" className="mr-1">·</span>
-                <WeatherIcon className="h-4 w-4" aria-hidden="true" />
-                {Math.round(weather.current.temperature_2m)}°
-                <span className="sr-only">, {getWeatherInfo(weather.current.weather_code).label}</span>
-              </span>
-            )}
-          </p>
+          <p className="text-[0.9375rem] font-medium text-muted-foreground first-letter:uppercase">{dateLabel}</p>
+          <h1 className="mt-0.5 text-[1.75rem] leading-8 font-bold tracking-[-0.02em] text-balance">Bonjour {firstName}</h1>
+          {(currentGroup || (weather && WeatherIcon)) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {currentGroup && (
+                <span className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-card px-3 text-sm font-medium shadow-surface">
+                  <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="truncate">{currentGroup.name}</span>
+                </span>
+              )}
+              {weather && WeatherIcon && (
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-card px-3 text-sm font-medium tabular-nums shadow-surface">
+                  <WeatherIcon className="h-4 w-4 text-tone-meal-ink" aria-hidden="true" />
+                  {Math.round(weather.current.temperature_2m)}°
+                  <span className="font-normal text-muted-foreground">{getWeatherInfo(weather.current.weather_code).label}</span>
+                </span>
+              )}
+            </div>
+          )}
         </div>
         {!editing && (
           <button
@@ -561,7 +573,7 @@ export function Dashboard() {
             onClick={() => setEditing(true)}
             aria-label="Personnaliser l'accueil"
             title="Personnaliser l'accueil"
-            className="mt-1 flex h-9 w-9 touch:h-10 touch:w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <LayoutDashboard className="h-4 w-4" />
           </button>
@@ -613,53 +625,61 @@ export function Dashboard() {
 
 function DayRow({
   entry,
+  index,
   byId,
   onComplete,
 }: {
   entry: DayEntry;
+  index: number;
   byId: ReturnType<typeof useFamilyProfiles>["byId"];
   onComplete: (todo: Todo) => void;
 }) {
   const isTodo = entry.kind === "todo";
   const title = isTodo ? entry.todo.title : entry.event.title;
   const assignees = isTodo ? entry.todo.assigneeIds : entry.event.assigneeIds;
+  const eventColor = !isTodo ? entry.event.displayColor || entry.event.color : null;
 
   return (
-    <li className="flex items-center gap-3 px-5 py-3 min-h-[3.25rem]">
-      <span
-        className={cn(
-          "w-[4.5rem] shrink-0 text-sm tabular-nums",
-          isTodo && entry.late ? "text-destructive font-medium" : "text-muted-foreground"
-        )}
-      >
-        {entry.label}
-      </span>
-
+    <li
+      className="flex min-h-[3.75rem] animate-row-in items-center gap-1 py-2 pl-1 pr-4"
+      style={{ animationDelay: `${Math.min(index, 6) * 30}ms` }}
+    >
       {isTodo ? (
-        <Checkbox
+        <CheckCircle
+          tone="todo"
           checked={false}
           onCheckedChange={() => onComplete(entry.todo)}
           aria-label={`Cocher « ${title} »`}
-          className="touch:h-5 touch:w-5"
         />
       ) : (
-        <span
-          aria-hidden="true"
-          className="h-2.5 w-2.5 rounded-full shrink-0 mx-[3px] bg-primary"
-          style={entry.event.displayColor || entry.event.color ? { backgroundColor: (entry.event.displayColor || entry.event.color)! } : undefined}
-        />
+        <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center">
+          <span
+            className="h-9 w-1.5 rounded-full bg-primary"
+            style={eventColor ? { backgroundColor: eventColor } : undefined}
+          />
+        </span>
       )}
 
-      {isTodo ? (
-        <span className="flex-1 min-w-0 text-sm font-medium truncate">{title}</span>
-      ) : (
-        <Link href="/calendar" className="flex-1 min-w-0 text-sm font-medium truncate hover:underline underline-offset-2">
-          {title}
-          <span className="sr-only"> (rendez-vous)</span>
-        </Link>
-      )}
+      <div className="min-w-0 flex-1 pl-1">
+        {isTodo ? (
+          <p className="line-clamp-2 text-base font-medium leading-snug">{title}</p>
+        ) : (
+          <Link href="/calendar" className="line-clamp-2 text-base font-medium leading-snug hover:underline underline-offset-2">
+            {title}
+            <span className="sr-only"> (rendez-vous)</span>
+          </Link>
+        )}
+        <p
+          className={cn(
+            "mt-0.5 text-[0.8125rem] tabular-nums",
+            isTodo && entry.late ? "font-semibold text-destructive" : "text-muted-foreground"
+          )}
+        >
+          {entry.label}
+        </p>
+      </div>
 
-      <AssigneeAvatars ids={assignees} byId={byId} />
+      <AssigneeAvatars ids={assignees} byId={byId} className="[&>*]:h-7 [&>*]:w-7 [&>*]:text-sm" />
     </li>
   );
 }
@@ -675,7 +695,7 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
 
   if (!weather) {
     return (
-      <section aria-label="Météo" className="bg-card border border-border rounded-2xl px-5 py-4 space-y-3">
+      <section aria-label="Météo" className="rounded-[1.25rem] bg-card px-4 py-4 shadow-surface space-y-3">
         {header}
         <div className="flex items-center gap-4">
           <Skeleton className="h-11 w-11 rounded-full" />
@@ -694,12 +714,12 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
   return (
     <section
       aria-label={`Météo${weather.city ? ` à ${weather.city}` : ""}`}
-      className="bg-card border border-border rounded-2xl px-5 py-4 space-y-4"
+      className="rounded-[1.25rem] bg-card px-4 py-4 shadow-surface space-y-4"
     >
       {header}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="flex items-center gap-4">
-          <NowIcon className="h-11 w-11 text-primary shrink-0" strokeWidth={1.75} aria-hidden="true" />
+          <NowIcon className="h-11 w-11 text-tone-meal-ink shrink-0" strokeWidth={1.75} aria-hidden="true" />
           <div>
             <p className="text-3xl font-bold tracking-tight tabular-nums leading-none">
               {Math.round(weather.current.temperature_2m)}°C
@@ -729,14 +749,14 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
             return (
               <li
                 key={day}
-                className="flex flex-col items-center gap-1 rounded-xl bg-secondary/60 px-2 py-2"
+                className="flex flex-col items-center gap-1 rounded-xl bg-tone-meal-soft px-2 py-2 text-tone-meal-ink"
                 aria-label={`${new Date(day).toLocaleDateString("fr-FR", { weekday: "long" })} : ${info.label}, ${max}° / ${min}°`}
               >
-                <span className="text-xs text-muted-foreground capitalize" aria-hidden="true">{weekday}</span>
-                <DayIcon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                <span className="text-xs capitalize" aria-hidden="true">{weekday}</span>
+                <DayIcon className="h-5 w-5" aria-hidden="true" />
                 <span className="text-xs tabular-nums" aria-hidden="true">
                   <span className="font-semibold">{max}°</span>
-                  <span className="text-muted-foreground"> / {min}°</span>
+                  <span className="opacity-75"> / {min}°</span>
                 </span>
               </li>
             );
@@ -749,28 +769,28 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
 
 function AsideCard({
   title,
-  icon: Icon,
+  icon,
+  tone,
   href,
   linkLabel,
   children,
 }: {
   title: string;
   icon: typeof ShoppingCart;
+  tone: Tone;
   href: string;
   linkLabel: string;
   children: React.ReactNode;
 }) {
   return (
-    <section aria-label={title} className="bg-card border border-border rounded-2xl px-5 py-4 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold flex items-center gap-2">
-          <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          {title}
-        </h2>
+    <section aria-label={title} className="rounded-[1.25rem] bg-card px-4 pt-3 pb-4 shadow-surface">
+      <div className="mb-2 flex items-center gap-3">
+        <ToneIcon icon={icon} tone={tone} />
+        <h2 className="min-w-0 flex-1 text-[1.0625rem] font-semibold">{title}</h2>
         <Link
           href={href}
           aria-label={linkLabel}
-          className="text-muted-foreground hover:text-foreground p-1 -m-1 rounded-md"
+          className="-mr-2 flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <ArrowRight className="h-4 w-4" />
         </Link>
@@ -782,47 +802,59 @@ function AsideCard({
 
 function MealsCard({ meals }: { meals: Meal[] }) {
   const slots: Array<{ slot: Meal["slot"]; label: string }> = [
-    { slot: "lunch", label: "Midi" },
-    { slot: "dinner", label: "Soir" },
+    { slot: "lunch", label: "Ce midi" },
+    { slot: "dinner", label: "Ce soir" },
   ];
   const planned = slots
     .map((s) => ({ ...s, items: meals.filter((m) => m.slot === s.slot) }))
     .filter((s) => s.items.length > 0);
+  const t = TONE_CLASSES.meal;
 
   return (
-    <AsideCard title="Au menu aujourd'hui" icon={UtensilsCrossed} href="/recipes" linkLabel="Voir les recettes">
+    <section aria-label="Au menu aujourd'hui" className={cn("rounded-[1.25rem] px-4 pt-3 pb-4 shadow-surface", t.soft)}>
+      <div className="mb-1 flex items-center gap-3">
+        <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-tone-meal text-primary-foreground">
+          <UtensilsCrossed className="h-[1.125rem] w-[1.125rem]" />
+        </span>
+        <h2 className={cn("min-w-0 flex-1 text-[1.0625rem] font-semibold", t.ink)}>Au menu aujourd&apos;hui</h2>
+        <Link
+          href="/recipes"
+          aria-label="Voir les recettes"
+          className={cn("-mr-2 flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-foreground/5", t.ink)}
+        >
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
       {planned.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[0.9375rem] text-foreground/80">
           Rien de prévu.{" "}
-          <Link href="/recipes" className="text-foreground underline underline-offset-2">
+          <Link href="/recipes" className="font-medium text-foreground underline underline-offset-2">
             Planifier un repas
           </Link>
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-1">
           {planned.map((s) => (
-            <li key={s.slot} className="flex items-start gap-3 text-sm">
-              <span className="w-10 shrink-0 text-muted-foreground">{s.label}</span>
-              <span className="flex-1 min-w-0 space-y-1">
-                {s.items.map((m) =>
-                  m.recipe ? (
-                    <Link
-                      key={m.id}
-                      href={`/recipes/${m.recipe.id}`}
-                      className="flex items-center gap-1.5 font-medium hover:underline underline-offset-2"
-                    >
-                      <ChefHat className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                      <span className="truncate">{m.recipe.title}</span>
-                    </Link>
-                  ) : (
-                    <span key={m.id} className="block truncate">{m.note}</span>
-                  )
-                )}
-              </span>
+            <li key={s.slot}>
+              <p className={cn("text-xs font-semibold", t.ink)}>{s.label}</p>
+              {s.items.map((m) =>
+                m.recipe ? (
+                  <Link
+                    key={m.id}
+                    href={`/recipes/${m.recipe.id}`}
+                    className="-mx-2 flex min-h-12 items-center gap-2 rounded-xl px-2 text-lg font-semibold leading-snug transition-colors hover:bg-foreground/5 active:bg-foreground/10"
+                  >
+                    <span className="min-w-0 flex-1 text-balance">{m.recipe.title}</span>
+                    <ChefHat className={cn("h-4 w-4 shrink-0", t.ink)} aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <span key={m.id} className="block min-h-10 py-2 text-base">{m.note}</span>
+                )
+              )}
             </li>
           ))}
         </ul>
       )}
-    </AsideCard>
+    </section>
   );
 }

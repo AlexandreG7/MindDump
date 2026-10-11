@@ -27,11 +27,33 @@ import { useState, useEffect } from "react";
 import { useGroupContext } from "./GroupContext";
 import { useFeaturesContext, type FeatureKey } from "./FeaturesContext";
 import { ThemeToggle } from "./ThemeToggle";
+import { TONE_CLASSES, type Tone } from "@/components/ui/tone";
 
 type NavItem = { href: string; label: string; shortLabel?: string; icon: typeof LayoutDashboard; feature: FeatureKey | null };
 
-// Barre d'onglets mobile : 5 emplacements au plus, le dernier étant « Plus ».
-const MOBILE_TABS = 4;
+// Barre d'onglets mobile : les 5 rubriques du quotidien (dont Recettes, utile
+// en cuisine) puis « Plus ». Chaque rubrique a la teinte de son module.
+const MOBILE_TABS = 5;
+
+const NAV_TONE: Record<string, Tone> = {
+  "/": "todo",
+  "/todos": "todo",
+  "/calendar": "agenda",
+  "/lists": "list",
+  "/recipes": "meal",
+  "/kids": "list",
+};
+const toneOf = (href: string): Tone => NAV_TONE[href] ?? "todo";
+
+/** Marque : l'icône de l'app (src/app/icon.svg), en SVG pour ne rien télécharger. */
+function BrandMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden className={className}>
+      <rect width="32" height="32" rx="8" fill="#F97316" />
+      <path d="M9 23V10l7 8 7-8v13" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 const ALL_NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Accueil", icon: LayoutDashboard, feature: null },
@@ -93,21 +115,25 @@ export function Navbar() {
     <>
       {/* Desktop sidebar */}
       <nav className={cn(
-        "hidden md:flex md:flex-col bg-card border-r overflow-y-auto shrink-0 transition-all duration-200",
+        "hidden md:flex md:flex-col bg-card border-r overflow-y-auto shrink-0 transition-[width,padding] duration-200",
         collapsed ? "md:w-16 p-2" : "md:w-64 p-4"
       )}>
         {/* Header + collapse toggle */}
         <div className={cn("mb-8 flex items-center", collapsed ? "justify-center" : "justify-between")}>
           {!collapsed && (
-            <div>
-              <p className="text-xl font-bold">MindDump</p>
-              <p className="text-sm text-muted-foreground">Vide ta charge mentale</p>
+            <div className="flex items-center gap-3">
+              <BrandMark className="h-9 w-9 shrink-0 rounded-[0.625rem] shadow-sm" />
+              <div>
+                <p className="text-lg font-bold leading-tight tracking-tight">MindDump</p>
+                <p className="text-xs text-muted-foreground">Vide ta charge mentale</p>
+              </div>
             </div>
           )}
           <button
             onClick={toggleCollapsed}
-            className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="p-2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             title={collapsed ? "Ouvrir le menu" : "Replier le menu"}
+            aria-label={collapsed ? "Ouvrir le menu" : "Replier le menu"}
           >
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
@@ -120,14 +146,14 @@ export function Navbar() {
               href={item.href}
               title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center rounded-md text-sm transition-colors",
-                collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2",
+                "flex items-center rounded-xl text-[0.9375rem] transition-[background-color,color] duration-150",
+                collapsed ? "justify-center px-2 h-11" : "gap-3 px-3 h-11",
                 isActive(item.href)
-                  ? "bg-[hsl(var(--primary-soft))] text-[hsl(var(--primary-soft-foreground))] font-semibold"
+                  ? cn(TONE_CLASSES[toneOf(item.href)].soft, TONE_CLASSES[toneOf(item.href)].ink, "font-semibold")
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
-              <item.icon className={cn(collapsed ? "h-5 w-5" : "h-4 w-4")} />
+              <item.icon className="h-5 w-5" strokeWidth={isActive(item.href) ? 2.25 : 1.75} />
               {!collapsed && item.label}
             </Link>
           ))}
@@ -279,7 +305,10 @@ export function Navbar() {
 
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] flex items-center justify-between">
-        <p className="text-lg font-bold">MindDump</p>
+        <div className="flex items-center gap-2.5">
+          <BrandMark className="h-8 w-8 rounded-lg" />
+          <p className="text-lg font-bold tracking-tight">MindDump</p>
+        </div>
         <div className="flex items-center gap-1">
           {currentGroup && groups.length > 1 && (
             <span className="max-w-[9rem] truncate rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -287,7 +316,7 @@ export function Navbar() {
               {currentGroup.name}
             </span>
           )}
-          <ThemeToggle className="p-2.5" />
+          <ThemeToggle className="flex h-11 w-11 items-center justify-center rounded-xl" iconClassName="h-5 w-5" />
         </div>
       </div>
 
@@ -303,11 +332,18 @@ export function Navbar() {
                 href={item.href}
                 aria-current={isActive(item.href) ? "page" : undefined}
                 className={cn(
-                  "flex h-16 flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors",
-                  isActive(item.href) ? "text-primary" : "text-muted-foreground"
+                  "group/tab flex h-[4.25rem] flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors",
+                  isActive(item.href) ? "text-foreground font-semibold" : "text-muted-foreground"
                 )}
               >
-                <item.icon className="h-6 w-6" strokeWidth={isActive(item.href) ? 2.25 : 1.75} />
+                <span
+                  className={cn(
+                    "flex h-8 w-14 items-center justify-center rounded-full transition-[background-color,transform] duration-200 ease-out group-active/tab:scale-90",
+                    isActive(item.href) && cn(TONE_CLASSES[toneOf(item.href)].soft, TONE_CLASSES[toneOf(item.href)].ink)
+                  )}
+                >
+                  <item.icon className="h-[1.375rem] w-[1.375rem]" strokeWidth={isActive(item.href) ? 2.25 : 1.75} />
+                </span>
                 {item.shortLabel ?? item.label}
               </Link>
             </li>
@@ -318,11 +354,18 @@ export function Navbar() {
               aria-expanded={mobileOpen}
               aria-haspopup="dialog"
               className={cn(
-                "flex h-16 w-full flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors",
-                moreActive ? "text-primary" : "text-muted-foreground"
+                "group/tab flex h-[4.25rem] w-full flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors",
+                moreActive ? "text-foreground font-semibold" : "text-muted-foreground"
               )}
             >
-              <MoreHorizontal className="h-6 w-6" strokeWidth={moreActive ? 2.25 : 1.75} />
+              <span
+                className={cn(
+                  "flex h-8 w-14 items-center justify-center rounded-full transition-[background-color,transform] duration-200 ease-out group-active/tab:scale-90",
+                  moreActive && "bg-secondary"
+                )}
+              >
+                <MoreHorizontal className="h-[1.375rem] w-[1.375rem]" strokeWidth={moreActive ? 2.25 : 1.75} />
+              </span>
               Plus
             </button>
           </li>
