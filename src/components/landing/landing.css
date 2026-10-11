@@ -145,7 +145,8 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  transition: background-color 250ms ease, border-color 250ms ease, backdrop-filter 250ms ease;
+  padding-top: env(safe-area-inset-top);
+  transition: background-color 250ms ease, border-color 250ms ease, backdrop-filter 250ms ease, color 250ms ease;
   border-bottom: 1px solid transparent;
 }
 .lp2-header[data-scrolled="true"] {
@@ -157,6 +158,7 @@
 .lp2-nav a {
   position: relative;
   padding: 0.5rem 0.2rem;
+  white-space: nowrap;
   font-size: 0.92rem;
   font-weight: 600;
   color: hsl(var(--mute));
@@ -175,6 +177,118 @@
 }
 .lp2-nav a:hover { color: hsl(var(--ink)); }
 .lp2-nav a:hover::after { transform: scaleX(1); }
+
+
+/* ── Menu mobile (sous md) ──
+   Le panneau est un aplat d'encre plein écran, monté dans .lp2 (portail) sous
+   l'en-tête : l'en-tête passe à l'encre pendant l'ouverture, le bouton ☰ devient ✕
+   et reste à sa place. Transform / opacity uniquement. */
+.lp2[data-menu-open] { overflow: hidden; }
+.lp2-header[data-menu-open] {
+  background: hsl(var(--ink));
+  color: hsl(var(--paper));
+  border-bottom-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.lp2-header [data-menu-inert] { transition: opacity 200ms ease, visibility 0s linear 0s; }
+.lp2-header[data-menu-open] a[data-menu-inert]:not([href="/"]) { opacity: 0; visibility: hidden; transition-delay: 0s, 200ms; }
+
+.lp2-burger {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  margin-right: -0.55rem;
+  border-radius: 999px;
+  color: inherit;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 160ms ease-out, transform 160ms ease-out;
+}
+.lp2-burger:active { transform: scale(0.94); background: hsl(var(--ink) / 0.06); }
+.lp2-header[data-menu-open] .lp2-burger:active { background: hsl(0 0% 100% / 0.1); }
+.lp2-burger .bars { position: relative; width: 1.35rem; height: 0.95rem; display: block; }
+.lp2-burger .bars i {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1), opacity 160ms ease-out;
+}
+.lp2-burger .bars i:nth-child(1) { top: 0; }
+.lp2-burger .bars i:nth-child(2) { top: calc(50% - 1px); transform-origin: center; }
+.lp2-burger .bars i:nth-child(3) { bottom: 0; }
+.lp2-burger[aria-expanded="true"] .bars i:nth-child(1) { transform: translateY(calc(0.475rem - 1px)) rotate(45deg); }
+.lp2-burger[aria-expanded="true"] .bars i:nth-child(2) { opacity: 0; transform: scaleX(0.2); }
+.lp2-burger[aria-expanded="true"] .bars i:nth-child(3) { transform: translateY(calc(-0.475rem + 1px)) rotate(-45deg); }
+
+.lp2-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding: calc(4rem + env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) calc(1.5rem + env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: hsl(var(--ink));
+  color: hsl(var(--paper));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms ease-out, visibility 0s linear 200ms;
+}
+.lp2-menu[data-open="true"] { opacity: 1; visibility: visible; transition: opacity 240ms ease-out, visibility 0s; }
+.lp2-menu::before { /* lueur orange, comme le pied de page : la marque sans bruit */
+  content: "";
+  position: absolute;
+  right: -35vw; bottom: -25vh;
+  width: 90vw; height: 90vw;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, hsl(var(--or) / 0.22), transparent 70%);
+  pointer-events: none;
+}
+.lp2-menu > * { position: relative; }
+.lp2-menu ol, .lp2-menu ul { list-style: none; margin: 0; padding: 0; }
+
+/* Entrée décalée : 300 ms par élément, 30 ms d'écart. */
+.lp2-menu-nav li, .lp2-menu-cta, .lp2-menu-guides {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+.lp2-menu[data-open="true"] :is(.lp2-menu-nav li, .lp2-menu-cta, .lp2-menu-guides) {
+  opacity: 1;
+  transform: none;
+  transition: opacity 300ms ease-out calc(40ms + var(--i, 0) * 30ms), transform 300ms cubic-bezier(0.22, 1, 0.36, 1) calc(40ms + var(--i, 0) * 30ms);
+}
+.lp2-menu-nav { margin-top: 0.25rem; }
+.lp2-menu-nav li + li { border-top: 1px solid hsl(var(--line-dark)); }
+.lp2-menu-nav a {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  min-height: 4rem;
+  padding: 0.8rem 0.1rem;
+  color: hsl(var(--paper));
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.lp2-menu-nav .num { font-size: 0.8rem; font-weight: 700; font-variant-numeric: tabular-nums; color: hsl(var(--or)); width: 1.6rem; flex: none; }
+.lp2-menu-nav .txt { flex: 1; font-size: clamp(1.9rem, 9vw, 2.6rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.05; }
+.lp2-menu-nav .ico { align-self: center; color: hsl(var(--mute-dark)); transition: transform 200ms ease-out, color 200ms ease-out; }
+.lp2-menu-nav a:active .txt { color: hsl(var(--or)); }
+.lp2-menu-nav a:active .ico { transform: translateX(4px); color: hsl(var(--or)); }
+.lp2-menu-cta { display: grid; gap: 0.7rem; margin-top: auto; }
+.lp2-menu-guides p { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: hsl(var(--mute-dark)); margin-bottom: 0.35rem; }
+.lp2-menu-guides ul { display: flex; flex-wrap: wrap; gap: 0 1.25rem; }
+.lp2-menu-guides a { display: inline-flex; align-items: center; min-height: 2.75rem; color: hsl(var(--paper)); font-size: 0.95rem; font-weight: 500; text-decoration: underline; text-decoration-color: hsl(var(--paper) / 0.3); text-underline-offset: 4px; }
+@media (min-width: 768px) { .lp2-menu, .lp2-burger { display: none; } }
+@media (max-height: 560px) { .lp2-menu-cta { margin-top: 0; } }
 
 /* ── Fonds : maillage orange doux + grain ── */
 .lp2-mesh { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
@@ -556,4 +670,13 @@
   }
   .lp2-marquee { overflow-x: auto; }
   .lp2-btn, .lp2-btn svg { transition: none; }
+  /* Menu mobile : simple fondu, sans mouvement. */
+  .lp2-burger, .lp2-burger .bars i { transition: none; }
+  /* !important : la règle globale de l'app force 0,01 ms sur tout, ici on veut le fondu. */
+  .lp2 .lp2-menu, .lp2 .lp2-menu[data-open="true"] { transition-duration: 150ms, 0s !important; }
+  .lp2 .lp2-menu[data-open="true"] { transition-delay: 0s !important; }
+  .lp2 .lp2-menu:not([data-open="true"]) { transition-delay: 0s, 150ms !important; }
+  .lp2-menu-nav li, .lp2-menu-cta, .lp2-menu-guides,
+  .lp2-menu[data-open="true"] :is(.lp2-menu-nav li, .lp2-menu-cta, .lp2-menu-guides) { transform: none; transition: none; opacity: 1; }
+  .lp2-menu-nav .ico { transition: none; }
 }

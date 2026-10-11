@@ -32,7 +32,7 @@ export function LandingMotion() {
     // position « naturelle » de la carte (celle de son emplacement dans la
     // colonne), déduite des hauteurs de mise en page, qu'aucune transformation
     // ni aucun collage ne fausse.
-    let lenisRef: { scrollTo: (y: number, o?: { immediate?: boolean }) => void } | null = null;
+    let lenisRef: { scrollTo: (y: number, o?: { immediate?: boolean }) => void; stop: () => void; start: () => void } | null = null;
 
     const layoutTop = (el: HTMLElement): number => {
       let y = 0;
@@ -69,16 +69,33 @@ export function LandingMotion() {
     };
 
     const anchors = Array.from(root.querySelectorAll<HTMLAnchorElement>("[data-lp-anchor]"));
+    const navigateTo = (hash: string): boolean => {
+      const target = hash ? root.querySelector<HTMLElement>(hash) : null;
+      if (!target) return false;
+      goTo(target);
+      if (location.hash !== hash) history.pushState(null, "", hash);
+      return true;
+    };
     const onAnchorClick = (e: Event) => {
       const a = e.currentTarget as HTMLAnchorElement;
-      const target = root.querySelector<HTMLElement>(a.getAttribute("href") || "");
-      if (!target) return;
-      e.preventDefault();
-      goTo(target);
-      if (location.hash !== a.hash) history.pushState(null, "", a.hash);
+      if (navigateTo(a.getAttribute("href") || "")) e.preventDefault();
     };
     anchors.forEach((a) => a.addEventListener("click", onAnchorClick));
     cleanups.push(() => anchors.forEach((a) => a.removeEventListener("click", onAnchorClick)));
+
+    // Menu mobile (MobileMenu) : même logique d'ancre, et gel de Lenis tant que
+    // le panneau est ouvert.
+    const onGoto = (e: Event) => navigateTo(String((e as CustomEvent).detail || ""));
+    const onLock = (e: Event) => {
+      if ((e as CustomEvent).detail) lenisRef?.stop();
+      else lenisRef?.start();
+    };
+    root.addEventListener("lp:goto", onGoto);
+    root.addEventListener("lp:lock", onLock);
+    cleanups.push(() => {
+      root.removeEventListener("lp:goto", onGoto);
+      root.removeEventListener("lp:lock", onLock);
+    });
 
     // Chargement direct sur /#ancre, et retour/avance de l'historique.
     const hashTarget = () => {
