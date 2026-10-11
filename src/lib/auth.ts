@@ -8,11 +8,27 @@ import { generateUniquePublicId } from "./publicId";
 import { oauthCookies, oauthProviders } from "./authProviders";
 import { useSecureCookies } from "./secureCookies";
 import { isMobileDeviceActive } from "./mobileAuth";
+import { isSignupAllowed } from "./signupAllowlist";
 
 const LOGIN_HISTORY_MONTHS = 12;
 
+/** Page de connexion avec le message « Les inscriptions sont fermées » (OAuthButtons.tsx). */
+export const SIGNUP_CLOSED_URL = "/login?error=SignupClosed";
+
+const prismaAdapter = PrismaAdapter(prisma);
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: {
+    ...prismaAdapter,
+    // Filet de sécurité : NextAuth ne crée un utilisateur (première connexion
+    // Google/Apple) que par ici. Le callback signIn refuse déjà proprement ;
+    // ceci garantit qu'aucun chemin n'en crée un hors liste blanche. Le mode
+    // « liaison » (accountLinking.ts) remplace createUser : il ne crée personne.
+    createUser: async (data) => {
+      if (!isSignupAllowed(data.email)) throw new Error("Inscriptions fermées");
+      return prismaAdapter.createUser!(data);
+    },
+  },
   providers: [
     // Google, Apple (si leurs variables d'env sont définies), voir authProviders.ts
     ...oauthProviders(),
@@ -51,6 +67,32 @@ export const authOptions: NextAuthOptions = {
   },
   cookies: oauthCookies(useSecureCookies),
   callbacks: {
+    // Inscriptions fermées (src/lib/signupAllowlist.ts) : une première connexion
+    // Google/Apple qui créerait un NOUVEL utilisateur hors liste est renvoyée vers
+    // /login avec un message en français (pas l'écran d'erreur NextAuth). Les
+    // connexions d'utilisateurs existants ne sont jamais concernées. (Le mode
+    // « liaison » a son propre callback signIn, qui ne crée personne.)
+    async signIn({ user, account, profile }) {
+      if (!account || account.type === "credentials") return true;
+      // Compte Google/Apple déjà lié : connexion d'un utilisateur existant.
+      const linked = await prisma.account.findUnique({
+        where: {
+          provider_providerAccountId: {
+            provider: account.provider,
+            providerAccountId: account.providerAccountId,
+          },
+        },
+        select: { userId: true },
+      });
+      if (linked) return true;
+      const email = user.email ?? (typeof profile?.email === "string" ? profile.email : null);
+      // E-mail déjà inscrit : NextAuth ne crée rien (refus « compte existant »,
+      // voir docs/oauth.md), c'est le parcours de liaison depuis le profil.
+      if (email && (await prisma.user.findUnique({ where: { email }, select: { id: true } }))) {
+        return true;
+      }
+      return isSignupAllowed(email) ? true : SIGNUP_CLOSED_URL;
+    },
     async jwt({ token, user }) {
       // Session de l'app mobile : appareil révoqué → plus de session (un jeton
       // sans `sub` ne donne pas d'utilisateur, voir session.ts).

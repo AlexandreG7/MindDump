@@ -18,6 +18,28 @@ section « Connexion » du profil, n'affichent que les fournisseurs actifs.
   fournisseur). À la déliaison et à la suppression du compte, les jetons Apple sont révoqués.
 - Clés API : elles ne peuvent ni lister, ni lier, ni délier les moyens de connexion.
 
+## Inscriptions fermées (`ALLOWED_SIGNUP_EMAILS`)
+
+MindDump est privé jusqu'à la V1. Variable d'environnement **d'exécution** (pas de build), à
+définir dans Coolify : e-mails séparés par des virgules, comparés sans casse ni espaces
+(`alice@exemple.fr, Bob@exemple.fr`). **Absente ou vide = aucune nouvelle inscription.**
+Logique unique : `src/lib/signupAllowlist.ts` (`isSignupAllowed`, `isSignupOpen`).
+
+Seule la création d'un **nouvel** utilisateur est contrôlée, côté serveur, à chaque endroit qui en crée :
+
+- `POST /api/auth/register` : 403 « Les inscriptions sont fermées pour le moment. », avant toute
+  lecture de la base (même réponse que l'adresse existe ou non, pas d'énumération) ;
+- Google/Apple : callback `signIn` de `src/lib/auth.ts` (renvoie vers
+  `/login?error=SignupClosed`) et, en filet, `createUser` de l'adaptateur ;
+- `/register` affiche le message à la place du formulaire si la liste est vide ; `/login` masque
+  « Créer un compte » dans ce cas.
+
+Non concernés, volontairement : la connexion d'un compte existant (mot de passe, OAuth déjà lié),
+la liaison d'un fournisseur depuis le profil ou l'app (`linkAuthOptions` ne crée personne), le
+circuit mobile (`/api/mobile-auth/*` ne crée aucun utilisateur, il passe par NextAuth), les
+invitations de groupe (elles exigent un compte connecté) et les profils du foyer (sans compte).
+Test : `npm run test:signup` (bloquant au déploiement).
+
 ## Pourquoi un « cookie d'intention » pour lier
 
 Apple revient sur le callback par un **POST cross-site** (`response_mode=form_post`). Le cookie de

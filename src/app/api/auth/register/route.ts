@@ -4,9 +4,18 @@ import { hashPassword } from "@/lib/password";
 import { ensureDefaultGroup } from "@/lib/defaultGroup";
 import { generateUniquePublicId } from "@/lib/publicId";
 import { CONSENT_VERSION } from "@/lib/consent";
+import { SIGNUP_CLOSED_MESSAGE, isSignupAllowed } from "@/lib/signupAllowlist";
 
 export async function POST(req: NextRequest) {
-  const { name, email, password, consent } = await req.json();
+  const body = await req.json().catch(() => null);
+  const { name, email, password, consent } = body ?? {};
+
+  // Inscriptions fermées (liste blanche, src/lib/signupAllowlist.ts). Contrôle
+  // AVANT toute lecture de la base : même réponse, même coût, que l'adresse
+  // soit déjà inscrite ou non, donc pas d'énumération des comptes ni de la liste.
+  if (!isSignupAllowed(email)) {
+    return NextResponse.json({ error: SIGNUP_CLOSED_MESSAGE }, { status: 403 });
+  }
 
   // RGPD : le consentement doit être explicite, y compris pour un POST direct.
   if (consent !== true) {
@@ -30,7 +39,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  // Un champ e-mail peut garder des espaces autour (collage) : on ne les stocke pas.
+  const cleanEmail = String(email).trim();
+
+  const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
   if (existing) {
     return NextResponse.json(
       { error: "Un compte existe déjà avec cet email." },
@@ -43,7 +55,7 @@ export async function POST(req: NextRequest) {
   const user = await prisma.user.create({
     data: {
       name: name || null,
-      email,
+      email: cleanEmail,
       password: hashPassword(password),
       emailVerified: new Date(),
       role: "user",

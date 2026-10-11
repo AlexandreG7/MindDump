@@ -91,6 +91,7 @@ export function oauthErrorMessage(code: string | null): string {
     return "Un compte existe déjà avec cet email. Connecte-toi avec ton mot de passe, puis lie ce fournisseur depuis ton profil (section « Connexion »).";
   }
   if (code === "CredentialsSignin") return "";
+  if (code === "SignupClosed") return "Les inscriptions sont fermées pour le moment.";
   if (code === "LinkExpired") return "La liaison a expiré : relance-la depuis l'app.";
   return "La connexion avec ce fournisseur a échoué. Réessaie, ou utilise ton email et ton mot de passe.";
 }
