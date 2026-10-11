@@ -19,8 +19,8 @@ export function LogoMark({ size = 32 }: { size?: number }) {
 
 const NAV = [
   { href: "#boucle", label: "La boucle" },
-  { href: "#assistant", label: "Assistant IA" },
   { href: "#foyer", label: "Le foyer" },
+  { href: "#assistant", label: "Assistant IA" },
   { href: "#quotidien", label: "Au quotidien" },
 ];
 

@@ -25,6 +25,74 @@ export function LandingMotion() {
 
     const cleanups: Array<() => void> = [() => root.removeEventListener("scroll", onScroll)];
 
+    // ── Ancres du menu ──────────────────────────────────────────────────────
+    // Les scènes sont des cartes `sticky` : leur rectangle à l'écran dépend du
+    // défilement en cours (collées, elles restent à leur cran). Viser ce
+    // rectangle ne bouge presque pas depuis le bas de page. On vise donc la
+    // position « naturelle » de la carte (celle de son emplacement dans la
+    // colonne), déduite des hauteurs de mise en page, qu'aucune transformation
+    // ni aucun collage ne fausse.
+    let lenisRef: { scrollTo: (y: number, o?: { immediate?: boolean }) => void } | null = null;
+
+    const layoutTop = (el: HTMLElement): number => {
+      let y = 0;
+      let node: HTMLElement | null = el;
+      while (node && node !== root) {
+        y += node.offsetTop;
+        node = node.offsetParent as HTMLElement | null;
+      }
+      return y;
+    };
+    const naturalTop = (el: HTMLElement): number => {
+      const parent = el.parentElement;
+      if (getComputedStyle(el).position !== "sticky" || !parent) return layoutTop(el);
+      const cs = getComputedStyle(parent);
+      const gap = parseFloat(cs.rowGap) || 0;
+      let y = layoutTop(parent) + parent.clientTop + (parseFloat(cs.paddingTop) || 0);
+      for (const sib of Array.from(parent.children)) {
+        if (sib === el) break;
+        if (sib instanceof HTMLElement) y += sib.offsetHeight + gap;
+      }
+      return y;
+    };
+    // Où la carte se pose sous l'en-tête : son cran de collage si elle est
+    // sticky, sinon juste sous l'en-tête.
+    const anchorScrollTop = (el: HTMLElement): number => {
+      const cs = getComputedStyle(el);
+      const below = cs.position === "sticky" ? parseFloat(cs.top) || 0 : (header?.offsetHeight ?? 64) + 8;
+      return Math.max(0, Math.round(naturalTop(el) - below));
+    };
+    const goTo = (el: HTMLElement, immediate = false) => {
+      const y = anchorScrollTop(el);
+      if (lenisRef) lenisRef.scrollTo(y, { immediate });
+      else root.scrollTo({ top: y, behavior: immediate ? "instant" : "smooth" });
+    };
+
+    const anchors = Array.from(root.querySelectorAll<HTMLAnchorElement>("[data-lp-anchor]"));
+    const onAnchorClick = (e: Event) => {
+      const a = e.currentTarget as HTMLAnchorElement;
+      const target = root.querySelector<HTMLElement>(a.getAttribute("href") || "");
+      if (!target) return;
+      e.preventDefault();
+      goTo(target);
+      if (location.hash !== a.hash) history.pushState(null, "", a.hash);
+    };
+    anchors.forEach((a) => a.addEventListener("click", onAnchorClick));
+    cleanups.push(() => anchors.forEach((a) => a.removeEventListener("click", onAnchorClick)));
+
+    // Chargement direct sur /#ancre, et retour/avance de l'historique.
+    const hashTarget = () => {
+      const id = decodeURIComponent(location.hash.slice(1));
+      return id ? root.querySelector<HTMLElement>(`[id="${CSS.escape(id)}"]`) : null;
+    };
+    const syncToHash = (immediate: boolean) => {
+      const t = hashTarget();
+      if (t) goTo(t, immediate);
+    };
+    const onPop = () => syncToHash(false);
+    window.addEventListener("popstate", onPop);
+    cleanups.push(() => window.removeEventListener("popstate", onPop));
+
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       root.setAttribute("data-anim", "1");
 
@@ -63,22 +131,11 @@ export function LandingMotion() {
           easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
         });
         root.setAttribute("data-lenis", "1");
+        lenisRef = lenis;
         lenis.on("scroll", ScrollTrigger.update);
         const tick = (time: number) => lenis.raf(time * 1000);
         gsap.ticker.add(tick);
         gsap.ticker.lagSmoothing(0);
-
-        const anchorHandlers: Array<[Element, (e: Event) => void]> = [];
-        root.querySelectorAll<HTMLAnchorElement>("[data-lp-anchor]").forEach((a) => {
-          const h = (e: Event) => {
-            const target = root.querySelector<HTMLElement>(a.getAttribute("href") || "");
-            if (!target) return;
-            e.preventDefault();
-            lenis.scrollTo(target, { offset: -72 });
-          };
-          a.addEventListener("click", h);
-          anchorHandlers.push([a, h]);
-        });
 
         const seeded = (i: number, k: number) => {
           const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
@@ -197,7 +254,11 @@ export function LandingMotion() {
           });
         });
 
-        const refresh = () => ScrollTrigger.refresh();
+        const refresh = () => {
+          ScrollTrigger.refresh();
+          // La mise en page a pu bouger (polices, images) : on se recale sur l'ancre.
+          if (location.hash) syncToHash(true);
+        };
         window.addEventListener("load", refresh);
         document.fonts?.ready.then(refresh);
         const rafId = requestAnimationFrame(refresh);
@@ -205,10 +266,10 @@ export function LandingMotion() {
         teardown = () => {
           cancelAnimationFrame(rafId);
           window.removeEventListener("load", refresh);
-          anchorHandlers.forEach(([el, h]) => el.removeEventListener("click", h));
           mm.revert();
           ctx.revert();
           gsap.ticker.remove(tick);
+          lenisRef = null;
           lenis.destroy();
           root.removeAttribute("data-lenis");
         };
@@ -228,6 +289,14 @@ export function LandingMotion() {
         else clearTimeout(handle);
         teardown?.();
       });
+    }
+
+    // Recalage initial sur l'ancre de l'URL, une fois la mise en page posée
+    // (data-anim change la hauteur de la section « chaos »), puis polices chargées.
+    if (location.hash) {
+      const raf = requestAnimationFrame(() => syncToHash(true));
+      document.fonts?.ready.then(() => syncToHash(true));
+      cleanups.push(() => cancelAnimationFrame(raf));
     }
 
     return () => cleanups.forEach((fn) => fn());
