@@ -1,3 +1,4 @@
+import "./content.css";
 import Link from "next/link";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { GUIDES, type Guide } from "@/lib/content/guides";
@@ -125,7 +126,7 @@ export function GuidePage({ guide }: { guide: Guide }) {
             Arrête d&apos;être le seul cerveau du foyer.
           </h2>
           <p className="text-primary-foreground/85 mt-4 max-w-lg mx-auto">
-            Crée ton espace, invite ta famille, et vide ta charge mentale une bonne fois.
+            Demande ton accès à la bêta, invite ta famille, et vide ta charge mentale une bonne fois.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
             <Link
