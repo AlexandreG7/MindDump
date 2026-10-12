@@ -1,60 +1,94 @@
+import { Prisma } from "@prisma/client";
+import { prisma } from "./prisma";
 import { parseEmail } from "./email";
 
 /**
- * Contournement manuel des inscriptions fermées (MindDump est en bêta privée).
+ * Adresses autorisées à créer un compte SANS lien (bêta privée), gérées par l'administrateur
+ * dans /admin (onglet « Demandes d'accès », section « Adresses autorisées »). Elles vivent en
+ * base (`AllowedSignupEmail`), à un seul endroit : plus aucune variable d'environnement.
  *
- * `ALLOWED_SIGNUP_EMAILS` (variable d'exécution, lue à chaque appel : jamais
- * figée au build) : adresses d'administrateurs ou de proches qui peuvent créer
- * un compte sans invitation. Tolérant : guillemets en bordure retirés, séparateurs
- * virgule, point-virgule, espace ou retour à la ligne. Une entrée qui n'est pas une
- * adresse ASCII valide est ignorée (un seul avertissement par valeur de la variable,
- * sans écrire les adresses). Absente ou sans entrée valide = aucune adresse.
+ * Une adresse peut créer un compte si elle est ici, OU si une invitation bêta valide la vise
+ * (signupInvite.ts), OU si une invitation de foyer valide l'autorise (groupInviteSignup.ts).
+ * Fermé par défaut : la table démarre vide.
  *
- * L'invitation (src/lib/signupInvite.ts) est l'autre voie : la création d'un compte
- * est autorisée si l'adresse est dans cette liste OU si une invitation valide la vise.
+ * Ne concerne QUE la création d'un nouvel utilisateur. Un compte existant se connecte et lie
+ * un fournisseur comme avant, et retirer une adresse d'ici ne touche jamais à un compte
+ * existant (ADR 0001 : rien ne disparaît pour son auteur).
  *
- * Ne concerne QUE la création d'un nouvel utilisateur. Un compte existant se
- * connecte et lie un fournisseur comme avant (ADR 0001 : rien ne disparaît pour
- * son auteur).
+ * Contrôle d'accès : `isSignupAllowed` est relu en base à chaque création (route
+ * d'inscription, callback `signIn`, et SOUS LE VERROU d'adresse dans `createUserWithGrant`).
  */
 
 export const SIGNUP_CLOSED_MESSAGE = "Les inscriptions sont fermées pour le moment.";
 
-const QUOTES = /^["'`“”‘’]+|["'`“”‘’]+$/g;
+export const NOTE_MAX = 120;
 
-let warnedFor: string | null = null;
+/** Client Prisma ou client de transaction (verrou d'adresse tenu par l'appelant). */
+type Db = Pick<Prisma.TransactionClient, "allowedSignupEmail">;
 
-/** Adresses valides, normalisées, d'une valeur brute de la variable. */
-export function parseAllowlist(raw: string): { emails: Set<string>; ignored: number } {
-  const emails = new Set<string>();
-  let ignored = 0;
-  const unquoted = raw.trim().replace(QUOTES, "");
-  for (const part of unquoted.split(/[,;\s]+/)) {
-    const entry = part.replace(QUOTES, "");
-    if (!entry) continue;
-    const email = parseEmail(entry);
-    if (email) emails.add(email);
-    else ignored++;
-  }
-  return { emails, ignored };
-}
-
-/** Adresses autorisées, normalisées. Vide si la variable est absente ou sans entrée valide. */
-export function allowedSignupEmails(): Set<string> {
-  const raw = process.env.ALLOWED_SIGNUP_EMAILS ?? "";
-  const { emails, ignored } = parseAllowlist(raw);
-  if (ignored > 0 && warnedFor !== raw) {
-    warnedFor = raw;
-    // Jamais les adresses : seulement leur nombre.
-    console.warn(
-      `[signup] ALLOWED_SIGNUP_EMAILS : ${ignored} entrée(s) ignorée(s) car pas une adresse e-mail valide (ASCII). Vérifie la variable.`
-    );
-  }
-  return emails;
-}
-
-/** Cette adresse est-elle dans la liste blanche (création d'un NOUVEAU compte) ? */
-export function isSignupAllowed(email: unknown): boolean {
+/** Cette adresse est-elle dans la table (création d'un NOUVEAU compte) ? Casse et espaces ignorés. */
+export async function isSignupAllowed(email: unknown, db: Db = prisma): Promise<boolean> {
   const wanted = parseEmail(email);
-  return !!wanted && allowedSignupEmails().has(wanted);
+  if (!wanted) return false;
+  const row = await db.allowedSignupEmail.findUnique({ where: { email: wanted }, select: { id: true } });
+  return !!row;
+}
+
+export interface AllowedEmail {
+  id: string;
+  email: string;
+  note: string | null;
+  createdAt: string;
+}
+
+export async function listAllowedEmails(): Promise<AllowedEmail[]> {
+  const rows = await prisma.allowedSignupEmail.findMany({ orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
+  return rows.map((r) => ({ id: r.id, email: r.email, note: r.note, createdAt: r.createdAt.toISOString() }));
+}
+
+export type AddResult =
+  | { ok: true; entry: AllowedEmail }
+  | { ok: false; reason: "invalid" | "duplicate" | "note-too-long" };
+
+/**
+ * Ajoute une adresse (normalisée ; ASCII strict : une saisie hors ASCII est refusée, jamais
+ * « corrigée »). Même verrou par adresse que la création de compte (createUserWithGrant).
+ */
+export async function addAllowedEmail(raw: unknown, note: unknown, createdById: string): Promise<AddResult> {
+  const email = parseEmail(raw);
+  if (!email) return { ok: false, reason: "invalid" };
+  const cleanNote = typeof note === "string" ? note.trim() : "";
+  if (cleanNote.length > NOTE_MAX) return { ok: false, reason: "note-too-long" };
+  try {
+    return await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${email}))`;
+      const row = await tx.allowedSignupEmail.create({
+        data: { email, note: cleanNote || null, createdById },
+      });
+      return {
+        ok: true as const,
+        entry: { id: row.id, email: row.email, note: row.note, createdAt: row.createdAt.toISOString() },
+      };
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { ok: false, reason: "duplicate" };
+    }
+    throw e;
+  }
+}
+
+/**
+ * Retire une adresse de la table. Ne touche JAMAIS à un compte (ADR 0001) : seule la
+ * possibilité de créer un nouveau compte disparaît. Verrou d'adresse : une inscription qui
+ * se termine pendant le retrait est tranchée proprement, avant ou après.
+ */
+export async function removeAllowedEmail(id: string): Promise<"ok" | "not-found"> {
+  return prisma.$transaction(async (tx) => {
+    const row = await tx.allowedSignupEmail.findUnique({ where: { id }, select: { email: true } });
+    if (!row) return "not-found" as const;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${row.email}))`;
+    const deleted = await tx.allowedSignupEmail.deleteMany({ where: { id } });
+    return deleted.count === 0 ? ("not-found" as const) : ("ok" as const);
+  });
 }

@@ -3,7 +3,7 @@
  * d'inscription à usage unique (src/lib/betaAccess.ts, src/lib/signupInvite.ts).
  *
  * Mêmes serveurs et même base JETABLE que tests/signup.test.mjs (scripts/test-signup.sh) :
- *   BASE_URL  ALLOWED_SIGNUP_EMAILS = « ALICE@…, bob@…, kelly@… »
+ *   BASE_URL  adresses autorisées en base (table AllowedSignupEmail) : alice, bob, kelly, semées ici
  * Le fournisseur OAuth `test-oidc` n'existe pas en production : les callbacks NextAuth
  * (signIn, adaptateur) sont appelés directement, avec la même fabrique d'options que la
  * route [...nextauth] (authOptionsWithInvite) quand le cookie d'invitation est présent.
@@ -19,8 +19,6 @@ if (process.env.OWNERSHIP_TEST_DB !== "disposable") {
 }
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const run = process.env.SIGNUP_TEST_RUN_ID || randomBytes(4).toString("hex");
-const LIST = ` ALICE-${run}@Test.Local , bob-${run}@test.local ,, kelly-${run}@test.local `;
-process.env.ALLOWED_SIGNUP_EMAILS = LIST;
 process.env.NODE_ENV = "development";
 process.env.OAUTH_TEST_ISSUER = "http://localhost:4010";
 process.env.NEXTAUTH_URL = BASE_URL;
@@ -54,6 +52,11 @@ let ipCounter = 0;
 const freshIp = () => `10.2.${Math.floor(++ipCounter / 250)}.${ipCounter % 250}`;
 const tokenOf = (link) => new URL(link).searchParams.get("invite");
 const email = (label) => `${label}-${run}@test.local`;
+/** Adresse autorisée à s'inscrire sans lien (table AllowedSignupEmail, forme normalisée). */
+const allow = (address) => {
+  const normalized = address.trim().toLowerCase();
+  return prisma.allowedSignupEmail.upsert({ where: { email: normalized }, create: { email: normalized }, update: {} });
+};
 
 async function post(path, body, { ip = freshIp(), cookie } = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -101,6 +104,7 @@ const oauthSignIn = (options, address, { verified = true } = {}) => {
 };
 
 async function main() {
+  for (const label of ["alice", "bob", "kelly"]) await allow(email(label));
   const adminPassword = "mot-de-passe-admin";
   const admin = await prisma.user.create({
     data: { name: "Admin", email: email("admin"), password: hashPassword(adminPassword), role: "admin", consentedAt: new Date() },
@@ -319,7 +323,7 @@ async function main() {
     check(junk.status === 403, "jeton mal formé : refusé");
     check((await fetch(`${BASE_URL}/register?invite=`)).status === 200, "?invite= vide : page d'erreur, pas de plantage");
     const noInvite = await register({ email: email("expire") });
-    check(noInvite.status === 403, "sans jeton ni liste blanche : fermé");
+    check(noInvite.status === 403, "sans jeton ni adresse autorisée : fermé");
   }
 
   console.log("Course : deux inscriptions simultanées avec le même lien");
@@ -386,15 +390,15 @@ async function main() {
     check((await oauthSignIn(authOptionsWithInvite(inv2.token), email("oauth-b"))) === true, "autre invitation, autre adresse : autorisée");
   }
 
-  console.log("Liste blanche : toujours valable sans invitation");
+  console.log("Adresses autorisées (table) : toujours valables sans invitation");
   {
     // bob a déjà été créé par tests/signup.test.mjs (base partagée) : on repart d'une adresse libre.
     await prisma.user.deleteMany({ where: { email: email("bob") } });
-    check((await oauthSignIn(authOptions, `BOB-${run}@Test.Local`)) === true, "adresse de la liste, e-mail vérifié : autorisée sans cookie");
+    check((await oauthSignIn(authOptions, `BOB-${run}@Test.Local`)) === true, "adresse autorisée (table), e-mail vérifié : autorisée sans cookie");
     const created = await authOptions.adapter.createUser({ email: `Bob-${run}@Test.Local`, name: "Bob", emailVerified: null });
     check(!!created.id && !!(await prisma.user.findUnique({ where: { email: email("bob") } })), "…création en minuscules via l'adaptateur");
     const r = await register({ email: email("jamais-invite") });
-    check(r.status === 403, "ni liste ni invitation : 403");
+    check(r.status === 403, "ni adresse autorisée ni invitation : 403");
   }
 
   console.log("Conservation et suppression (RGPD)");

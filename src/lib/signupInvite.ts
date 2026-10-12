@@ -16,7 +16,7 @@ import { isGroupInviteToken } from "./groupInviteSignup";
  * précédents.
  *
  * Règle de création d'un compte (mot de passe ET Google/Apple) : l'adresse est dans
- * ALLOWED_SIGNUP_EMAILS (signupAllowlist.ts) OU une invitation valide la vise.
+ * la table AllowedSignupEmail (signupAllowlist.ts, gérée dans /admin) OU une invitation valide la vise.
  * Fermé par défaut. Le jeton est consommé DANS la transaction qui crée l'utilisateur
  * (`createUserWithGrant`) : deux inscriptions simultanées avec le même lien, un seul compte.
  */
@@ -116,7 +116,8 @@ export type CreateUserResult =
  *    soit la casse, s'enchaînent au lieu de se doubler : pas d'index unique sur
  *    lower(email), voir docs/migrations-prisma.md) ;
  * 2. refus si un compte porte déjà cette adresse, sans tenir compte de la casse ;
- * 3. hors liste blanche, consommation de l'invitation par un `updateMany` conditionnel :
+ * 3. adresse autorisée (table `AllowedSignupEmail`, relue ICI sous le verrou : un retrait de
+ *    l'administrateur est tranché proprement) ; sinon consommation de l'invitation par un `updateMany` conditionnel :
  *    0 ligne = jeton absent, utilisé, expiré, remplacé ou pour une autre adresse. À défaut
  *    d'invitation bêta, une invitation de FOYER (`groupInviteToken`, groupInviteSignup.ts) est
  *    « réclamée » de la même façon (une seule inscription par lien, adresse conforme si le lien
@@ -132,8 +133,10 @@ export async function createUserWithGrant(
 ): Promise<CreateUserResult> {
   const normalized = parseEmail(email);
   if (!normalized) return { ok: false, reason: "closed" };
-  const allowlisted = isSignupAllowed(normalized);
-  if (!allowlisted && !isToken(inviteToken) && !isGroupInviteToken(groupInviteToken)) {
+  // Pré-contrôle avant le verrou : sans jeton ni adresse autorisée, « fermé » AVANT toute lecture
+  // de comptes (un compte existant ne se distingue pas d'une adresse inconnue). Refait plus bas
+  // sous le verrou pour l'adresse autorisée.
+  if (!isToken(inviteToken) && !isGroupInviteToken(groupInviteToken) && !(await isSignupAllowed(normalized))) {
     return { ok: false, reason: "closed" };
   }
 
@@ -146,7 +149,8 @@ export async function createUserWithGrant(
     });
     if (existing) return { ok: false as const, reason: "exists" as const };
 
-    let granted = allowlisted;
+    // Relue sous le verrou : un retrait simultané de l'adresse ne laisse pas passer la création.
+    let granted = await isSignupAllowed(normalized, tx);
     if (isToken(inviteToken)) {
       const now = new Date();
       const consumed = await tx.signupInvite.updateMany({

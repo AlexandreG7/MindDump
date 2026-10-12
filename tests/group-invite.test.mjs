@@ -4,7 +4,8 @@
  * inscription par lien. Lien nominatif : seule son adresse. Expiré, utilisé, supprimé : refusé.
  * Sans invitation : toujours fermé. `callbackUrl` : chemin interne uniquement.
  *
- * Lancé par scripts/test-signup.sh (serveur avec liste blanche, base JETABLE).
+ * Lancé par scripts/test-signup.sh (base JETABLE). Les adresses autorisées sont en base
+ * (table AllowedSignupEmail), semées ici.
  */
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
@@ -15,8 +16,6 @@ if (process.env.OWNERSHIP_TEST_DB !== "disposable") {
 }
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const run = process.env.SIGNUP_TEST_RUN_ID || randomBytes(4).toString("hex");
-const LIST = ` ALICE-${run}@Test.Local , bob-${run}@test.local ,, kelly-${run}@test.local `;
-process.env.ALLOWED_SIGNUP_EMAILS = LIST;
 process.env.NODE_ENV = "development";
 process.env.OAUTH_TEST_ISSUER = "http://localhost:4010";
 process.env.NEXTAUTH_URL = BASE_URL;
@@ -41,6 +40,11 @@ const check = (cond, label) => {
 let ipCounter = 0;
 const freshIp = () => `10.7.${Math.floor(++ipCounter / 250)}.${ipCounter % 250}`;
 const email = (label) => `${label}-${run}@test.local`;
+/** Adresse autorisée à s'inscrire sans lien (table AllowedSignupEmail, forme normalisée). */
+const allow = (address) => {
+  const normalized = address.trim().toLowerCase();
+  return prisma.allowedSignupEmail.upsert({ where: { email: normalized }, create: { email: normalized }, update: {} });
+};
 const newToken = () => randomBytes(24).toString("base64url");
 
 async function post(path, body, { ip = freshIp(), cookie } = {}) {
@@ -78,6 +82,7 @@ const oauthSignIn = (options, address) => {
 };
 
 async function main() {
+  for (const label of ["alice", "bob", "kelly"]) await allow(email(label));
   const owner = await prisma.user.create({
     data: { name: "Maître", email: email("maitre-foyer"), password: hashPassword("mdp-maitre"), consentedAt: new Date() },
   });
@@ -94,7 +99,7 @@ async function main() {
   console.log("Sans invitation : toujours fermé");
   {
     const open = await mkInvite();
-    check((await register({ email: email("ferme-1") })).status === 403, "ni liste ni invitation : 403");
+    check((await register({ email: email("ferme-1") })).status === 403, "ni adresse autorisée ni invitation : 403");
     const unknown = await register({ email: email("ferme-2"), groupInvite: newToken() });
     check(unknown.status === 403 && unknown.body?.error === GROUP_INVITE_INVALID_MESSAGE, "jeton de foyer inconnu : 403");
     check((await register({ email: email("ferme-3"), groupInvite: "court" })).status === 403, "jeton mal formé : 403");
@@ -195,8 +200,10 @@ async function main() {
     // Les tests précédents ont pu créer cette adresse de la liste : on repart d'une base sans elle.
     const bob = await userOf(`bob-${run}@test.local`);
     if (bob) await deleteUserAccount(bob.id, { keepShared: true });
+    // La suppression d'un compte retire aussi son adresse de la table (RGPD) : on la remet.
+    await allow(email("bob"));
     const listed = await register({ email: `bob-${run}@test.local`, groupInvite: link.token });
-    check(listed.status === 201 && !(await claimed(link.token)), "adresse de la liste blanche : compte créé sans entamer le lien");
+    check(listed.status === 201 && !(await claimed(link.token)), "adresse autorisée (table) : compte créé sans entamer le lien");
   }
 
   console.log("Google / Apple : cookie de lien de foyer");
@@ -229,6 +236,49 @@ async function main() {
     check(bad.every((v) => safeCallbackPath(v) === "/"), "URL externe, // , \\, tabulation, retour à la ligne, javascript: : ignorés (retour à « / »)");
     check(safeCallbackPath("https://evil.example", "/groups") === "/groups", "valeur de repli personnalisée");
     check(safeCallbackPath("/groups/join/abc_DEF-123") === "/groups/join/abc_DEF-123" && safeCallbackPath("/recipes?x=1#a") === "/recipes?x=1#a", "chemins internes conservés");
+  }
+
+  console.log("Rejoindre un groupe : lien à usage unique, atomique");
+  {
+    const joinAs = async (address) => {
+      await prisma.user.create({
+        data: { name: address, email: address, password: hashPassword("mdp-joueur"), consentedAt: new Date() },
+      });
+      return login(address, "mdp-joueur");
+    };
+    const postJoin = (token, cookie) => fetch(`${BASE_URL}/api/groups/join/${token}`, { method: "POST", headers: { cookie } });
+    const members = (userId) => prisma.groupMember.count({ where: { groupId: group.id, userId } });
+
+    // Course : 8 personnes différentes, un seul lien à usage unique, tous en même temps.
+    const link = await mkInvite();
+    const names = Array.from({ length: 8 }, (_, i) => email(`course-${i}`));
+    const cookies = await Promise.all(names.map(joinAs));
+    check(cookies.every(Boolean), "8 sessions de test");
+    const results = await Promise.all(cookies.map((c) => postJoin(link.token, c)));
+    const codes = results.map((r) => r.status).sort();
+    const ids = (await prisma.user.findMany({ where: { email: { in: names } }, select: { id: true } })).map((u) => u.id);
+    const total = await prisma.groupMember.count({ where: { groupId: group.id, userId: { in: ids } } });
+    check(codes.filter((c) => c === 200).length === 1 && codes.filter((c) => c === 410).length === 7, `8 joins simultanés d'un lien à usage unique : 1 seul 200, 7 refus 410 (${codes.join(",")})`);
+    check(total === 1, `une seule adhésion créée (${total})`);
+    check(!!(await prisma.groupInvite.findUnique({ where: { token: link.token } })).usedAt, "le lien est consommé");
+
+    // Même personne, deux onglets : une adhésion, pas d'erreur 500.
+    const again = await mkInvite();
+    const twice = await joinAs(email("deux-onglets"));
+    const pair = await Promise.all([postJoin(again.token, twice), postJoin(again.token, twice)]);
+    const uid = (await userOf(email("deux-onglets"))).id;
+    check(pair.every((r) => r.status === 200 || r.status === 410) && pair.some((r) => r.status === 200), `même personne, deux requêtes : pas de 500 (${pair.map((r) => r.status).join(",")})`);
+    check((await members(uid)) === 1, "une seule adhésion pour elle");
+
+    // Expiré ou déjà utilisé : refusé, aucune adhésion.
+    const expired = await mkInvite({ expiresAt: new Date(Date.now() - 1000) });
+    const used = await mkInvite({ usedAt: new Date() });
+    const late = await joinAs(email("en-retard"));
+    const lateId = (await userOf(email("en-retard"))).id;
+    check((await postJoin(expired.token, late)).status === 410 && (await postJoin(used.token, late)).status === 410, "lien expiré ou déjà utilisé : 410");
+    check((await postJoin(newToken(), late)).status === 404, "lien inconnu : 404");
+    check((await members(lateId)) === 0, "aucune adhésion créée");
+    // Hors périmètre (noté, non changé) : un lien nominatif n'impose pas l'adresse au join.
   }
 
   console.log("Limite de débit");

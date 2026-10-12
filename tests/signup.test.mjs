@@ -1,12 +1,12 @@
 /**
- * Test de la liste blanche d'inscription (src/lib/signupAllowlist.ts, e-mails
- * src/lib/email.ts) : MindDump est en bêta privée, personne hors ALLOWED_SIGNUP_EMAILS
- * (ou sans invitation : tests/beta.test.mjs) ne peut créer de compte, mais les comptes existants se connectent et lient un
- * fournisseur comme avant (ADR 0001 : rien ne disparaît pour son auteur).
+ * Test des adresses autorisées à s'inscrire sans lien (table AllowedSignupEmail,
+ * src/lib/signupAllowlist.ts, e-mails src/lib/email.ts) : MindDump est en bêta privée,
+ * personne hors de cette table (ni invitation : tests/beta.test.mjs, tests/group-invite.test.mjs)
+ * ne peut créer de compte, mais les comptes existants se connectent et lient un fournisseur comme
+ * avant (ADR 0001 : rien ne disparaît pour son auteur). Gérée dans /admin : routes
+ * /api/admin/allowed-emails (administrateur, même origine, 409 doublon, 400 invalide).
  *
- * Deux serveurs MindDump sur une base JETABLE (scripts/test-signup.sh) :
- *   BASE_URL         ALLOWED_SIGNUP_EMAILS = « ALICE@…, bob@… » (casse et espaces variés)
- *   BASE_URL_CLOSED  ALLOWED_SIGNUP_EMAILS vide
+ * Un serveur MindDump sur une base JETABLE (scripts/test-signup.sh), table vide au départ.
  * Le fournisseur OAuth `test-oidc` n'existe pas dans un serveur de production :
  * les callbacks NextAuth (signIn, adaptateur) sont donc appelés directement, depuis
  * ce processus qui l'active (OAUTH_TEST_ISSUER, hors production), comme le fait
@@ -22,17 +22,15 @@ if (process.env.OWNERSHIP_TEST_DB !== "disposable") {
   process.exit(2);
 }
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
-const CLOSED_URL = process.env.BASE_URL_CLOSED || "http://localhost:3001";
 
 const run = process.env.SIGNUP_TEST_RUN_ID || randomBytes(4).toString("hex");
-const LIST = ` ALICE-${run}@Test.Local , bob-${run}@test.local ,, kelly-${run}@test.local `;
-// Le processus de test lit la même liste que le serveur A pour les callbacks directs.
-process.env.ALLOWED_SIGNUP_EMAILS = LIST;
 process.env.NODE_ENV = "development";
 process.env.OAUTH_TEST_ISSUER = "http://localhost:4010";
 
 const unwrap = (mod) => ({ ...mod.default, ...mod });
-const { isSignupAllowed, parseAllowlist, allowedSignupEmails } = unwrap(await import("../src/lib/signupAllowlist.ts"));
+const { isSignupAllowed, addAllowedEmail, removeAllowedEmail, listAllowedEmails } = unwrap(await import("../src/lib/signupAllowlist.ts"));
+const { deleteUserAccount } = unwrap(await import("../src/lib/account.ts"));
+const { createUserWithGrant } = unwrap(await import("../src/lib/signupInvite.ts"));
 const { rateLimit, rateLimitAllows, rateLimitFail, ipKey, clientIp, MAX_KEYS } = unwrap(await import("../src/lib/rateLimit.ts"));
 const { authOptions, SIGNUP_CLOSED_URL } = unwrap(await import("../src/lib/auth.ts"));
 const { linkAuthOptions } = unwrap(await import("../src/lib/accountLinking.ts"));
@@ -54,6 +52,23 @@ const check = (cond, label) => {
 const CLOSED_MESSAGE = "Les inscriptions sont fermées pour le moment.";
 const userByEmail = (email) => prisma.user.findUnique({ where: { email } });
 const countUsers = () => prisma.user.count();
+/** Ajoute / retire une adresse directement en base (semis du test ; les routes admin ont leur section). */
+const allow = (address) => {
+  const normalized = address.trim().toLowerCase();
+  return prisma.allowedSignupEmail.upsert({ where: { email: normalized }, create: { email: normalized }, update: {} });
+};
+const disallow = (address) => prisma.allowedSignupEmail.deleteMany({ where: { email: address.trim().toLowerCase() } });
+const inTable = async (address) => !!(await prisma.allowedSignupEmail.findUnique({ where: { email: address.trim().toLowerCase() } }));
+/** Table vidée le temps de `fn`, puis restaurée. */
+async function withEmptyTable(fn) {
+  const saved = await prisma.allowedSignupEmail.findMany();
+  await prisma.allowedSignupEmail.deleteMany();
+  try {
+    return await fn();
+  } finally {
+    await prisma.allowedSignupEmail.createMany({ data: saved });
+  }
+}
 
 // Chaque appel vient d'une « adresse IP » différente (en-tête ajouté par le proxy) :
 // la limite de débit par IP (A2) ne doit pas fausser les autres cas. Voir le cas dédié plus bas.
@@ -123,24 +138,44 @@ const signInCallback = (options, email, providerAccountId = `sub-${randomBytes(4
     profile: emailVerified === "absent" ? { email } : { email, email_verified: emailVerified },
   });
 
+/** Connexion e-mail / mot de passe : renvoie l'en-tête Cookie de la session (administrateur ou non). */
+async function sessionCookie(base, email, password) {
+  const csrfRes = await fetch(`${base}/api/auth/csrf`);
+  const csrfCookie = csrfRes.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  const { csrfToken } = await csrfRes.json();
+  const res = await fetch(`${base}/api/auth/callback/credentials`, {
+    method: "POST",
+    redirect: "manual",
+    headers: { "content-type": "application/x-www-form-urlencoded", cookie: csrfCookie },
+    body: new URLSearchParams({ csrfToken, email, password, json: "true" }).toString(),
+  });
+  const session = res.headers.getSetCookie().map((c) => c.split(";")[0]).find((c) => c.includes("next-auth.session-token="));
+  return session ? [csrfCookie, session].join("; ") : null;
+}
+const adminApi = (method, path, cookie, body, headers = {}) =>
+  fetch(`${BASE_URL}/api/admin/allowed-emails${path}`, {
+    method,
+    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}), ...headers },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+
 async function main() {
   const outsider = `eve-${run}@test.local`;
   const existingOutsider = `carol-${run}@test.local`;
 
-  console.log("Helper isSignupAllowed");
+  console.log("Helper isSignupAllowed (table AllowedSignupEmail)");
   {
-    check(isSignupAllowed(`alice-${run}@test.local`), "adresse de la liste (minuscules)");
-    check(isSignupAllowed(`  ALICE-${run}@TEST.LOCAL  `), "casse et espaces variés acceptés");
-    check(isSignupAllowed(`BOB-${run}@test.local`), "deuxième adresse, malgré les virgules et espaces en trop");
-    check(!isSignupAllowed(outsider), "adresse hors liste refusée");
-    check(!isSignupAllowed(`alice-${run}@test.local.evil.com`) && !isSignupAllowed(`xalice-${run}@test.local`), "pas de correspondance partielle");
-    check(!isSignupAllowed("") && !isSignupAllowed("   ") && !isSignupAllowed(null) && !isSignupAllowed(undefined) && !isSignupAllowed(42), "vide, blanc, null, nombre : refusés");
-    for (const [label, value] of [["vide", ""], ["espaces", "   "], ["virgules seules", " , ,, "], ["absente", undefined]]) {
-      if (value === undefined) delete process.env.ALLOWED_SIGNUP_EMAILS;
-      else process.env.ALLOWED_SIGNUP_EMAILS = value;
-      check(!isSignupAllowed(`alice-${run}@test.local`) && allowedSignupEmails().size === 0, `variable ${label} : aucune inscription, fermé par défaut`);
-    }
-    process.env.ALLOWED_SIGNUP_EMAILS = LIST;
+    check((await prisma.allowedSignupEmail.count()) === 0, "la table démarre vide : aucune adresse dans le code ni la migration");
+    check(!(await isSignupAllowed(`alice-${run}@test.local`)), "table vide : fermé par défaut");
+    // Semis : comme si l'administrateur avait ajouté ces adresses.
+    for (const label of ["alice", "bob", "kelly"]) await allow(`${label}-${run}@test.local`);
+    check(await isSignupAllowed(`alice-${run}@test.local`), "adresse de la table (minuscules)");
+    check(await isSignupAllowed(`  ALICE-${run}@TEST.LOCAL  `), "casse et espaces variés acceptés");
+    check(await isSignupAllowed(`BOB-${run}@test.local`), "deuxième adresse");
+    check(!(await isSignupAllowed(outsider)), "adresse hors table refusée");
+    check(!(await isSignupAllowed(`alice-${run}@test.local.evil.com`)) && !(await isSignupAllowed(`xalice-${run}@test.local`)), "pas de correspondance partielle");
+    check(!(await isSignupAllowed("")) && !(await isSignupAllowed("   ")) && !(await isSignupAllowed(null)) && !(await isSignupAllowed(undefined)) && !(await isSignupAllowed(42)), "vide, blanc, null, nombre : refusés");
+    check(!(await isSignupAllowed("%@test.local")) && !(await isSignupAllowed(`alice-${run}@test.%`)), "jokers LIKE : sans effet (égalité stricte)");
   }
 
   console.log("A1 : normalisation unique des e-mails");
@@ -153,35 +188,22 @@ async function main() {
     check(parseEmail("a@b") === null && parseEmail("@test.local") === null && parseEmail("a..b@test.local") === null && parseEmail("a@test..local") === null, "formes invalides refusées");
     check(parseEmail(`${"x".repeat(250)}@test.local`) === null, "trop long : refusé");
     check(parseEmail(42) === null && parseEmail(null) === null, "non-chaîne : refusé");
-    check(!isSignupAllowed("\u212Aelly-" + run + "@test.local") && isSignupAllowed(`kelly-${run}@test.local`), "liste blanche : « K » ASCII accepté, Kelvin refusé");
+    check(!(await isSignupAllowed("\u212Aelly-" + run + "@test.local")) && (await isSignupAllowed(`kelly-${run}@test.local`)), "table : « K » ASCII accepté, Kelvin refusé");
   }
 
-  console.log("A5 : lecture tolérante de ALLOWED_SIGNUP_EMAILS");
+  console.log("Ajout à la table : normalisation et ASCII strict");
   {
-    const a = parseAllowlist('"a@test.local, B@test.local"').emails;
-    check(a.has("a@test.local") && a.has("b@test.local") && a.size === 2, "guillemets doubles en bordure retirés");
-    const b = parseAllowlist("'a@test.local';b@test.local").emails;
-    check(b.has("a@test.local") && b.has("b@test.local"), "guillemets simples, séparateur point-virgule");
-    const c = parseAllowlist("a@test.local\nb@test.local\r\n  c@test.local\t,d@test.local;").emails;
-    check(c.size === 4, "retours à la ligne, tabulations, espaces, virgule et point-virgule en trop");
-    const d = parseAllowlist("a@test.local, pas-une-adresse, \u212A@test.local, ok@test.local");
-    check(d.emails.size === 2 && d.ignored === 2, "entrées invalides ignorées (comptées), les valides conservées");
-    const warns = [];
-    const originalWarn = console.warn;
-    console.warn = (...args) => warns.push(args.join(" "));
-    process.env.ALLOWED_SIGNUP_EMAILS = "secret-nom@test.local, nimportequoi";
-    allowedSignupEmails(); allowedSignupEmails(); allowedSignupEmails();
-    console.warn = originalWarn;
-    check(warns.length === 1, "un seul avertissement pour une même valeur de la variable");
-    check(warns[0] && !warns[0].includes("secret-nom") && !warns[0].includes("nimportequoi"), "l'avertissement n'écrit aucune adresse");
-    process.env.ALLOWED_SIGNUP_EMAILS = '"pas valide", ;;';
-    check(allowedSignupEmails().size === 0, "aucune entrée valide = liste vide, fermé");
-    process.env.ALLOWED_SIGNUP_EMAILS = '"pas valide", ok@test.local';
-    check(allowedSignupEmails().size === 1 && isSignupAllowed("ok@test.local"), "une entrée valide suffit");
-    process.env.ALLOWED_SIGNUP_EMAILS = LIST;
+    const added = await addAllowedEmail("  NORM-" + run + "@Test.Local ", " une note ", null);
+    check(added.ok && added.entry.email === `norm-${run}@test.local` && added.entry.note === "une note", "ajout : adresse normalisée (casse, espaces), note rognée");
+    check((await addAllowedEmail(`norm-${run}@TEST.local`, "", null)).reason === "duplicate", "même adresse, autre casse : doublon");
+    check((await addAllowedEmail("\u212Aelly2-" + run + "@test.local", "", null)).reason === "invalid", "signe Kelvin refusé à l'ajout");
+    check((await addAllowedEmail("é@test.local", "", null)).reason === "invalid" && (await addAllowedEmail("pas une adresse", "", null)).reason === "invalid" && (await addAllowedEmail(42, "", null)).reason === "invalid", "hors ASCII, mal formée, non textuelle : invalide");
+    check((await addAllowedEmail(`long-${run}@test.local`, "x".repeat(121), null)).reason === "note-too-long", "note trop longue refusée");
+    check((await listAllowedEmails()).some((e) => e.email === `norm-${run}@test.local`), "liste : l'adresse ajoutée apparaît");
+    await disallow(`norm-${run}@test.local`);
   }
 
-  console.log("Inscription e-mail / mot de passe (liste renseignée)");
+  console.log("Inscription e-mail / mot de passe (adresses autorisées)");
   const carolPassword = "mot-de-passe-de-carol";
   await prisma.user.create({
     data: { name: "Carol", email: existingOutsider, password: hashPassword(carolPassword), consentedAt: new Date() },
@@ -189,13 +211,13 @@ async function main() {
   {
     const before = await countUsers();
     const refused = await register(BASE_URL, outsider);
-    check(refused.status === 403, "hors liste : 403");
+    check(refused.status === 403, "hors table : 403");
     check(refused.body?.error === CLOSED_MESSAGE, "message en français, générique");
     check(!JSON.stringify(refused.body).includes(`alice-${run}`), "le message ne révèle rien de la liste");
-    check(!(await userByEmail(outsider)) && (await countUsers()) === before, "aucun utilisateur créé hors liste");
+    check(!(await userByEmail(outsider)) && (await countUsers()) === before, "aucun utilisateur créé hors table");
 
     const accepted = await register(BASE_URL, `ALICE-${run}@Test.Local`);
-    check(accepted.status === 201, "dans la liste (autre casse) : 201");
+    check(accepted.status === 201, "dans la table (autre casse) : 201");
     const alice = await userByEmail(`alice-${run}@test.local`);
     check(!!alice, "utilisateur créé, adresse stockée en minuscules");
     check(!(await userByEmail(`ALICE-${run}@Test.Local`)), "pas de variante à casse mixte en base");
@@ -204,11 +226,11 @@ async function main() {
     check(aliceLogin?.id === alice?.id, "le compte inscrit se connecte");
 
     const again = await register(BASE_URL, `bob-${run}@test.local`, { password: "court" });
-    check(again.status === 400, "dans la liste mais mot de passe trop court : 400 habituel, rien de créé");
+    check(again.status === 400, "dans la table mais mot de passe trop court : 400 habituel, rien de créé");
     check(!(await userByEmail(`bob-${run}@test.local`)), "bob n'a pas été créé");
 
     const dup = await register(BASE_URL, `ALICE-${run}@Test.Local`);
-    check(dup.status === 409, "adresse de la liste déjà inscrite : 409 habituel");
+    check(dup.status === 409, "adresse autorisée déjà inscrite : 409 habituel");
     const dupLower = await register(BASE_URL, `alice-${run}@test.local`);
     check(dupLower.status === 409, "même adresse en minuscules : 409 aussi (A1)");
     check((await prisma.user.count({ where: { email: { equals: `alice-${run}@test.local`, mode: "insensitive" } } })) === 1, "A1 : ALICE@ face à alice@ existant, pas de doublon");
@@ -223,7 +245,7 @@ async function main() {
     check((await prisma.user.count({ where: { email: { equals: `kelly-${run}@test.local`, mode: "insensitive" } } })) === 1, "A1 : un seul compte « kelly » en base");
   }
 
-  console.log("Pas d'énumération (hors liste : inconnu ou déjà inscrit)");
+  console.log("Pas d'énumération (hors table : inconnu ou déjà inscrit)");
   {
     const unknown = [];
     const known = [];
@@ -248,36 +270,49 @@ async function main() {
     check(garbage.status === 403, "corps illisible : 403, pas d'erreur 500");
   }
 
-  console.log("Connexion d'un compte existant hors liste");
+  console.log("Connexion d'un compte existant hors table");
   {
     const carol = await credentialsLogin(BASE_URL, existingOutsider, carolPassword);
-    check(!!carol?.email && carol.email === existingOutsider, "carol (hors liste) se connecte");
+    check(!!carol?.email && carol.email === existingOutsider, "carol (hors table) se connecte");
     const wrong = await credentialsLogin(BASE_URL, existingOutsider, "mauvais");
     check(wrong === null, "mauvais mot de passe : toujours refusé");
   }
 
-  console.log("Liste vide (serveur fermé)");
+  console.log("Adresse retirée de la table : fermé, comptes intacts (ADR 0001)");
   {
+    const zed = `zed-${run}@test.local`;
+    await allow(zed);
+    await disallow(zed);
     const before = await countUsers();
-    const r = await register(CLOSED_URL, `alice-${run}@test.local`);
-    check(r.status === 403 && r.body?.error === CLOSED_MESSAGE, "même une adresse de l'ancienne liste : 403");
-    check((await countUsers()) === before, "aucun utilisateur créé");
-    const carol = await credentialsLogin(CLOSED_URL, existingOutsider, carolPassword);
-    check(carol?.email === existingOutsider, "carol se connecte même quand tout est fermé");
-    const alice = await credentialsLogin(CLOSED_URL, `ALICE-${run}@Test.Local`, "motdepasse-solide");
-    check(!!alice, "un compte créé quand c'était ouvert se connecte toujours");
+    const r = await register(BASE_URL, zed);
+    check(r.status === 403 && r.body?.error === CLOSED_MESSAGE, "adresse ajoutée puis retirée : 403 générique");
+    // Table entièrement vidée : même une adresse de l'ancienne liste est refusée.
+    await withEmptyTable(async () => {
+      const again = await register(BASE_URL, `bob-${run}@test.local`);
+      check(again.status === 403 && again.body?.error === CLOSED_MESSAGE, "table vide : même une adresse précédemment autorisée : 403");
+      check((await countUsers()) === before, "aucun utilisateur créé");
+      const carol = await credentialsLogin(BASE_URL, existingOutsider, carolPassword);
+      check(carol?.email === existingOutsider, "carol se connecte même quand tout est fermé");
+      const alice = await credentialsLogin(BASE_URL, `ALICE-${run}@Test.Local`, "motdepasse-solide");
+      check(!!alice, "un compte créé quand c'était ouvert se connecte toujours (son adresse n'est plus dans la table)");
+      const aliceUser = await userByEmail(`alice-${run}@test.local`);
+      check(!!aliceUser && (await prisma.group.count({ where: { ownerId: aliceUser.id, isDefault: true } })) === 1, "alice garde son compte et son groupe par défaut");
+    });
+    // createUserWithGrant, sous verrou : le chemin unique refuse aussi (adresse retirée, aucun jeton).
+    const direct = await createUserWithGrant(zed, { name: "Zed" });
+    check(direct.ok === false && direct.reason === "closed" && !(await userByEmail(zed)), "createUserWithGrant : adresse retirée = fermé, rien créé");
   }
 
   console.log("Pages /register et /login");
   {
     const open = await (await fetch(`${BASE_URL}/register`)).text();
     check(open.includes("Demander un accès à la bêta") && !open.includes("Créer mon compte"), "/register sans jeton : demande d'accès, pas de formulaire d'inscription");
-    const closed = await (await fetch(`${CLOSED_URL}/register`)).text();
-    check(closed.includes("Demander un accès à la bêta") && !closed.includes("Créer mon compte"), "liste vide : même page de demande d'accès");
+    check(open.includes("Tu es déjà autorisé") && open.includes("/register?direct=1"), "/register : lien « Tu es déjà autorisé·e ? Crée ton compte »");
+    const direct = await (await fetch(`${BASE_URL}/register?direct=1`)).text();
+    check(direct.includes("Créer mon compte") && !direct.includes("Envoyer ma demande"), "/register?direct=1 : formulaire d'inscription");
+    check(!direct.includes(`alice-${run}`) && !direct.includes(`bob-${run}`), "la page directe ne révèle aucune adresse de la table");
     const loginOpen = await (await fetch(`${BASE_URL}/login`)).text();
-    const loginClosed = await (await fetch(`${CLOSED_URL}/login`)).text();
     check(loginOpen.includes("Demander un accès") && !loginOpen.includes("Créer un compte"), "/login : le lien devient « Demander un accès »");
-    check(loginClosed.includes("Demander un accès") && loginClosed.includes("Se connecter"), "liste vide : lien et connexion présents");
     check(oauthErrorMessage("SignupClosed") === CLOSED_MESSAGE, "/login?error=SignupClosed : message en français");
   }
 
@@ -286,10 +321,10 @@ async function main() {
     check(authOptions.providers.some((p) => p.id === "test-oidc"), "le fournisseur test-oidc est actif dans ce processus");
     check(SIGNUP_CLOSED_URL === "/login?error=SignupClosed", "refus renvoyé vers /login?error=SignupClosed");
     const before = await countUsers();
-    check((await signInCallback(authOptions, outsider)) === SIGNUP_CLOSED_URL, "nouvel utilisateur hors liste : redirigé vers /login?error=SignupClosed");
+    check((await signInCallback(authOptions, outsider)) === SIGNUP_CLOSED_URL, "nouvel utilisateur hors table : redirigé vers /login?error=SignupClosed");
     check((await signInCallback(authOptions, null)) === SIGNUP_CLOSED_URL, "profil sans e-mail : refusé");
-    check((await signInCallback(authOptions, `BOB-${run}@Test.Local`)) === true, "nouvel utilisateur dans la liste (autre casse) : accepté");
-    check((await signInCallback(authOptions, `bob-${run}@test.local`, undefined, false)) === SIGNUP_CLOSED_URL, "A4 : email_verified=false, même dans la liste : refusé");
+    check((await signInCallback(authOptions, `BOB-${run}@Test.Local`)) === true, "nouvel utilisateur dans la table (autre casse) : accepté");
+    check((await signInCallback(authOptions, `bob-${run}@test.local`, undefined, false)) === SIGNUP_CLOSED_URL, "A4 : email_verified=false, même dans la table : refusé");
     check((await signInCallback(authOptions, `bob-${run}@test.local`, undefined, "false")) === SIGNUP_CLOSED_URL, "A4 : email_verified=\"false\" : refusé");
     check((await signInCallback(authOptions, `bob-${run}@test.local`, undefined, "absent")) === SIGNUP_CLOSED_URL, "A4 : email_verified absent : refusé");
     check((await signInCallback(authOptions, `bob-${run}@test.local`, undefined, "true")) === true, "A4 : email_verified=\"true\" (Apple) : accepté");
@@ -312,25 +347,31 @@ async function main() {
     } catch {
       refused = true;
     }
-    check(refused && !(await userByEmail(outsider)), "adaptateur createUser : refuse hors liste, rien en base");
+    check(refused && !(await userByEmail(outsider)), "adaptateur createUser : refuse hors table, rien en base");
     const created = await authOptions.adapter.createUser({ email: `bob-${run}@test.local`, name: "Bob", emailVerified: null });
-    check(!!created?.id && !!(await userByEmail(`bob-${run}@test.local`)), "adaptateur createUser : crée dans la liste");
-    // Liste vidée : même un ex-membre de la liste n'est plus accepté.
-    process.env.ALLOWED_SIGNUP_EMAILS = "";
-    check((await signInCallback(authOptions, `zoe-${run}@test.local`)) === SIGNUP_CLOSED_URL, "liste vide : tout nouvel utilisateur OAuth refusé");
-    process.env.ALLOWED_SIGNUP_EMAILS = LIST;
+    check(!!created?.id && !!(await userByEmail(`bob-${run}@test.local`)), "adaptateur createUser : crée dans la table");
+    // Adresse retirée : le callback relit la base, plus d'inscription OAuth.
+    await allow(`zoe-${run}@test.local`);
+    check((await signInCallback(authOptions, `zoe-${run}@test.local`)) === true, "adresse ajoutée à la table : OAuth accepté aussitôt (lecture en base)");
+    await disallow(`zoe-${run}@test.local`);
+    check((await signInCallback(authOptions, `ZOE-${run}@test.local`)) === SIGNUP_CLOSED_URL, "adresse retirée : OAuth refusé aussitôt");
+    await allow(`yan-${run}@test.local`);
+    await withEmptyTable(async () => {
+      check((await signInCallback(authOptions, `yan-${run}@test.local`)) === SIGNUP_CLOSED_URL, "table vide : tout nouvel utilisateur OAuth refusé");
+    });
   }
 
-  console.log("OAuth : utilisateur existant et liaison (hors liste)");
+  console.log("OAuth : utilisateur existant et liaison (hors table)");
   {
     const carol = await userByEmail(existingOutsider);
-    // 1. Compte OAuth déjà lié : connexion d'un utilisateur existant, même hors liste, même liste vide.
+    // 1. Compte OAuth déjà lié : connexion d'un utilisateur existant, même hors table, même table vide.
     const sub = `linked-${run}`;
     await prisma.account.create({
       data: { userId: carol.id, type: "oauth", provider: "test-oidc", providerAccountId: sub, access_token: "x" },
     });
-    process.env.ALLOWED_SIGNUP_EMAILS = "";
-    check((await signInCallback(authOptions, `autre-adresse-${run}@test.local`, sub)) === true, "compte OAuth déjà lié (e-mail du fournisseur différent) : connexion OK, liste vide");
+    const savedRows = await prisma.allowedSignupEmail.findMany();
+    await prisma.allowedSignupEmail.deleteMany();
+    check((await signInCallback(authOptions, `autre-adresse-${run}@test.local`, sub)) === true, "compte OAuth déjà lié (e-mail du fournisseur différent) : connexion OK, table vide");
     // 2. E-mail déjà inscrit : pas de création (NextAuth renvoie son refus « compte existant »).
     check((await signInCallback(authOptions, existingOutsider)) === true, "e-mail d'un compte existant : le callback ne bloque pas (refus habituel OAuthAccountNotLinked)");
     // 3. Liaison depuis le profil (web) et depuis l'app (liaison différée) : aucun utilisateur créé.
@@ -345,13 +386,13 @@ async function main() {
         account: oauthAccount(`new-${label}-${run}`),
         profile: { email: `quelquun-${run}@ailleurs.test` },
       });
-      check(result === true, `liaison ${label} à un compte hors liste (liste vide) : acceptée`);
+      check(result === true, `liaison ${label} à un compte hors table (table vide) : acceptée`);
       const user = await link.adapter.createUser({ email: `quelquun-${run}@ailleurs.test`, emailVerified: null });
       check(user.id === carol.id, `liaison ${label} : « createUser » rend l'utilisateur existant`);
     }
     check((await countUsers()) === before, "la liaison ne crée aucun utilisateur");
     check((await prisma.user.findUnique({ where: { id: carol.id } }))?.email === existingOutsider, "carol est intacte");
-    process.env.ALLOWED_SIGNUP_EMAILS = LIST;
+    await prisma.allowedSignupEmail.createMany({ data: savedRows });
   }
 
   console.log("A1 : comptes existants à casse mixte (ADR 0001)");
@@ -460,7 +501,7 @@ async function main() {
     check(results.every(Boolean), "un compte existant se connecte toujours : 13 connexions réussies d'affilée depuis la même IP");
     await loginAttempt(BASE_URL, regular, "faute-de-frappe", "203.0.113.60");
     check((await loginAttempt(BASE_URL, regular, pw("habituee"), "203.0.113.60")).session !== null, "une faute de frappe puis le bon mot de passe : connexion");
-    check((await loginAttempt(BASE_URL, existingOutsider, carolPassword, freshIp())).session !== null, "carol (hors liste) se connecte toujours");
+    check((await loginAttempt(BASE_URL, existingOutsider, carolPassword, freshIp())).session !== null, "carol (hors table) se connecte toujours");
   }
 
   console.log("F4 : /register?invite= jamais mis en cache");
@@ -469,6 +510,110 @@ async function main() {
     check((withInvite.headers.get("cache-control") || "").includes("no-store"), `/register?invite= : Cache-Control no-store (${withInvite.headers.get("cache-control")})`);
     const sw = (await import("node:fs")).readFileSync(new URL("../src/app/sw.ts", import.meta.url), "utf8");
     check(/const isPage = [^\n]*startsWith\("\/register"\)/.test(sw), "service worker : /register exclu du cache de navigation");
+  }
+
+  console.log("Administration : /api/admin/allowed-emails");
+  {
+    const adminPw = "mdp-admin-allowlist";
+    const simplePw = "mdp-simple-allowlist";
+    await prisma.user.create({ data: { name: "Admin", email: `admin-allow-${run}@test.local`, password: hashPassword(adminPw), role: "admin", consentedAt: new Date() } });
+    await prisma.user.create({ data: { name: "Simple", email: `simple-allow-${run}@test.local`, password: hashPassword(simplePw), role: "user", consentedAt: new Date() } });
+    const adminCookie = await sessionCookie(BASE_URL, `admin-allow-${run}@test.local`, adminPw);
+    const userCookie = await sessionCookie(BASE_URL, `simple-allow-${run}@test.local`, simplePw);
+    check(!!adminCookie && !!userCookie, "sessions de test (administrateur, utilisateur simple)");
+    const target = `Nina-${run}@Test.Local`;
+    const norm = `nina-${run}@test.local`;
+    const rowCount = () => prisma.allowedSignupEmail.count();
+
+    // Accès : sans session 401, utilisateur simple 403, sur les trois verbes.
+    const before = await rowCount();
+    const anon = [await adminApi("GET", ""), await adminApi("POST", "", undefined, { email: target }), await adminApi("DELETE", "/x", undefined)];
+    check(anon.every((r) => r.status === 401), `sans session : 401 partout (${anon.map((r) => r.status).join(",")})`);
+    const plain = [await adminApi("GET", "", userCookie), await adminApi("POST", "", userCookie, { email: target }), await adminApi("DELETE", "/x", userCookie)];
+    check(plain.every((r) => r.status === 403), `non-administrateur : 403 partout (${plain.map((r) => r.status).join(",")})`);
+    check((await rowCount()) === before && !(await inTable(norm)), "…et rien n'a été ajouté");
+
+    // Origine étrangère : 403 même pour l'administrateur, rien ne change.
+    const evil = { origin: "https://evil.example" };
+    check((await adminApi("POST", "", adminCookie, { email: target }, evil)).status === 403 && !(await inTable(norm)), "POST depuis une origine étrangère : 403, rien ajouté");
+    const ok = await adminApi("POST", "", adminCookie, { email: `  ${target}  `, note: "  amie  " });
+    const created = await ok.json();
+    check(ok.status === 201 && created.email === norm && created.note === "amie", `ajout par l'administrateur : 201, adresse normalisée (${ok.status})`);
+    check(await inTable(`  ${target.toUpperCase()} `), "…variantes de casse et d'espaces retrouvées");
+    const row = await prisma.allowedSignupEmail.findUnique({ where: { email: norm } });
+    check(!!row?.createdById && !!row.createdAt, "ajouteur et date enregistrés");
+    const list = await (await adminApi("GET", "", adminCookie)).json();
+    check(list.emails.some((e) => e.id === created.id && e.email === norm), "GET : l'adresse est listée");
+    check((await adminApi("DELETE", `/${created.id}`, adminCookie, undefined, evil)).status === 403 && (await inTable(norm)), "DELETE depuis une origine étrangère : 403, l'adresse reste");
+
+    // Doublon et saisies invalides.
+    check((await adminApi("POST", "", adminCookie, { email: `NINA-${run}@test.local` })).status === 409, "doublon (autre casse) : 409");
+    for (const [label, body] of [["mal formée", { email: "pas-une-adresse" }], ["vide", { email: "  " }], ["absente", {}], ["non textuelle", { email: 42 }], ["Kelvin", { email: `\u212Aelly-${run}@test.local` }], ["hors ASCII", { email: "é@test.local" }], ["note trop longue", { email: `n2-${run}@test.local`, note: "x".repeat(200) }]]) {
+      check((await adminApi("POST", "", adminCookie, body)).status === 400, `saisie ${label} : 400`);
+    }
+    check((await fetch(`${BASE_URL}/api/admin/allowed-emails`, { method: "POST", headers: { cookie: adminCookie }, body: "pas du json" })).status === 400, "corps illisible : 400");
+    check((await rowCount()) === before + 1, "les saisies refusées n'ont rien ajouté");
+
+    // Inscription directe : mot de passe, puis OAuth, pour une adresse ajoutée.
+    const reg = await register(BASE_URL, norm.toUpperCase());
+    check(reg.status === 201, `adresse ajoutée : inscription directe par mot de passe (${reg.status})`);
+    const ninaUser = await userByEmail(norm);
+    check(!!ninaUser, "compte créé, adresse en minuscules");
+    const ninaLogin = await credentialsLogin(BASE_URL, norm, "motdepasse-solide");
+    check(ninaLogin?.id === ninaUser?.id, "…et il se connecte");
+    const oauthAddr = `Oscar-${run}@Test.Local`;
+    check((await signInCallback(authOptions, oauthAddr)) === SIGNUP_CLOSED_URL, "OAuth avant l'ajout : fermé");
+    const oscar = await (await adminApi("POST", "", adminCookie, { email: oauthAddr })).json();
+    check((await signInCallback(authOptions, oauthAddr)) === true, "OAuth test-oidc, email_verified=true, après l'ajout : accepté");
+    check((await signInCallback(authOptions, oauthAddr, undefined, false)) === SIGNUP_CLOSED_URL, "OAuth avec email_verified=false : refusé même autorisée");
+    const oscarUser = await authOptions.adapter.createUser({ email: oauthAddr, name: "Oscar", emailVerified: null });
+    check(!!oscarUser?.id && !!(await userByEmail(oauthAddr.toLowerCase())), "OAuth : l'adaptateur crée le compte (adresse en minuscules)");
+
+    // Retrait : fermé pour un nouveau compte, compte existant intact (ADR 0001).
+    const ninaGroups = await prisma.groupMember.count({ where: { userId: ninaUser.id } });
+    const del = await adminApi("DELETE", `/${created.id}`, adminCookie);
+    check(del.status === 200 && !(await inTable(norm)), "retrait par l'administrateur : 200, adresse sortie de la table");
+    check((await adminApi("DELETE", `/${created.id}`, adminCookie)).status === 404, "retrait d'une adresse déjà retirée : 404");
+    check((await userByEmail(norm)) !== null && (await credentialsLogin(BASE_URL, norm, "motdepasse-solide"))?.id === ninaUser.id, "ADR 0001 : le compte de l'adresse retirée existe et se connecte toujours");
+    check((await prisma.groupMember.count({ where: { userId: ninaUser.id } })) === ninaGroups && ninaGroups >= 1, "…ses groupes (et donc ses éléments) sont intacts");
+    const oscarBefore = await oscarUser.id;
+    await adminApi("DELETE", `/${oscar.id}`, adminCookie);
+    check(!!(await prisma.user.findUnique({ where: { id: oscarBefore } })), "compte OAuth conservé aussi après retrait de son adresse");
+    check((await register(BASE_URL, `Newbie-${run}@Test.Local`)).status === 403, "adresse jamais ajoutée : 403 générique");
+    const gone = await register(BASE_URL, `nina2-${run}@test.local`);
+    check(gone.status === 403 && gone.body?.error === CLOSED_MESSAGE, "adresse retirée avant inscription : même 403 générique");
+
+    // Pas d'énumération : adresse retirée (compte existant ou non) = même réponse.
+    const existingRemoved = await register(BASE_URL, norm);
+    const neverAllowed = await register(BASE_URL, `jamais-${run}@test.local`);
+    check(existingRemoved.status === 403 && neverAllowed.status === 403 && JSON.stringify(existingRemoved.body) === JSON.stringify(neverAllowed.body), "adresse retirée avec compte / jamais autorisée sans compte : même 403, même corps");
+
+    // Course : retrait pendant l'inscription. L'utilisateur existe si et seulement si l'inscription a réussi.
+    for (let i = 0; i < 4; i++) {
+      const racer = `racer-${i}-${run}@test.local`;
+      const entry = await (await adminApi("POST", "", adminCookie, { email: racer })).json();
+      const [r, d] = await Promise.all([register(BASE_URL, racer), adminApi("DELETE", `/${entry.id}`, adminCookie)]);
+      const exists = !!(await userByEmail(racer));
+      check(d.status === 200 && [201, 403].includes(r.status) && exists === (r.status === 201), `course ${i} : inscription ${r.status} / retrait ${d.status}, compte ${exists ? "créé" : "absent"} (cohérent)`);
+    }
+
+    // RGPD : la suppression d'un compte retire aussi son adresse de la table.
+    const leaver = `partant-${run}@test.local`;
+    const other = `reste-${run}@test.local`;
+    await allow(leaver);
+    await allow(other);
+    check((await register(BASE_URL, `PARTANT-${run}@test.local`)).status === 201, "inscription directe du futur partant");
+    const leaverUser = await userByEmail(leaver);
+    check(await deleteUserAccount(leaverUser.id, { keepShared: true }), "suppression du compte");
+    check(!(await inTable(leaver)) && (await inTable(other)), "RGPD : son adresse est retirée de la table, celles des autres restent");
+    check((await register(BASE_URL, leaver)).status === 403, "après suppression de compte : l'adresse ne peut plus se réinscrire sans nouvelle autorisation");
+
+    // Suppression de l'administrateur qui a ajouté : l'adresse reste (createdById -> NULL).
+    const keeper = await prisma.user.create({ data: { name: "Ajouteur", email: `ajouteur-${run}@test.local`, password: hashPassword("x-ajouteur-1"), role: "admin", consentedAt: new Date() } });
+    await prisma.allowedSignupEmail.create({ data: { email: `ajoutee-${run}@test.local`, createdById: keeper.id } });
+    await deleteUserAccount(keeper.id, { keepShared: true });
+    const orphan = await prisma.allowedSignupEmail.findUnique({ where: { email: `ajoutee-${run}@test.local` } });
+    check(!!orphan && orphan.createdById === null, "compte de l'ajouteur supprimé : l'adresse reste, createdById passe à NULL");
   }
 
   console.log("Invariants");

@@ -21,7 +21,8 @@ section « Connexion » du profil, n'affichent que les fournisseurs actifs.
 ## Bêta privée : inscriptions sur invitation
 
 MindDump est en bêta privée. **Fermé par défaut** : un compte ne peut être créé que si l'adresse est
-dans `ALLOWED_SIGNUP_EMAILS` **ou** si une invitation valide la vise. Les deux voies passent par
+dans la table `AllowedSignupEmail` (gérée dans `/admin`), **ou** si une invitation bêta valide la vise,
+**ou** si une invitation de foyer valide l'autorise. Les trois voies passent par
 `createUserWithGrant` (`src/lib/signupInvite.ts`), seul chemin de création d'un utilisateur.
 
 ### Parcours
@@ -55,7 +56,7 @@ HTTPS comme `oauthCookies` pour survivre au `form_post` d'Apple). Sur le callbac
 callback `signIn` autorise une **création** seulement si :
 
 - l'e-mail du fournisseur est **vérifié** (`email_verified === true` ou `"true"`, sinon refus) ;
-- ET il est dans `ALLOWED_SIGNUP_EMAILS`, OU il correspond (normalisé) à l'invitation du cookie.
+- ET il est dans la table `AllowedSignupEmail` (lecture en base), OU il correspond (normalisé) à l'invitation du cookie.
 
 E-mail du fournisseur différent de l'invitation : `/login?error=InviteEmailMismatch`, « Utilise
 l'adresse à laquelle tu as été invité ». Sans cookie : `/login?error=SignupClosed`. Un compte
@@ -103,15 +104,32 @@ mot de passe fonctionne dans l'app. Parcours conseillé pour Google/Apple : ouvr
 navigateur du téléphone, créer le compte, puis se connecter dans l'app (connexion d'un compte
 existant : inchangée).
 
-### `ALLOWED_SIGNUP_EMAILS` (contournement manuel, facultatif)
+### Adresses autorisées (`AllowedSignupEmail`, gérées dans `/admin`)
 
-Variable d'**exécution** (Coolify) pour l'administrateur et les proches : adresses séparées par une
-virgule, un point-virgule, un espace ou un retour à la ligne ; guillemets en bordure retirés ; casse
-ignorée. Une entrée qui n'est pas une adresse ASCII valide est **ignorée**, avec un seul
-avertissement dans les journaux (le nombre d'entrées, jamais les adresses). Logique :
+Table `AllowedSignupEmail` (`email` normalisé et unique, `createdAt`, `createdById` en `SET NULL`,
+note facultative), **à un seul endroit** : la variable d'environnement `ALLOWED_SIGNUP_EMAILS` n'existe
+plus et n'est plus lue. La table démarre **vide** (aucune adresse dans le code) : l'administrateur
+ajoute les adresses depuis `/admin`, onglet « Demandes d'accès », section « Adresses autorisées »
+(`GET/POST /api/admin/allowed-emails`, `DELETE /api/admin/allowed-emails/:id` ; `requireAdmin()` et
+contrôle d'origine ; 400 adresse invalide, 409 déjà présente). Normalisation `parseEmail` (casse et
+espaces ignorés, ASCII strict : le signe Kelvin est refusé à l'ajout). Logique :
 `src/lib/signupAllowlist.ts`, e-mails : `src/lib/email.ts`.
 
-**Risque restant** : sans jeton, l'inscription par **mot de passe** d'une adresse de la liste ne
+- **Inscription directe** : `/register` (sans jeton) reste la demande d'accès ; le lien « Tu es déjà
+  autorisé·e ? Crée ton compte » mène à `/register?direct=1` (formulaire d'inscription sans jeton, avec
+  Google/Apple). La page ne dit rien de la liste : c'est l'envoi qui tranche. Toute adresse non
+  autorisée reçoit le **même 403 générique** que sans la liste (`Les inscriptions sont fermées…`), compte
+  existant ou non ; seule une adresse autorisée dont le compte existe déjà reçoit le 409.
+- **Contrôle** : la route d'inscription et le callback `signIn` lisent la table ; `createUserWithGrant`
+  la relit **sous le verrou d'adresse**, dans la même transaction que la création (un retrait simultané
+  est tranché avant ou après, jamais entre les deux). L'ajout et le retrait prennent le même verrou.
+- **ADR 0001** : retirer une adresse ne touche jamais à un compte existant (connexion, éléments, groupes
+  inchangés). À la suppression d'un compte, son adresse est retirée de la table (RGPD, `src/lib/account.ts`).
+- **Déploiement** : la migration ne remplit rien. Après le déploiement, ajouter les adresses voulues
+  dans `/admin` ; tant qu'elles n'y sont pas, seules les invitations ouvrent l'inscription, et
+  l'ancienne variable d'environnement (Coolify) peut être supprimée : elle est ignorée.
+
+**Risque restant** : sans jeton, l'inscription par **mot de passe** d'une adresse autorisée ne
 prouve pas que l'on possède cette boîte mail (`emailVerified` est posé sans envoi de message). Qui
 connaît une adresse de la liste peut créer le compte avant son titulaire. Atténuation : liste
 courte et secrète, limite de débit sur `/api/auth/register`. Pour tout autre invité, c'est le lien qui

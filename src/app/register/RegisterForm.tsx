@@ -20,17 +20,23 @@ import { safeCallbackPath } from "@/lib/safeCallback";
  * Variante invitation de FOYER (/register?groupInvite=…, src/lib/groupInviteSignup.ts) :
  * adresse verrouillée si le lien est nominatif, libre sinon ; après l'inscription, retour sur
  * la page du groupe (/groups/join/<jeton>) où la personne rejoint par le flux habituel.
+ *
+ * Variante directe (/register?direct=1) : sans jeton, pour une adresse que l'administrateur a
+ * autorisée (src/lib/signupAllowlist.ts). La page n'indique rien sur la liste : le serveur répond
+ * le même 403 générique à toute adresse non autorisée (pas d'énumération).
  */
 export function RegisterForm({
   inviteToken,
   groupInviteToken,
   groupName,
   inviteEmail,
+  direct = false,
 }: {
   inviteToken?: string;
   groupInviteToken?: string;
   groupName?: string;
   inviteEmail: string | null;
+  direct?: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -89,7 +95,7 @@ export function RegisterForm({
   return (
     <BetaShell className="max-w-lg">
       <div className="text-center">
-        <BetaBadge>{groupInviteToken ? "Invitation de foyer" : "Invitation à la bêta privée"}</BetaBadge>
+        <BetaBadge>{groupInviteToken ? "Invitation de foyer" : direct ? "Bêta privée" : "Invitation à la bêta privée"}</BetaBadge>
         <h1
           className="beta-rise mt-5 text-balance text-3xl font-extrabold leading-[1.08] tracking-tight sm:text-4xl"
           style={{ ["--d" as string]: "60ms" }}
@@ -97,6 +103,10 @@ export function RegisterForm({
           {groupInviteToken ? (
             <>
               Crée ton compte pour rejoindre <span className="beta-mark">{groupName}</span>
+            </>
+          ) : direct ? (
+            <>
+              Crée ton compte <span className="beta-mark">MindDump</span>
             </>
           ) : (
             <>
@@ -110,6 +120,8 @@ export function RegisterForm({
         >
           {groupInviteToken
             ? "Une fois ton compte créé, tu reviens sur la page du groupe pour le rejoindre."
+            : direct
+            ? "Utilise l'adresse pour laquelle on t'a autorisé·e à t'inscrire."
             : "Crée ton compte pour retrouver tâches, courses, menus et agenda de ton foyer au même endroit."}
         </p>
       </div>
@@ -122,7 +134,7 @@ export function RegisterForm({
           <OAuthButtons
             callbackUrl={backTo}
             label="S'inscrire avec"
-            beforeStart={async () => {
+            beforeStart={direct ? undefined : async () => {
               // Le jeton passe dans un cookie httpOnly (pas dans l'URL du fournisseur).
               const res = await fetch("/api/signup-invite", {
                 method: "POST",
@@ -252,6 +264,15 @@ export function RegisterForm({
               )}
             </Button>
           </form>
+
+          {direct && (
+            <p className="text-center text-sm text-muted-foreground">
+              Pas encore autorisé·e ?{" "}
+              <Link href="/register" className="inline-flex min-h-11 items-center font-semibold text-foreground underline underline-offset-2">
+                Demander un accès
+              </Link>
+            </p>
+          )}
 
           <p className="text-center text-sm text-muted-foreground">
             Déjà un compte ?{" "}

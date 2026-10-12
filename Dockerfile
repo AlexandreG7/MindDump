@@ -38,7 +38,7 @@ RUN sh scripts/test-reminders.sh && touch /app/.reminders-test-passed
 # Liaison d'un compte Google/Apple depuis l'app : un ticket ne lie que son
 # utilisateur, une seule fois, sans session ni utilisateur créé (docs/oauth.md).
 RUN sh scripts/test-mobile-link.sh && touch /app/.mobile-link-test-passed
-# Bêta privée : liste blanche ALLOWED_SIGNUP_EMAILS (src/lib/signupAllowlist.ts) et
+# Bêta privée : adresses autorisées en base (AllowedSignupEmail, src/lib/signupAllowlist.ts) et
 # inscriptions sur invitation (demandes d'accès, liens à usage unique, admin), comptes
 # existants intacts (docs/oauth.md « Bêta privée »). Deux fichiers : signup et beta.
 RUN sh scripts/test-signup.sh && touch /app/.signup-test-passed

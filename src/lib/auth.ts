@@ -9,7 +9,7 @@ import { generateUniquePublicId } from "./publicId";
 import { oauthCookies, oauthProviders } from "./authProviders";
 import { useSecureCookies } from "./secureCookies";
 import { isMobileDeviceActive } from "./mobileAuth";
-import { allowedSignupEmails, isSignupAllowed } from "./signupAllowlist";
+import { isSignupAllowed } from "./signupAllowlist";
 import { findUserByEmail, normalizeEmail, parseEmail } from "./email";
 import { clientIp, rateLimitAllows, rateLimitClear, rateLimitFail } from "./rateLimit";
 import {
@@ -26,10 +26,6 @@ export const SIGNUP_CLOSED_URL = "/login?error=SignupClosed";
 
 const prismaAdapter = PrismaAdapter(prisma);
 
-// Lit la variable une fois au démarrage : une entrée invalide est signalée dans les
-// journaux tout de suite, pas à la première inscription (signupAllowlist.ts).
-allowedSignupEmails();
-
 /** `email_verified` des fournisseurs : booléen (Google) ou chaîne « true » (Apple). */
 const providerEmailVerified = (profile: unknown) => {
   const value = (profile as { email_verified?: unknown } | undefined)?.email_verified;
@@ -38,7 +34,7 @@ const providerEmailVerified = (profile: unknown) => {
 
 /**
  * Options NextAuth. `inviteToken` : jeton d'invitation lu dans le cookie posé avant
- * Google/Apple (route [...nextauth]) ; sans lui, seule la liste blanche autorise une
+ * Google/Apple (route [...nextauth]) ; sans lui, seules les adresses autorisées en base (table AllowedSignupEmail) permettent une
  * création de compte ; `groupInviteToken` : lien de foyer du cookie homologue
  * (groupInviteSignup.ts), seconde voie d'inscription. Le module exporte `authOptions` (sans invitation) et
  * `authOptionsWithInvite` pour le callback OAuth qui en porte une.
@@ -61,7 +57,7 @@ export function authOptionsWithInvite(inviteToken?: string, groupInviteToken?: s
     },
     // NextAuth ne crée un utilisateur (première connexion Google/Apple) que par ici.
     // Le callback signIn refuse déjà proprement ; ceci garantit qu'aucun chemin n'en
-    // crée hors liste blanche ou sans invitation, et consomme l'invitation dans la
+    // crée hors adresses autorisées ou sans invitation, et consomme l'invitation dans la
     // même transaction. Le mode « liaison » (accountLinking.ts) remplace createUser :
     // il ne crée personne.
     createUser: async (data: Omit<AdapterUser, "id">) => {
@@ -143,7 +139,7 @@ export function authOptionsWithInvite(inviteToken?: string, groupInviteToken?: s
     callbacks: {
       // Inscriptions sur invitation (src/lib/signupAllowlist.ts, signupInvite.ts) : une
       // première connexion Google/Apple qui créerait un NOUVEL utilisateur n'est acceptée
-      // que si l'e-mail du fournisseur est vérifié ET (dans la liste blanche OU visé par
+      // que si l'e-mail du fournisseur est vérifié ET (dans la table des adresses autorisées OU visé par
       // l'invitation du cookie). Sinon renvoi vers /login avec un message en français
       // (pas l'écran d'erreur NextAuth). Les connexions d'utilisateurs existants ne sont
       // jamais concernées. (Le mode « liaison » a son propre callback signIn.)
@@ -169,7 +165,7 @@ export function authOptionsWithInvite(inviteToken?: string, groupInviteToken?: s
         // quiconque pourrait s'inscrire avec l'adresse d'un autre.
         const wanted = parseEmail(email);
         if (!wanted || !providerEmailVerified(profile)) return SIGNUP_CLOSED_URL;
-        if (isSignupAllowed(wanted)) return true;
+        if (await isSignupAllowed(wanted)) return true;
         const invite = await findValidInvite(inviteToken);
         if (invite?.email === wanted) return true;
         // Invitation de foyer (lien /groups/join/…) : lien ouvert, ou nominatif pour cette adresse.

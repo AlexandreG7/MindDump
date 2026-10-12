@@ -95,6 +95,7 @@ model User {
   mealPlanEntries       MealPlanEntry[]
   aiImports             AiImport[]
   signupInvitesCreated  SignupInvite[]
+  allowedSignupEmailsAdded AllowedSignupEmail[]
   pushSubscriptions     PushSubscription[]
 
   @@index([createdAt])
@@ -665,4 +666,20 @@ model SignupInvite {
   @@index([requestId])
   @@index([createdById])
   @@index([createdAt])
+}
+
+// Adresses qui peuvent créer leur compte directement sur /register?direct=1, sans lien
+// (bêta privée, gérées dans /admin ; src/lib/signupAllowlist.ts). Table vide au départ :
+// aucune adresse dans le code. `email` : forme normalisée (parseEmail), unique. Retirer une
+// adresse ne touche jamais à un compte existant (ADR 0001) ; supprimer un compte retire
+// son adresse (src/lib/account.ts).
+model AllowedSignupEmail {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  note        String?
+  createdAt   DateTime @default(now())
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
 }

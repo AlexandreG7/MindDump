@@ -36,15 +36,16 @@ export async function POST(req: NextRequest) {
   const hasGroupInvite = groupInvite !== undefined && groupInvite !== null && groupInvite !== "";
 
   // Inscriptions sur invitation (src/lib/signupInvite.ts). Une adresse peut créer un
-  // compte si elle est dans ALLOWED_SIGNUP_EMAILS OU si l'invitation fournie la vise.
-  // Pour une adresse HORS liste et sans invitation, la réponse (403) est la même qu'elle
-  // soit inscrite ou non : aucune lecture de comptes avant ce contrôle. Ce n'est PAS une
-  // protection contre l'énumération en général : pour une adresse de la liste ou invitée,
-  // le 409 « compte existant » révèle qu'elle est inscrite. D'où la limite de débit
-  // ci-dessus (docs/oauth.md). Sans jeton, la liste blanche ne protège que par le secret
-  // de ses adresses : qui en connaît une peut créer le compte avant son titulaire.
+  // compte si elle est dans la table AllowedSignupEmail (gérée dans /admin) OU si l'invitation
+  // fournie la vise. Pour une adresse NON autorisée et sans invitation, la réponse (403) est la
+  // même qu'elle soit inscrite ou non : aucune lecture de comptes avant ce contrôle (la seule
+  // lecture est celle de la table des adresses autorisées). Ce n'est PAS une protection contre
+  // l'énumération en général : pour une adresse autorisée ou invitée, le 409 « compte existant »
+  // révèle qu'elle est inscrite. D'où la limite de débit ci-dessus (docs/oauth.md). Sans jeton,
+  // la table ne protège que par le secret de ses adresses : qui en connaît une peut créer le
+  // compte avant son titulaire.
   const cleanEmail = parseEmail(email);
-  const allowlisted = isSignupAllowed(cleanEmail);
+  const allowlisted = await isSignupAllowed(cleanEmail);
   if (!allowlisted) {
     if (invite !== undefined && invite !== null && invite !== "") {
       const found = await findValidInvite(invite);
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
     }
   }
   // Ici `cleanEmail` n'est jamais null (TypeScript ne peut pas le déduire) : soit l'adresse
-  // est dans la liste blanche, et isSignupAllowed(null) vaut false ; soit une invitation
+  // est dans la table, et isSignupAllowed(null) vaut false ; soit une invitation
   // valide a été trouvée et son adresse, toujours valide, est égale à `cleanEmail`.
   const signupEmail = cleanEmail as string;
 

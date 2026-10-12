@@ -1,14 +1,14 @@
 #!/bin/sh
-# Test de non-régression des inscriptions fermées : liste blanche (src/lib/signupAllowlist.ts,
-# docs/oauth.md « Inscriptions fermées ») ET bêta privée sur invitation (demandes d'accès,
-# liens à usage unique, admin : tests/beta.test.mjs) et invitations de foyer qui ouvrent l'inscription
-# (tests/group-invite.test.mjs). Personne hors liste blanche ou sans
-# invitation valide ne crée de compte (e-mail/mot de passe, Google/Apple), mais les comptes
-# existants se connectent et lient un fournisseur comme avant (ADR 0001).
+# Test de non-régression des inscriptions fermées : adresses autorisées en base (table
+# AllowedSignupEmail, src/lib/signupAllowlist.ts, docs/oauth.md « Bêta privée »), bêta privée sur
+# invitation (demandes d'accès, liens à usage unique, admin : tests/beta.test.mjs) et invitations de
+# foyer qui ouvrent l'inscription et rejoignent un groupe (tests/group-invite.test.mjs). Personne hors
+# de la table ou sans invitation valide ne crée de compte (e-mail/mot de passe, Google/Apple), mais les
+# comptes existants se connectent et lient un fournisseur comme avant (ADR 0001).
 #
-# Même principe que scripts/test-mobile-link.sh : base PostgreSQL JETABLE, deux
-# serveurs construits (next build) : l'un avec une liste d'adresses, l'autre sans,
-# puis tests/signup.test.mjs par HTTP et par appel direct des callbacks NextAuth.
+# Même principe que scripts/test-mobile-link.sh : base PostgreSQL JETABLE, un serveur construit
+# (next build), table d'adresses vide au départ, puis tests/signup.test.mjs par HTTP et par appel
+# direct des callbacks NextAuth.
 # N'utilise jamais DATABASE_URL de l'environnement : aucune chance d'écrire en prod.
 #
 # Utilisé par le stage « test » du Dockerfile : un échec bloque le déploiement.
@@ -19,7 +19,6 @@ set -eu
 
 PORT_DB="${SIGNUP_TEST_DB_PORT:-54341}"
 PORT_APP="${SIGNUP_TEST_APP_PORT:-3996}"
-PORT_CLOSED="${SIGNUP_TEST_CLOSED_PORT:-3995}"
 WORK="$(mktemp -d)"
 PGDATA="$WORK/pgdata"
 PIDS=""
@@ -63,18 +62,17 @@ unset SKIP_AUTH || true
 
 node ./node_modules/prisma/build/index.js migrate deploy >/dev/null
 
-# Serveur A : liste renseignée (casse et espaces variés, virgule en trop).
-# Serveur B : liste vide. Le suffixe d'exécution est partagé avec le test (RUN_ID).
+# Le suffixe d'exécution est partagé avec les tests (RUN_ID). Les adresses autorisées sont semées
+# par les tests, dans la table (jamais par variable d'environnement : elle n'existe plus).
 RUN_ID="$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
 export SIGNUP_TEST_RUN_ID="$RUN_ID"
-LIST=" ALICE-$RUN_ID@Test.Local , bob-$RUN_ID@test.local ,, kelly-$RUN_ID@test.local "
 
 start_server() {
-  port="$1"; list="$2"; log="$3"
+  port="$1"; log="$2"
   if [ -f .next/standalone/server.js ]; then
-    NEXTAUTH_URL="http://127.0.0.1:$port" ALLOWED_SIGNUP_EMAILS="$list" PORT="$port" HOSTNAME=127.0.0.1 node .next/standalone/server.js >"$log" 2>&1 &
+    NEXTAUTH_URL="http://127.0.0.1:$port" PORT="$port" HOSTNAME=127.0.0.1 node .next/standalone/server.js >"$log" 2>&1 &
   else
-    NEXTAUTH_URL="http://127.0.0.1:$port" ALLOWED_SIGNUP_EMAILS="$list" node ./node_modules/next/dist/bin/next start -p "$port" >"$log" 2>&1 &
+    NEXTAUTH_URL="http://127.0.0.1:$port" node ./node_modules/next/dist/bin/next start -p "$port" >"$log" 2>&1 &
   fi
   PIDS="$PIDS $!"
   i=0
@@ -87,15 +85,12 @@ start_server() {
   done
 }
 
-start_server "$PORT_APP" "$LIST" "$WORK/app.log"
-start_server "$PORT_CLOSED" "" "$WORK/closed.log"
+start_server "$PORT_APP" "$WORK/app.log"
 
 export BASE_URL="http://127.0.0.1:$PORT_APP"
-export BASE_URL_CLOSED="http://127.0.0.1:$PORT_CLOSED"
 export NEXTAUTH_URL="$BASE_URL"
 
 if ! ./node_modules/.bin/tsx tests/signup.test.mjs || ! ./node_modules/.bin/tsx tests/beta.test.mjs || ! ./node_modules/.bin/tsx tests/group-invite.test.mjs; then
-  echo "--- journal du serveur (liste) ---"; tail -n 50 "$WORK/app.log"
-  echo "--- journal du serveur (fermé) ---"; tail -n 50 "$WORK/closed.log"
+  echo "--- journal du serveur ---"; tail -n 50 "$WORK/app.log"
   exit 1
 fi

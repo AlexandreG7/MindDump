@@ -17,8 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AdminOverview, AdminStorage, AdminUsersPage } from "@/lib/adminStats";
 import { DailyBarChart } from "./DailyBarChart";
 import type { AdminBetaRequestsPage } from "@/lib/betaAccess";
+import type { AllowedEmail } from "@/lib/signupAllowlist";
 import { UsersTable } from "./UsersTable";
 import { BetaRequestsPanel } from "./BetaRequestsPanel";
+import { AllowedEmailsPanel } from "./AllowedEmailsPanel";
 import { formatBytes, formatDate, formatNumber, formatPercent } from "./format";
 
 function Panel({
@@ -76,11 +78,13 @@ export function AdminDashboard({
   storage,
   initialUsers,
   betaRequests,
+  allowedEmails,
 }: {
   overview: AdminOverview;
   storage: AdminStorage;
   initialUsers: AdminUsersPage;
   betaRequests: AdminBetaRequestsPage;
+  allowedEmails: AllowedEmail[];
 }) {
   const { totals, ai } = overview;
   const tableMax = Math.max(1, ...storage.database.tables.map((t) => t.bytes));
@@ -167,7 +171,10 @@ export function AdminDashboard({
         {/* forceMount : l'onglet reste monté (masqué), sinon la liste, les liens affichés et le
             lien direct seraient perdus à chaque changement d'onglet. */}
         <TabsContent value="beta" forceMount className="data-[state=inactive]:hidden">
-          <BetaRequestsPanel initial={betaRequests} onPendingChange={setBetaPending} />
+          <div className="space-y-4">
+            <AllowedEmailsPanel initial={allowedEmails} />
+            <BetaRequestsPanel initial={betaRequests} onPendingChange={setBetaPending} />
+          </div>
         </TabsContent>
 
         {/* ── Stockage ───────────────────────────────────────── */}

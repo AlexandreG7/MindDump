@@ -54,6 +54,18 @@
   directs de l'adresse). La section « Si tu demandes un accès à la bêta, sans compte » de
   `/confidentialite` informe ces personnes ; elle ne change rien pour les comptes existants
   (`CONSENT_VERSION` inchangée, sinon tout le monde repasserait par `/consentement`).
+- **Adresses autorisées à s'inscrire sans lien** (`AllowedSignupEmail`, `src/lib/signupAllowlist.ts`,
+  `/admin` section « Adresses autorisées »). Données : e-mail (normalisé), note facultative de
+  120 caractères, date d'ajout et administrateur qui l'a ajoutée (`createdById`, mis à `NULL` si ce compte
+  est supprimé). Ajoutées **à la main par l'administrateur** pour des personnes qu'il connaît ; la
+  personne ne saisit rien. **Finalité** : lui permettre de créer son compte sans lien d'invitation.
+  **Base légale** : intérêt légitime de l'éditeur à gérer l'accès à une bêta privée (art. 6.1.f) ; la
+  personne est informée quand elle crée son compte (case de consentement à la politique de
+  confidentialité). **Conservation : la durée de la bêta**, comme les demandes d'accès. La suppression
+  d'un compte retire son adresse de la table (`src/lib/account.ts`). **Effacement sur demande** : corbeille
+  de la ligne dans `/admin` (`DELETE /api/admin/allowed-emails/:id`), qui ne touche jamais à un compte.
+  Visible des seuls administrateurs ; non incluse dans l'export du compte (c'est l'adresse du compte
+  lui-même, déjà exportée).
 - **Mot de passe oublié** (`src/lib/passwordReset.ts`) : table `VerificationToken` de NextAuth,
   `identifier` = adresse du compte, `token` = empreinte SHA-256 du jeton envoyé par e-mail (jamais le
   jeton lui-même). Valable une heure, à usage unique, un seul lien actif, un envoi au plus toutes les

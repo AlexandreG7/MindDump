@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: { invite?: string | string[]; groupInvite?: string | string[] };
+  searchParams: { invite?: string | string[]; groupInvite?: string | string[]; direct?: string | string[] };
 }) {
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const token = first(searchParams.invite);
@@ -27,8 +27,12 @@ export default async function RegisterPage({
     return <InvalidLink message={GROUP_INVITE_INVALID_MESSAGE} />;
   }
 
-  // Sans jeton : demande d'accès à la bêta (bêta privée).
-  if (token === undefined) return <RequestAccessForm />;
+  // Sans jeton : inscription directe pour une adresse autorisée par l'administrateur
+  // (?direct=1, sans rien révéler sur la liste : le serveur tranche à l'envoi), sinon demande d'accès.
+  if (token === undefined) {
+    if (first(searchParams.direct) === "1") return <RegisterForm inviteEmail={null} direct />;
+    return <RequestAccessForm />;
+  }
 
   // Avec jeton : inscription, e-mail verrouillé sur l'adresse invitée.
   const invite = await findValidInvite(token);

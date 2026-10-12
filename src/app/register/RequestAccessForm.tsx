@@ -227,6 +227,12 @@ export function RequestAccessForm() {
                   Se connecter
                 </Link>
               </p>
+              <p className="text-center text-sm text-muted-foreground">
+                Tu es déjà autorisé·e ?{" "}
+                <Link href="/register?direct=1" className="inline-flex min-h-11 items-center font-semibold text-foreground underline underline-offset-2">
+                  Crée ton compte
+                </Link>
+              </p>
             </>
           )}
         </div>
