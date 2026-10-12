@@ -60,6 +60,22 @@ export function scaleQuantity(qty: string, multiplier: number): string {
   return result % 1 === 0 ? String(result) : result.toFixed(1).replace(".", ",");
 }
 
+const COUNTABLE_UNITS = ["pincée", "gousse", "tranche", "feuille", "brin", "cuillère", "branche", "boîte", "sachet", "tige", "poignée", "morceau", "bouquet", "verre"];
+
+/**
+ * Unité accordée à la quantité affichée : « 2 pincées », « 1 pincée », « 0,5 pincée ».
+ * Seules les unités dénombrables courantes sont accordées (g, ml, cl… ne bougent pas).
+ */
+export function agreeUnit(unit: string, quantity: string): string {
+  const [head, ...rest] = unit.trim().split(/\s+/);
+  const singular = head.toLowerCase().replace(/s$/, "");
+  if (!COUNTABLE_UNITS.includes(singular)) return unit;
+  const n = parseFloat(quantity.replace(",", "."));
+  if (isNaN(n)) return unit;
+  const word = n >= 2 ? `${singular}s` : singular;
+  return [head[0] === head[0].toUpperCase() ? word[0].toUpperCase() + word.slice(1) : word, ...rest].join(" ");
+}
+
 /**
  * Durées citées dans une étape (« 12 minutes », « 1 heure », « 10 à 15 min ») :
  * le mode cuisine propose un minuteur d'un appui pour chacune. Pour une

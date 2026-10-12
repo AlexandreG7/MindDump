@@ -24,6 +24,7 @@ export function SegmentedNav<T extends string>({
   label,
   idPrefix,
   className,
+  itemClassName,
 }: {
   items: SegmentedNavItem<T>[];
   value: T;
@@ -33,6 +34,8 @@ export function SegmentedNav<T extends string>({
   /** Les panneaux associés portent `id={`${idPrefix}-panel`}` et `aria-labelledby={`${idPrefix}-${valeur}`}`. */
   idPrefix: string;
   className?: string;
+  /** Classes ajoutées à chaque onglet (taille, espacement). */
+  itemClassName?: string;
 }) {
   const refs = React.useRef<(HTMLButtonElement | null)[]>([]);
   const onKeyDown = (e: React.KeyboardEvent, i: number) => {
@@ -64,7 +67,8 @@ export function SegmentedNav<T extends string>({
             className={cn(
               "group/seg flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-base font-bold text-muted-foreground sm:flex-none",
               "outline-none transition-[background-color,color,transform] duration-200 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]",
-              on && "bg-ink text-ink-foreground"
+              on && "bg-ink text-ink-foreground",
+              itemClassName
             )}
           >
             {it.icon}

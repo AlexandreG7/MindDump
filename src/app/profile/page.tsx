@@ -519,9 +519,9 @@ export default function ProfilePage() {
             <Hash className="h-4 w-4 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground">Mon identifiant</p>
-              <p className="text-sm font-mono font-semibold">#{publicId}</p>
+              <p className="truncate text-sm font-mono font-semibold" title={`#${publicId}`}>#{publicId}</p>
             </div>
-            <Button size="sm" variant={publicIdCopied ? "default" : "outline"} onClick={copyPublicId} className="shrink-0">
+            <Button size="sm" variant={publicIdCopied ? "default" : "outline"} onClick={copyPublicId} className="shrink-0 whitespace-nowrap">
               {publicIdCopied ? <><Check className="h-3.5 w-3.5 mr-1" />Copié !</> : <><Copy className="h-3.5 w-3.5 mr-1" />Copier</>}
             </Button>
           </div>

@@ -59,6 +59,8 @@ function TodosPageContent() {
   const [todos, setTodos] = useState<Todo[] | null>(null);
   // Suppressions en attente : la tâche disparaît tout de suite, la requête part
   // à la fin du délai d'annulation.
+  // Instant du dernier cochage : la gerbe ne part que juste après un cochage, pas après un filtre ou une suppression.
+  const lastCheckAt = useRef(0);
   const { hidden, requestDelete } = useDeferredDelete({ affectsReminders: true });
   // Fiche ouverte : une tâche existante (openId) ou une nouvelle (creating).
   const [openId, setOpenId] = useState<string | null>(null);
@@ -136,7 +138,10 @@ function TodosPageContent() {
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
-    if (!completed) nativeHaptic();
+    if (!completed) {
+      nativeHaptic();
+      lastCheckAt.current = Date.now();
+    }
     setTodos((all) => all?.map((t) => (t.id === id ? { ...t, completed: !completed } : t)) ?? all);
     const res = await fetch(`/api/todos/${id}`, {
       method: "PATCH",
@@ -232,7 +237,7 @@ function TodosPageContent() {
   const cleared = useJustReachedZero(pendingNow);
   const heroRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!cleared) return;
+    if (!cleared || Date.now() - lastCheckAt.current > 1500) return;
     nativeHaptic();
     burst(heroRef.current?.querySelector(".odo") ?? heroRef.current, {
       count: 22,
@@ -316,7 +321,7 @@ function TodosPageContent() {
             {todo.description && !todo.completed && (
               <div className="mt-0.5 truncate text-sm text-muted-foreground">{todo.description}</div>
             )}
-            {!todo.completed && (due || todo.recurrence || todo.assigneeIds?.length) && (
+            {!todo.completed && !!(due || todo.recurrence || todo.assigneeIds?.length) && (
               <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs">
                 {due && (
                   <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 tabular-nums", DUE_CHIP[due.state])}>
@@ -417,8 +422,8 @@ function TodosPageContent() {
         >
           {todos !== null && (
             <>
-              <HeroChip>{urgentLeft} urgentes</HeroChip>
-              <HeroChip>{plannedLeft} planifiées</HeroChip>
+              <HeroChip>{urgentLeft} urgente{urgentLeft > 1 ? "s" : ""}</HeroChip>
+              <HeroChip>{plannedLeft} planifiée{plannedLeft > 1 ? "s" : ""}</HeroChip>
               {lateCount > 0 && (
                 <HeroChip className="bg-destructive text-destructive-foreground">
                   {lateCount} en retard

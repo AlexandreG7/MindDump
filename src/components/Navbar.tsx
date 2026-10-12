@@ -120,7 +120,9 @@ export function Navbar() {
 
   // Fond chaud et jetons de l'app v2 : seulement une fois connecté (la landing,
   // la connexion et les pages publiques gardent leur fond).
-  const showShell = isLoggedIn && pathname !== "/consentement";
+  // L'écran mural (/wall/<token>) couvre tout : pas de dock caché dessous, atteignable au clavier.
+  const hideNav = pathname === "/consentement" || pathname.startsWith("/wall/");
+  const showShell = isLoggedIn && !hideNav;
   useIsoLayoutEffect(() => {
     if (!showShell) return;
     document.body.classList.add("app-skin");
@@ -128,7 +130,7 @@ export function Navbar() {
   }, [showShell]);
 
   // L'écran de consentement bloque l'app : pas de navigation tant qu'il n'est pas validé.
-  if (!isLoggedIn || pathname === "/consentement") return null;
+  if (!isLoggedIn || hideNav) return null;
 
   const activeTab = tabItems.findIndex((i) => isActive(i.href));
   // « Plus » porte la pilule quand aucune des rubriques n'est active.

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { format } from "date-fns";
 import { AlignLeft, Bell, Check, Clock, Pencil, Repeat, Rss, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,7 +38,7 @@ function Line({ icon: Icon, children }: { icon: React.ComponentType<{ className?
  * Les événements d'un calendrier externe sont en lecture seule.
  */
 export function EventSheet({
-  event,
+  event: current,
   onOpenChange,
   profiles,
   onEdit,
@@ -53,6 +54,10 @@ export function EventSheet({
   onSetColor: (id: string, color: string | null) => void;
   onSetAssignees: (id: string, assigneeIds: string[]) => void;
 }) {
+  // Pendant l'animation de fermeture `current` est déjà null : on garde le dernier événement affiché.
+  const last = useRef<CalendarEvent | null>(null);
+  if (current) last.current = current;
+  const event = current ?? last.current;
   const color = event ? (event.displayColor ?? event.color ?? null) : null;
   const defaultColor = event ? resolveEventColor(null, event.assigneeIds, profiles.byId) : "";
   const editable = !!event && !event.subscriptionId;
@@ -61,7 +66,7 @@ export function EventSheet({
   const people = (event?.assigneeIds ?? []).map((id) => profiles.byId.get(id)).filter((p): p is FamilyProfile => !!p);
 
   return (
-    <Dialog open={!!event} onOpenChange={onOpenChange}>
+    <Dialog open={!!current} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
           "flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 outline-none",

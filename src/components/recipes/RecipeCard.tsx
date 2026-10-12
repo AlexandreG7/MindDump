@@ -142,6 +142,111 @@ function TimePill({ recipe, className }: { recipe: CatalogRecipe; className?: st
 const iconBtn =
   "flex h-9 w-9 touch:h-11 touch:w-11 items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-secondary hover:text-foreground active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+/**
+ * Actions secondaires d'une recette (planifier, courses, modifier, enrichir,
+ * supprimer, photo) en petites icônes discrètes, avec leurs fenêtres. Partagé
+ * par la carte, la ligne et la tuile : aucune action ne dépend de la vue.
+ * `reveal` : classe de survol du parent (`group-hover/...:opacity-100`) ;
+ * toujours visibles au toucher et au focus clavier.
+ */
+function RecipeActions({
+  recipe,
+  h,
+  reveal,
+  className = "",
+  withPhoto = false,
+}: {
+  recipe: CatalogRecipe;
+  h: CardHandlers;
+  reveal: string;
+  className?: string;
+  /** Ajoute « Changer la photo » (la carte l'a déjà sur sa photo). */
+  withPhoto?: boolean;
+}) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [enrichOpen, setEnrichOpen] = useState(false);
+  // Une fois ouverts, les dialogues restent montés (animation de fermeture).
+  const [editSeen, setEditSeen] = useState(false);
+  const [enrichSeen, setEnrichSeen] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+  return (
+    <>
+          <div className={`flex items-center opacity-0 transition-opacity focus-within:opacity-100 touch:opacity-100 ${reveal} ${className}`}>
+            {withPhoto && (
+              <button type="button" onClick={(e) => h.onPickImage(e, recipe.id)} aria-label={recipe.image ? "Changer la photo" : "Ajouter une photo"} title={recipe.image ? "Changer la photo" : "Ajouter une photo"} className={iconBtn}>
+                <Camera className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {h.tab === "catalogue" ? (
+              <button
+                type="button"
+                onClick={() => h.onUpdate(recipe.id, { planned: !recipe.planned })}
+                aria-pressed={recipe.planned}
+                aria-label={recipe.planned ? "Retirer des recettes prévues" : "Planifier"}
+                title={recipe.planned ? "Retirer des recettes prévues" : "Planifier"}
+                className={cn(iconBtn, recipe.planned && "text-tone-meal-ink")}
+              >
+                <CalendarCheck className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <>
+                <button type="button" onClick={() => h.onDelete(recipe.id)} aria-label="Retirer des recettes prévues" title="Retirer des recettes prévues" className={cn(iconBtn, "hover:text-destructive")}>
+                  <CalendarX2 className="h-3.5 w-3.5" />
+                </button>
+                {!recipe.inCatalog && (
+                  <button type="button" onClick={() => h.onUpdate(recipe.id, { inCatalog: true })} aria-label="Garder au catalogue" title="Garder au catalogue" className={iconBtn}>
+                    <BookMarked className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </>
+            )}
+            <button type="button" onClick={() => setListOpen(true)} aria-label="Ajouter les ingrédients aux courses" title="Ajouter aux courses" className={iconBtn}>
+              <ShoppingCart className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => { setEditSeen(true); setEditOpen(true); }} aria-label="Modifier la recette" title="Modifier" className={iconBtn}>
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => { setEnrichSeen(true); setEnrichOpen(true); }} aria-label="Enrichir depuis HelloFresh" title="Enrichir depuis HelloFresh" className={iconBtn}>
+              <Download className="h-3.5 w-3.5" />
+            </button>
+            {h.tab === "catalogue" && (
+              <button type="button" onClick={() => h.onDelete(recipe.id)} aria-label="Supprimer la recette" title="Supprimer" className={cn(iconBtn, "hover:bg-destructive/10 hover:text-destructive")}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+      {editSeen && (
+        <RecipeEditDialog recipe={recipe} open={editOpen} onOpenChange={setEditOpen} onUpdate={h.onUpdate} onUploadImage={h.onUploadImage} onRemoveImage={h.onRemoveImage} />
+      )}
+      {enrichSeen && <EnrichDialog recipe={recipe} open={enrichOpen} onOpenChange={setEnrichOpen} onEnriched={h.onEnriched} />}
+      <Dialog open={listOpen} onOpenChange={setListOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajouter les ingrédients aux courses</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <DialogClose asChild>
+              <Button className="w-full" onClick={() => h.onAddToList(recipe.id)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Créer une nouvelle liste
+              </Button>
+            </DialogClose>
+            {h.lists
+              .filter((l) => l.type === "GROCERY")
+              .map((list) => (
+                <DialogClose key={list.id} asChild>
+                  <Button variant="outline" className="w-full" onClick={() => h.onAddToList(recipe.id, list.id)}>
+                    Ajouter à &quot;{list.name}&quot;
+                  </Button>
+                </DialogClose>
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /** Carte du catalogue : la photo d'abord, le titre, quelques repères, des actions discrètes. */
 export function RecipeCard({
   recipe,
@@ -152,12 +257,6 @@ export function RecipeCard({
   h: CardHandlers;
   priority?: boolean;
 }) {
-  const [editOpen, setEditOpen] = useState(false);
-  const [enrichOpen, setEnrichOpen] = useState(false);
-  // Une fois ouverts, les dialogues restent montés (animation de fermeture).
-  const [editSeen, setEditSeen] = useState(false);
-  const [enrichSeen, setEnrichSeen] = useState(false);
-  const [listOpen, setListOpen] = useState(false);
   const source = recipeSource(recipe.image);
   const hasSteps = parseSteps(recipe.steps).length > 0;
   const href = `/recipes/${recipe.id}`;
@@ -216,45 +315,7 @@ export function RecipeCard({
         </p>
 
         <div className="-ml-2.5 mt-1 flex items-center">
-          <div className="flex items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100 touch:opacity-100">
-            {h.tab === "catalogue" ? (
-              <button
-                type="button"
-                onClick={() => h.onUpdate(recipe.id, { planned: !recipe.planned })}
-                aria-pressed={recipe.planned}
-                aria-label={recipe.planned ? "Retirer des recettes prévues" : "Planifier"}
-                title={recipe.planned ? "Retirer des recettes prévues" : "Planifier"}
-                className={cn(iconBtn, recipe.planned && "text-tone-meal-ink")}
-              >
-                <CalendarCheck className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              <>
-                <button type="button" onClick={() => h.onDelete(recipe.id)} aria-label="Retirer des recettes prévues" title="Retirer des recettes prévues" className={cn(iconBtn, "hover:text-destructive")}>
-                  <CalendarX2 className="h-3.5 w-3.5" />
-                </button>
-                {!recipe.inCatalog && (
-                  <button type="button" onClick={() => h.onUpdate(recipe.id, { inCatalog: true })} aria-label="Garder au catalogue" title="Garder au catalogue" className={iconBtn}>
-                    <BookMarked className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </>
-            )}
-            <button type="button" onClick={() => setListOpen(true)} aria-label="Ajouter les ingrédients aux courses" title="Ajouter aux courses" className={iconBtn}>
-              <ShoppingCart className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" onClick={() => { setEditSeen(true); setEditOpen(true); }} aria-label="Modifier la recette" title="Modifier" className={iconBtn}>
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" onClick={() => { setEnrichSeen(true); setEnrichOpen(true); }} aria-label="Enrichir depuis HelloFresh" title="Enrichir depuis HelloFresh" className={iconBtn}>
-              <Download className="h-3.5 w-3.5" />
-            </button>
-            {h.tab === "catalogue" && (
-              <button type="button" onClick={() => h.onDelete(recipe.id)} aria-label="Supprimer la recette" title="Supprimer" className={cn(iconBtn, "hover:bg-destructive/10 hover:text-destructive")}>
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          <RecipeActions recipe={recipe} h={h} reveal="group-hover/card:opacity-100" />
           {hasSteps && (
             <Link
               href={`${href}?cook=1`}
@@ -268,34 +329,6 @@ export function RecipeCard({
         </div>
       </div>
 
-      {editSeen && (
-        <RecipeEditDialog recipe={recipe} open={editOpen} onOpenChange={setEditOpen} onUpdate={h.onUpdate} onUploadImage={h.onUploadImage} onRemoveImage={h.onRemoveImage} />
-      )}
-      {enrichSeen && <EnrichDialog recipe={recipe} open={enrichOpen} onOpenChange={setEnrichOpen} onEnriched={h.onEnriched} />}
-      <Dialog open={listOpen} onOpenChange={setListOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ajouter les ingrédients aux courses</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <DialogClose asChild>
-              <Button className="w-full" onClick={() => h.onAddToList(recipe.id)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Créer une nouvelle liste
-              </Button>
-            </DialogClose>
-            {h.lists
-              .filter((l) => l.type === "GROCERY")
-              .map((list) => (
-                <DialogClose key={list.id} asChild>
-                  <Button variant="outline" className="w-full" onClick={() => h.onAddToList(recipe.id, list.id)}>
-                    Ajouter à &quot;{list.name}&quot;
-                  </Button>
-                </DialogClose>
-              ))}
-          </div>
-        </DialogContent>
-      </Dialog>
     </article>
   );
 }
@@ -330,6 +363,7 @@ export function RecipeRow({ recipe, h }: { recipe: CatalogRecipe; h: CardHandler
             </span>
           )}
         </p>
+        <RecipeActions recipe={recipe} h={h} withPhoto reveal="group-hover/row:opacity-100" className="relative z-10 -ml-2.5 mt-0.5" />
       </div>
       <FavoriteButton favorite={recipe.favorite} onClick={(e) => h.onToggleFavorite(e, recipe)} className="relative z-10 shrink-0 [&>span]:bg-transparent [&>span]:shadow-none" />
     </li>
@@ -353,6 +387,7 @@ export function RecipeTile({ recipe, h }: { recipe: CatalogRecipe; h: CardHandle
           {recipe.title}
         </Link>
       </h2>
+      <RecipeActions recipe={recipe} h={h} withPhoto reveal="group-hover/tile:opacity-100" className="-ml-2 flex-wrap" />
     </li>
   );
 }

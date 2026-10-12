@@ -39,9 +39,10 @@ function Shapes({ tone }: { tone: Tone }) {
       )}
       {tone === "agenda" && (
         <g fill="currentColor">
-          {[0, 1, 2, 3].map((r) =>
-            [0, 1, 2, 3].map((c) => (
-              <rect key={`${r}${c}`} x={170 + c * 38} y={30 + r * 38} width="28" height="28" rx="9" opacity={(r + c) % 3 === 0 ? 0.16 : 0.07} />
+          {/* Au centre-bas du bloc : le haut porte le « + », l'angle bas droit la pastille de la semaine (l'image est rognée par le haut). */}
+          {[0, 1, 2].map((r) =>
+            [0, 1, 2].map((c) => (
+              <rect key={`${r}${c}`} x={80 + c * 34} y={92 + r * 34} width="24" height="24" rx="8" opacity={(r + c) % 3 === 0 ? 0.14 : 0.06} />
             ))
           )}
         </g>

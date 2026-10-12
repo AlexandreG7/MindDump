@@ -50,9 +50,11 @@ export function EventDialog({
     // À la modification, on respecte le rappel enregistré, y compris « aucun ».
     const want = !editing && initial.time && initial.notifyBefore === NO_REMINDER ? DEFAULT_REMINDER : initial.notifyBefore;
     setWanted(want);
+    // En modification, le rappel enregistré est repris tel quel : le recalculer
+    // l'effacerait pour une série ou un événement dont le début est passé.
     setDraft({
       ...initial,
-      notifyBefore: settleReminder(startOf(initial.date, initial.time), want, Date.now()),
+      notifyBefore: editing ? want : settleReminder(startOf(initial.date, initial.time), want, Date.now()),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial]);
@@ -70,7 +72,12 @@ export function EventDialog({
       // Un dernier jour antérieur au nouveau début n'a plus de sens.
       endDate: draft.endDate && draft.endDate > date ? draft.endDate : "",
       endTime: time ? draft.endTime : "",
-      notifyBefore: time ? settleReminder(startOf(date, time), want, Date.now()) : NO_REMINDER,
+      notifyBefore: !time
+        ? NO_REMINDER
+        : // Chaque occurrence d'une série est rappelée : un début passé n'y change rien.
+          draft.recurrence && draft.recurrence !== "none"
+          ? want
+          : settleReminder(startOf(date, time), want, Date.now()),
     });
   };
 
@@ -87,7 +94,11 @@ export function EventDialog({
 
   const submit = async () => {
     if (!draft.title.trim() || !draft.date || endInvalid) return;
-    await onSubmit(draft);
+    try {
+      await onSubmit(draft);
+    } catch {
+      return; // L'échec est annoncé par le parent : le dialogue reste ouvert avec la saisie.
+    }
     onOpenChange(false);
   };
 

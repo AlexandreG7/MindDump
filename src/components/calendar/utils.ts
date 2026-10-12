@@ -274,11 +274,6 @@ export function daysCovered(e: Timed): number {
   return Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000) + 1;
 }
 
-/** Vrai si l'événement est un horaire déjà terminé (pour atténuer la ligne du jour). */
-export function isFinished(e: Timed, now: Date): boolean {
-  return !e.allDay && eventEnd(e) <= now;
-}
-
 /** Événement entièrement passé (journée entière : dernier jour avant aujourd'hui). */
 export function isPast(e: Timed, now: Date): boolean {
   if (e.allDay) return eventDays(e).last < dayKey(now);

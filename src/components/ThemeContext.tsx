@@ -8,12 +8,15 @@ type ThemeContextValue = {
   theme: ThemePreference;
   resolvedTheme: "light" | "dark";
   setTheme: (theme: ThemePreference) => void;
+  /** Thème imposé le temps d'une session (mode cuisine) : jamais enregistré, `null` rend la préférence. */
+  setSessionTheme: (theme: "light" | "dark" | null) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "system",
   resolvedTheme: "light",
   setTheme: () => {},
+  setSessionTheme: () => {},
 });
 
 function systemPrefersDark() {
@@ -32,6 +35,7 @@ function applyThemeColor(dark: boolean) {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemePreference>("system");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [sessionTheme, setSessionTheme] = useState<"light" | "dark" | null>(null);
 
   useEffect(() => {
     try {
@@ -43,17 +47,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
-      const dark = theme === "dark" || (theme === "system" && systemPrefersDark());
+      const effective = sessionTheme ?? theme;
+      const dark = effective === "dark" || (effective === "system" && systemPrefersDark());
       document.documentElement.classList.toggle("dark", dark);
       applyThemeColor(dark);
       setNativeSystemBars(dark);
       setResolvedTheme(dark ? "dark" : "light");
     };
     apply();
-    if (theme !== "system") return;
+    if ((sessionTheme ?? theme) !== "system") return;
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
-  }, [theme]);
+  }, [theme, sessionTheme]);
 
   const setTheme = useCallback((next: ThemePreference) => {
     setThemeState(next);
@@ -64,7 +69,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, setSessionTheme }}>
       {children}
     </ThemeContext.Provider>
   );

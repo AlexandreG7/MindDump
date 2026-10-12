@@ -9,8 +9,7 @@ import Link from "next/link";
 import { addDays, format, isValid, parseISO, startOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ModuleHero, HeroChip, HeroIconButton } from "@/components/ui/module-hero";
-import { Tabs } from "@/components/ui/tabs";
-import { SegmentedList, SegmentedTrigger } from "@/components/ui/segmented";
+import { SegmentedNav } from "@/components/ui/segmented-nav";
 import { useFeedback } from "@/components/ui/feedback";
 import { fr } from "date-fns/locale";
 import { type CalendarEvent, type Subscription, type ViewMode, VIEW_LABELS, isViewMode } from "@/components/calendar/types";
@@ -223,7 +222,31 @@ export default function CalendarPage() {
     };
   }, [subscriptions, range]);
 
-  const weekRange = useMemo(() => rangeForView("week", new Date()), []);
+  // Jour courant, rafraîchi au retour sur l'onglet et à minuit : la semaine en
+  // cours (bandeau, en-tête) ne reste pas figée sur celle du chargement.
+  const [todayKey, setTodayKey] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  useEffect(() => {
+    const refresh = () => setTodayKey(format(new Date(), "yyyy-MM-dd"));
+    const msToMidnight = () => {
+      const n = new Date();
+      return new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1).getTime() - n.getTime() + 500;
+    };
+    let timer = window.setTimeout(function tick() {
+      refresh();
+      timer = window.setTimeout(tick, msToMidnight());
+    }, msToMidnight());
+    const onVisible = () => document.visibilityState === "visible" && refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+  // Même clé de semaine que le bandeau (lundi de la semaine) : l'intervalle ne change qu'avec elle.
+  const weekKey = format(startOfWeek(parseISO(todayKey), { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const weekRange = useMemo(() => rangeForView("week", parseISO(weekKey)), [weekKey]);
 
   const reload = useCallback(() => {
     fetchEvents();
@@ -275,34 +298,59 @@ export default function CalendarPage() {
   };
 
   const saveEvent = async (d: EventDraft) => {
-    const common = {
-      title: d.title,
-      description: d.description || null,
-      recurrence: d.recurrence || null,
-      color: d.color || null,
-      // 0 = à l'heure, null = pas de rappel ; une journée entière n'en a pas.
-      notifyBefore: d.time ? valueToReminder(d.notifyBefore) : null,
-      assigneeIds: d.assigneeIds,
-    };
-    const dates = {
-      date: toApiDate(d.date, d.time),
-      endDate: apiEndDate(d),
-      allDay: !d.time,
-    };
     if (editing) {
+      // On n'envoie que ce qui a changé : un PATCH complet réécrirait le rappel
+      // (ou les dates) d'une série que la personne n'a pas touchés.
+      const body: Record<string, unknown> = {};
+      if (d.title !== draft.title) body.title = d.title;
+      if (d.description !== draft.description) body.description = d.description || null;
+      if (d.recurrence !== draft.recurrence) body.recurrence = d.recurrence || null;
+      if (d.color !== draft.color) body.color = d.color || null;
+      if (d.assigneeIds.join() !== draft.assigneeIds.join()) body.assigneeIds = d.assigneeIds;
+      // 0 = à l'heure, null = pas de rappel ; une journée entière n'en a pas.
+      if (d.notifyBefore !== draft.notifyBefore || (!d.time && draft.time)) {
+        body.notifyBefore = d.time ? valueToReminder(d.notifyBefore) : null;
+      }
       // Une occurrence d'une série garde les dates de son événement source.
+      const datesChanged =
+        d.date !== draft.date || d.time !== draft.time || d.endDate !== draft.endDate || d.endTime !== draft.endTime;
+      if (datesChanged && !editing.id.includes("_")) {
+        body.date = toApiDate(d.date, d.time);
+        body.endDate = apiEndDate(d);
+        body.allDay = !d.time;
+      }
+      if (Object.keys(body).length === 0) return;
       const res = await fetch(`/api/calendar/${editing.id.split("_")[0]}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editing.id.includes("_") ? common : { ...common, ...dates }),
+        body: JSON.stringify(body),
       });
-      toast(res.ok ? "Événement modifié" : "La modification a échoué", res.ok ? "success" : "error");
+      if (!res.ok) {
+        toast("La modification a échoué", "error");
+        throw new Error("patch");
+      }
+      toast("Événement modifié", "success");
     } else {
-      await fetch("/api/calendar", {
+      const res = await fetch("/api/calendar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...common, ...dates, groupId: currentGroupId }),
-      });
+        body: JSON.stringify({
+          title: d.title,
+          description: d.description || null,
+          recurrence: d.recurrence || null,
+          color: d.color || null,
+          notifyBefore: d.time ? valueToReminder(d.notifyBefore) : null,
+          assigneeIds: d.assigneeIds,
+          date: toApiDate(d.date, d.time),
+          endDate: apiEndDate(d),
+          allDay: !d.time,
+          groupId: currentGroupId,
+        }),
+      }).catch(() => null);
+      if (!res || !res.ok) {
+        toast("L'événement n'a pas pu être ajouté", "error");
+        throw new Error("post");
+      }
     }
     reload();
     notifyRemindersChanged();
@@ -522,15 +570,15 @@ export default function CalendarPage() {
 
       {/* Choix de la vue, puis navigation dans le temps */}
       <div className="space-y-2.5">
-        <Tabs value={view} onValueChange={(v) => isViewMode(v) && changeView(v)}>
-          <SegmentedList aria-label="Vue" className="p-1">
-            {VIEW_ORDER.map((v) => (
-              <SegmentedTrigger key={v} value={v} className="h-11 px-1 text-sm sm:px-6 sm:text-base">
-                {VIEW_LABELS[v]}
-              </SegmentedTrigger>
-            ))}
-          </SegmentedList>
-        </Tabs>
+        <SegmentedNav
+          label="Vue"
+          idPrefix="calendar-view"
+          value={view}
+          onChange={changeView}
+          items={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABELS[v] }))}
+          className="p-1"
+          itemClassName="h-11 px-1 text-sm sm:px-6 sm:text-base"
+        />
         <div className="flex items-center gap-0.5">
           <button type="button" onClick={() => shift(-1)} aria-label="Période précédente" className={iconBtn}>
             <ChevronLeft className="h-5 w-5" />
@@ -551,6 +599,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      <div role="tabpanel" id="calendar-view-panel" aria-labelledby={`calendar-view-${view}`} className="space-y-5">
       {view === "month" && (
         <MonthGrid month={anchor} events={allEvents} selectedDate={selectedDate} onSelectDay={pickMonthDay} selectedId={openId} />
       )}
@@ -627,6 +676,7 @@ export default function CalendarPage() {
           )}
         </section>
       )}
+      </div>
 
       {/* Calendriers externes et partage : réglages rares, donc discrets */}
       <section aria-label="Calendriers externes et partage" className="flex flex-wrap items-center gap-2 pb-2">

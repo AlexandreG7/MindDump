@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { ArrowLeft, Check, ChefHat, Clock, RotateCcw, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { thumbnailUrl } from "@/lib/image";
-import { formatMinutes, parseSteps, scaleQuantity, totalMinutes } from "./meta";
+import { agreeUnit, formatMinutes, parseSteps, scaleQuantity, totalMinutes } from "./meta";
 
 // Vue lecture d'une recette, partagée entre la page propriétaire
 // (/recipes/[id]) et la page publique d'un lien de partage (/shared/recipes/[token]).
@@ -61,6 +61,12 @@ export function RecipeView({
   const steps = parseSteps(recipe.steps);
   const ingredients = recipe.ingredients ?? [];
   const total = totalMinutes(recipe);
+  // Nombre de personnes pour un multiplicateur ; deux multiplicateurs qui donnent
+  // le même nombre (1 personne : ×0,5 arrondi à 1) ne font qu'un bouton.
+  const portionsFor = (m: number) => (m === 1 ? recipe.servings : Math.round(recipe.servings * m));
+  const portionOptions = PORTION_STEPS.filter((m) => m === 1 || portionsFor(m) !== recipe.servings).filter(
+    (m, i, all) => all.findIndex((x) => portionsFor(x) === portionsFor(m)) === i
+  );
 
   useEffect(() => {
     const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
@@ -85,8 +91,10 @@ export function RecipeView({
     });
   };
 
-  const amount = (ing: RecipeViewIngredient) =>
-    `${scaleQuantity(ing.quantity, servingMultiplier)}${ing.unit ? ` ${ing.unit}` : ""}`;
+  const amount = (ing: RecipeViewIngredient) => {
+    const qty = scaleQuantity(ing.quantity, servingMultiplier);
+    return `${qty}${ing.unit ? ` ${agreeUnit(ing.unit, qty)}` : ""}`;
+  };
 
   const closeCooking = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -210,8 +218,8 @@ export function RecipeView({
           <div role="group" aria-label="Nombre de portions" className="mb-3 flex items-center gap-2">
             <span className="text-sm font-semibold text-muted-foreground">Pour</span>
             <div className="flex flex-1 gap-1 rounded-full bg-secondary p-1">
-              {PORTION_STEPS.map((mult) => {
-                const n = mult === 1 ? recipe.servings : Math.round(recipe.servings * mult);
+              {portionOptions.map((mult) => {
+                const n = portionsFor(mult);
                 const on = servingMultiplier === mult;
                 return (
                   <button

@@ -53,12 +53,15 @@ export default function CookingMode({
   startAt?: number;
   onClose: () => void;
 }) {
-  const [step, setStep] = useState(Math.min(startAt, steps.length - 1));
+  const [step, setStep] = useState(Math.max(0, Math.min(startAt, steps.length - 1)));
   const [dir, setDir] = useState<"next" | "prev">("next");
   const [panel, setPanel] = useState<"steps" | "ingredients">("steps");
   const [awake, setAwake] = useState(false);
-  const { resolvedTheme, setTheme } = useTheme();
+  // Le bouton clair/sombre n'agit que le temps de la session de cuisine : la
+  // préférence enregistrée (y compris « Système ») est rendue à la fermeture.
+  const { resolvedTheme, setSessionTheme } = useTheme();
   const dark = resolvedTheme === "dark";
+  useEffect(() => () => setSessionTheme(null), [setSessionTheme]);
   const [fullscreen, setFullscreen] = useState(false);
   const [canFullscreen, setCanFullscreen] = useState(false);
   const [timers, setTimers] = useState<RunningTimer[]>([]);
@@ -165,6 +168,24 @@ export default function CookingMode({
       } else if (e.key === "Escape") {
         if (document.fullscreenElement) document.exitFullscreen();
         else onClose();
+      } else if (e.key === "Tab") {
+        // Piège de focus : Tab et Maj+Tab bouclent dans la modale.
+        const root = rootRef.current;
+        if (!root) return;
+        const items = Array.from(
+          root.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])')
+        ).filter((n) => n.getClientRects().length > 0);
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && (active === first || active === root || !root.contains(active))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || !root.contains(active))) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -192,22 +213,30 @@ export default function CookingMode({
     } catch {}
   }, []);
 
+  // Un seul intervalle tant qu'un minuteur court ; il ne dépend pas de la liste.
+  const hasRunning = timers.some((t) => !t.done);
   useEffect(() => {
-    if (!timers.some((t) => !t.done)) return;
+    if (!hasRunning) return;
     const tick = window.setInterval(() => {
       const now = Date.now();
-      let finished = false;
       setTimers((list) =>
         list.map((t) => {
           if (t.done) return t;
           const left = Math.max(0, Math.round((t.endsAt - now) / 1000));
-          if (left === 0) finished = true;
-          return { ...t, left, done: left === 0 };
+          return left === t.left ? t : { ...t, left, done: left === 0 };
         })
       );
-      if (finished) beep();
     }, 500);
     return () => window.clearInterval(tick);
+  }, [hasRunning]);
+
+  // Fin d'un minuteur : détectée en comparant les minuteurs terminés à ceux déjà annoncés.
+  const alerted = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    const fresh = timers.filter((t) => t.done && !alerted.current.has(t.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((t) => alerted.current.add(t.id));
+    beep();
   }, [timers, beep]);
 
   useEffect(() => () => void audio.current?.close().catch(() => {}), []);
@@ -232,9 +261,13 @@ export default function CookingMode({
     } catch {}
   };
 
-  const current = steps[step];
+  const current: RecipeStep | undefined = steps[step];
   const isLast = step === steps.length - 1;
-  const durations = useMemo(() => detectTimers(current.text), [current.text]);
+  const durations = useMemo(() => detectTimers(current?.text ?? ""), [current?.text]);
+  // Sans étape il n'y a rien à cuisiner : on referme.
+  useEffect(() => {
+    if (steps.length === 0) onClose();
+  }, [steps.length, onClose]);
   const checkedCount = ingredients.filter((i) => checked.has(i.id)).length;
 
   const onTouchStart = (e: React.TouchEvent) => {
@@ -245,6 +278,8 @@ export default function CookingMode({
     const dy = e.changedTouches[0].clientY - touch.current.y;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(step + (dx < 0 ? 1 : -1));
   };
+
+  if (!current) return null;
 
   const ingredientList = (
     <ul className="space-y-1.5">
@@ -310,6 +345,11 @@ export default function CookingMode({
       tabIndex={-1}
       className="fixed inset-0 z-[9999] flex flex-col bg-background text-foreground outline-none"
     >
+      {/* Annonce stable pour les lecteurs d'écran : le conteneur n'est jamais remonté, seul son texte change. */}
+      <p aria-live="polite" aria-atomic="true" className="sr-only">
+        Étape {step + 1} sur {steps.length}. {current.text}
+      </p>
+
       {/* Barre du haut */}
       <div className="flex shrink-0 items-center gap-2 px-3 pb-1 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <button
@@ -326,7 +366,7 @@ export default function CookingMode({
         </div>
         <button
           type="button"
-          onClick={() => setTheme(dark ? "light" : "dark")}
+          onClick={() => setSessionTheme(dark ? "light" : "dark")}
           aria-label={dark ? "Passer en thème clair" : "Passer en thème sombre"}
           className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary transition-[background-color,transform] duration-150 hover:bg-accent active:scale-90"
         >
@@ -356,9 +396,11 @@ export default function CookingMode({
         ).map(([key, label]) => (
           <button
             key={key}
+            id={`cook-tab-${key}`}
             type="button"
             role="tab"
             aria-selected={panel === key}
+            aria-controls={`cook-panel-${key}`}
             onClick={() => setPanel(key)}
             className={cn(
               "h-12 flex-1 rounded-full px-3 text-base font-bold tabular-nums transition-[background-color,color] duration-150",
@@ -394,6 +436,9 @@ export default function CookingMode({
       <div className="flex min-h-0 flex-1">
         {/* Étape */}
         <div
+          id="cook-panel-steps"
+          role="tabpanel"
+          aria-labelledby="cook-tab-steps"
           className={cn("min-w-0 flex-1 overflow-y-auto overscroll-contain", panel === "ingredients" && "max-lg:hidden")}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
@@ -411,7 +456,7 @@ export default function CookingMode({
               <img src={current.image} alt={`Étape ${step + 1}`} className="max-h-[30vh] w-full rounded-3xl object-cover lg:max-h-[36vh]" />
             )}
 
-            <p aria-live="polite" className="text-pretty text-[1.75rem] font-semibold leading-[1.28] tracking-[-0.012em] sm:text-[2.125rem] lg:text-[2.75rem] lg:leading-[1.2]">
+            <p className="text-pretty text-[1.75rem] font-semibold leading-[1.28] tracking-[-0.012em] sm:text-[2.125rem] lg:text-[2.75rem] lg:leading-[1.2]">
               {current.text}
             </p>
 
@@ -441,8 +486,10 @@ export default function CookingMode({
         </div>
 
         {/* Ingrédients : onglet sur téléphone, colonne fixe sur grand écran */}
-        <aside
-          aria-label="Ingrédients"
+        <div
+          id="cook-panel-ingredients"
+          role="tabpanel"
+          aria-labelledby="cook-tab-ingredients"
           className={cn(
             "min-w-0 overflow-y-auto overscroll-contain px-4 pb-4 pt-2 lg:w-[26rem] lg:shrink-0 lg:border-l lg:border-border lg:px-6",
             panel === "ingredients" ? "flex-1" : "max-lg:hidden"
@@ -450,7 +497,7 @@ export default function CookingMode({
         >
           {ingredientsHeader}
           {ingredientList}
-        </aside>
+        </div>
       </div>
 
       {/* Minuteurs en cours */}
