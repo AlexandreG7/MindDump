@@ -410,11 +410,14 @@
 }
 
 /* Cartes flottantes du hero : placées en pourcentage de la scène */
-.lp2-ca { left: -2%; top: 8%; width: 47%; }
+/* Mobile : la carte du rendez-vous remonte au-dessus de l'écran du téléphone (elle ne cache plus « Bonjour ») */
+.lp2-ca { left: -1%; top: -7%; width: 46%; }
+.lp2-ca .lp2-chip-card { padding: 0.42rem 0.65rem; }
 .lp2-cc { right: -2%; top: 33%; width: 46%; }
 .lp2-cb { left: -2%; bottom: 4%; width: 48%; }
 @media (min-width: 640px) {
   .lp2-ca { left: -12%; top: 5%; width: 44%; }
+  .lp2-ca .lp2-chip-card { padding: 0.7rem 0.9rem; }
   .lp2-cc { right: -14%; top: 36%; width: 44%; }
   .lp2-cb { left: -12%; bottom: 5%; width: 45%; }
 }
