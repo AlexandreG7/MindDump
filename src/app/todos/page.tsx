@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
@@ -10,11 +10,13 @@ import { useDeferredDelete } from "@/lib/useDeferredDelete";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { SegmentedList, SegmentedTrigger } from "@/components/ui/segmented";
-import { PageHeader } from "@/components/ui/page-header";
+import { ModuleHero, HeroChip, HeroIconButton } from "@/components/ui/module-hero";
+import { SwipeRow } from "@/components/ui/swipe-row";
+import { FlipList } from "@/components/ui/flip-list";
+import { burst, prefersReducedMotion, useJustReachedZero } from "@/lib/motionUi";
 import { CheckCircle } from "@/components/ui/check-circle";
 import { QuickAdd } from "@/components/ui/quick-add";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Surface } from "@/components/ui/surface";
 import { dueLabel, type DueState } from "@/lib/dueLabel";
 import { Plus, Trash2, AlertCircle, Bell, Calendar, CheckCheck, Repeat, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,10 +36,10 @@ import { AiImportDialog, useAiImportStatus } from "@/components/import/AiImportD
 const PEOPLE_KEY = "todos:people";
 
 const DUE_CHIP: Record<DueState, string> = {
-  late: "bg-destructive/10 text-destructive font-semibold",
-  today: "bg-tone-todo-soft text-tone-todo-ink font-semibold",
-  soon: "bg-secondary text-secondary-foreground",
-  later: "bg-secondary text-secondary-foreground",
+  late: "bg-destructive text-destructive-foreground font-extrabold",
+  today: "bg-tone-todo text-on-tone font-extrabold",
+  soon: "bg-secondary text-secondary-foreground font-bold",
+  later: "bg-secondary text-secondary-foreground font-bold",
 };
 
 // useSearchParams exige une frontière Suspense pour le rendu statique.
@@ -147,7 +149,22 @@ function TodosPageContent() {
     notifyRemindersChanged();
   };
 
+  // Lignes en train de sortir : un court fondu avant que la suppression
+  // (annulable) ne parte, sauf en mouvement réduit.
+  const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const deleteTodo = (todo: Todo) => {
+    if (prefersReducedMotion()) return doDelete(todo);
+    setLeaving((l) => new Set(l).add(todo.id));
+    window.setTimeout(() => {
+      doDelete(todo);
+      setLeaving((l) => {
+        const next = new Set(l);
+        next.delete(todo.id);
+        return next;
+      });
+    }, 220);
+  };
+  const doDelete = (todo: Todo) => {
     requestDelete({
       id: todo.id,
       url: `/api/todos/${todo.id}`,
@@ -170,6 +187,7 @@ function TodosPageContent() {
       body: JSON.stringify({ title: quickAdd, priority: "URGENT", groupId: currentGroupId }),
     });
     setQuickAdd("");
+    setActiveTab("urgent");
     fetchTodos();
     notifyRemindersChanged();
   };
@@ -205,25 +223,47 @@ function TodosPageContent() {
     }
   }, [openId, todos, toast]);
 
+  // Compteur de l'en-tête et félicitations quand la dernière tâche est cochée.
+  const activePeople = peopleFilter.filter((id) => profiles.assignable.some((p) => p.id === id));
+  const pendingNow =
+    todos === null
+      ? null
+      : todos.filter((t) => !hidden.has(t.id) && !t.completed && matchesPeople(t.assigneeIds, activePeople)).length;
+  const cleared = useJustReachedZero(pendingNow);
+  const heroRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!cleared) return;
+    nativeHaptic();
+    burst(heroRef.current?.querySelector(".odo") ?? heroRef.current, {
+      count: 22,
+      radius: 120,
+      size: 16,
+      colors: ["hsl(var(--on-tone))", "hsl(var(--on-ink))"],
+    });
+  }, [cleared]);
+
   if (!isReady) return null;
 
   const visibleTodos = (todos ?? []).filter((t) => !hidden.has(t.id));
   // Filtre « qui » : les tâches sans personne assignée restent toujours affichées.
-  const activeFilter = peopleFilter.filter((id) => profiles.assignable.some((p) => p.id === id));
+  const activeFilter = activePeople;
   const shown = visibleTodos.filter((t) => matchesPeople(t.assigneeIds, activeFilter));
 
   const urgentTodos = shown.filter((t) => t.priority === "URGENT");
   const plannedTodos = shown.filter((t) => t.priority === "PLANNED");
+  const urgentLeft = urgentTodos.filter((t) => !t.completed).length;
+  const plannedLeft = plannedTodos.filter((t) => !t.completed).length;
+  const lateCount = shown.filter((t) => !t.completed && t.dueDate && dueLabel(t.dueDate).state === "late").length;
 
   const renderTodoList = (items: Todo[]) => {
     if (todos === null) {
       return (
-        <div className="space-y-2" aria-busy="true" aria-label="Chargement des tâches">
+        <div className="space-y-2.5" aria-busy="true" aria-label="Chargement des tâches">
           {[0, 1, 2].map((i) => (
-            <Surface key={i} className="flex items-center gap-3 p-4">
-              <Skeleton className="h-[1.625rem] w-[1.625rem] rounded-full" />
+            <div key={i} className="flex items-center gap-3 rounded-[1.5rem] bg-card p-4 shadow-surface">
+              <Skeleton className="h-8 w-8 rounded-full" />
               <Skeleton className="h-4 flex-1 max-w-[60%]" />
-            </Surface>
+            </div>
           ))}
         </div>
       );
@@ -233,19 +273,27 @@ function TodosPageContent() {
     const done = items.filter((t) => t.completed);
 
     // Toute la ligne ouvre la fiche (souris, toucher, Entrée ou Espace) ; la
-    // case et la corbeille gardent leur propre action.
-    const renderRow = (todo: Todo, index: number) => {
+    // case et la corbeille gardent leur propre action. Au doigt, on peut aussi
+    // glisser la ligne : à droite pour cocher, à gauche pour supprimer.
+    const renderRow = (todo: Todo) => {
       const due = todo.dueDate && !todo.completed ? dueLabel(todo.dueDate) : null;
       return (
-        <Surface
+        <SwipeRow
           key={todo.id}
+          data-flip={todo.id}
           id={`todo-${todo.id}`}
+          tone="todo"
+          onSwipeRight={() => toggleTodo(todo.id, todo.completed)}
+          onSwipeLeft={() => deleteTodo(todo)}
           onClick={() => setOpenId(todo.id)}
-          style={{ animationDelay: `${Math.min(index, 6) * 30}ms` }}
           className={cn(
-            "group/card flex animate-row-in cursor-pointer items-center gap-1 py-3 pl-1.5 pr-2 transition-[background-color,opacity] duration-150 hover:bg-accent/40 focus-within:ring-2 focus-within:ring-ring/60",
-            todo.completed && "opacity-60",
-            highlightId === todo.id && "ring-2 ring-primary"
+            "shadow-surface transition-[opacity,transform] duration-200 ease-out",
+            leaving.has(todo.id) && "pointer-events-none -translate-x-6 opacity-0",
+            highlightId === todo.id && "ring-[3px] ring-tone-todo"
+          )}
+          frontClassName={cn(
+            "group/card flex cursor-pointer items-center gap-1 bg-card py-3.5 pl-1.5 pr-2 transition-colors duration-150 hover:bg-accent/40 focus-within:ring-2 focus-within:ring-inset focus-within:ring-ring/60",
+            todo.completed && "bg-card/70"
           )}
         >
           <span onClick={(e) => e.stopPropagation()} className="flex">
@@ -260,23 +308,18 @@ function TodosPageContent() {
           <button
             type="button"
             aria-label={`Ouvrir la tâche « ${todo.title} »`}
-            className="min-w-0 flex-1 rounded-sm py-0.5 pl-1 text-left focus-visible:outline-none"
+            className="min-w-0 flex-1 rounded-sm py-0.5 pl-1.5 text-left focus-visible:outline-none"
           >
-            <div
-              className={cn(
-                "text-base font-medium leading-snug text-pretty",
-                todo.completed && "font-normal text-muted-foreground line-through"
-              )}
-            >
-              {todo.title}
+            <div className={cn("text-[1.0625rem] font-bold leading-snug text-pretty", todo.completed && "font-semibold text-muted-foreground")}>
+              <span className="strike" data-done={todo.completed}>{todo.title}</span>
             </div>
             {todo.description && !todo.completed && (
-              <div className="mt-0.5 truncate text-[0.8125rem] text-muted-foreground">{todo.description}</div>
+              <div className="mt-0.5 truncate text-sm text-muted-foreground">{todo.description}</div>
             )}
             {!todo.completed && (due || todo.recurrence || todo.assigneeIds?.length) && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs">
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs">
                 {due && (
-                  <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 tabular-nums", DUE_CHIP[due.state])}>
+                  <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 tabular-nums", DUE_CHIP[due.state])}>
                     <Calendar className="h-3 w-3" aria-hidden />
                     {due.text}
                   </span>
@@ -305,29 +348,36 @@ function TodosPageContent() {
               e.stopPropagation();
               deleteTodo(todo);
             }}
-            className="h-11 w-11 shrink-0 rounded-xl text-muted-foreground opacity-0 transition-opacity group-hover/card:opacity-100 focus-visible:opacity-100 touch:opacity-100"
+            className="h-12 w-12 shrink-0 rounded-full text-muted-foreground opacity-0 transition-opacity group-hover/card:opacity-100 focus-visible:opacity-100 touch:opacity-100"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
-        </Surface>
+        </SwipeRow>
       );
     };
 
     return (
-      <div className="space-y-2">
-        {pending.map((t, i) => renderRow(t, i))}
+      <div>
+        {pending.length === 0 && done.length > 0 && (
+          <p className="mb-2 flex items-center gap-2 rounded-full bg-tone-todo-soft px-4 py-3 text-base font-extrabold text-tone-todo-ink">
+            <CheckCheck className="h-5 w-5 shrink-0" aria-hidden />
+            Tout est fait ici.
+          </p>
+        )}
+        <FlipList signature={`${pending.map((t) => t.id).join(",")}|${done.map((t) => t.id).join(",")}`} className="space-y-2.5">
+          {pending.map((t) => renderRow(t))}
 
-        {done.length > 0 && (
-          <div className="mt-4">
-            <p className="mb-2 px-1 text-[0.8125rem] font-semibold text-muted-foreground">
+          {done.length > 0 && (
+            <p data-flip="__done" className="px-1 pb-0.5 pt-4 text-base font-extrabold text-muted-foreground">
               Terminées <span className="tabular-nums">({done.length})</span>
             </p>
-            <div className="space-y-2">{done.map((t, i) => renderRow(t, i))}</div>
-          </div>
-        )}
+          )}
+          {done.map((t) => renderRow(t))}
+        </FlipList>
+
 
         {items.length === 0 && (
-          <EmptyState icon={CheckCheck} tone="todo" title="Rien à faire ici">
+          <EmptyState icon={CheckCheck} tone="todo" title="Rien à faire ici.">
             Profite, ou note ce qui te trotte dans la tête juste au-dessus.
           </EmptyState>
         )}
@@ -336,33 +386,44 @@ function TodosPageContent() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 md:mx-0">
-      <PageHeader
-        title="Mes tâches"
-        meta={
-          todos === null
-            ? undefined
-            : `${urgentTodos.filter((t) => !t.completed).length} urgentes · ${plannedTodos.filter((t) => !t.completed).length} planifiées`
-        }
-        action={
-          <>
-            {aiStatus?.enabled && (
-              <button
-                onClick={() => setAiDialogOpen(true)}
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary"
-                title="Importer une photo, un PDF ou un texte avec l'IA"
-                aria-label="Importer avec l'IA"
+    <div className="mx-auto w-full max-w-3xl space-y-5 md:mx-0">
+      <div ref={heroRef}>
+        <ModuleHero
+          tone="todo"
+          title="Tâches"
+          count={pendingNow}
+          countLabel={pendingNow === 0 ? "Tout est rangé. Respire." : "à faire"}
+          kicker={lateCount > 0 ? `${lateCount} en retard` : undefined}
+          action={
+            <>
+              {aiStatus?.enabled && (
+                <HeroIconButton
+                  onClick={() => setAiDialogOpen(true)}
+                  title="Importer une photo, un PDF ou un texte avec l'IA"
+                  aria-label="Importer avec l'IA"
+                >
+                  <Sparkles className="h-4 w-4" />
+                </HeroIconButton>
+              )}
+              <HeroIconButton
+                onClick={() => setCreating(true)}
+                title="Nouvelle tâche avec échéance, rappel ou personnes"
+                aria-label="Nouvelle tâche détaillée"
+                className="bg-on-tone text-tone-todo hover:bg-on-tone/90"
               >
-                <Sparkles className="h-4 w-4" />
-              </button>
-            )}
-            <Button onClick={() => setCreating(true)} className="h-11 rounded-xl px-4 text-[0.9375rem]">
-              <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} />
-              Nouvelle tâche
-            </Button>
-          </>
-        }
-      />
+                <Plus className="h-6 w-6" strokeWidth={3} />
+              </HeroIconButton>
+            </>
+          }
+        >
+          {todos !== null && (
+            <>
+              <HeroChip>{urgentLeft} urgentes</HeroChip>
+              <HeroChip>{plannedLeft} planifiées</HeroChip>
+            </>
+          )}
+        </ModuleHero>
+      </div>
       <div className="contents">
         <TodoSheet
           open={sheetOpen}
@@ -396,6 +457,7 @@ function TodosPageContent() {
       <PeopleFilter profiles={profiles.assignable} value={activeFilter} onChange={changePeopleFilter} />
 
       <QuickAdd
+        tone="todo"
         value={quickAdd}
         onChange={setQuickAdd}
         onSubmit={submitQuickAdd}
@@ -405,10 +467,10 @@ function TodosPageContent() {
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "urgent" | "planned")}>
         <SegmentedList>
-          <SegmentedTrigger value="urgent" icon={<AlertCircle className="h-4 w-4" />} count={urgentTodos.filter((t) => !t.completed).length}>
+          <SegmentedTrigger value="urgent" tone="todo" icon={<AlertCircle className="h-4 w-4" />} count={urgentLeft}>
             Urgent
           </SegmentedTrigger>
-          <SegmentedTrigger value="planned" icon={<Calendar className="h-4 w-4" />} count={plannedTodos.filter((t) => !t.completed).length}>
+          <SegmentedTrigger value="planned" tone="todo" icon={<Calendar className="h-4 w-4" />} count={plannedLeft}>
             Planifié
           </SegmentedTrigger>
         </SegmentedList>

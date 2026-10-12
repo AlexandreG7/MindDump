@@ -119,7 +119,7 @@ export function PeopleFilter({
         aria-pressed={value.length === 0}
         className={cn(
           "shrink-0 whitespace-nowrap px-2.5 py-1 touch:px-4 touch:min-h-12 touch:text-sm rounded-full border text-xs transition-[background-color,transform] duration-150 active:scale-95",
-          value.length === 0 ? "border-primary bg-primary/10 text-primary font-medium" : "border-border text-muted-foreground hover:bg-secondary"
+          value.length === 0 ? "border-transparent bg-ink text-ink-foreground font-bold" : "border-border text-muted-foreground hover:bg-secondary"
         )}
       >
         Tout le monde

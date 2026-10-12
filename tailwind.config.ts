@@ -40,6 +40,8 @@ const config: Config = {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
         },
+        ink: { DEFAULT: "hsl(var(--surface-ink))", foreground: "hsl(var(--on-ink))" },
+        "on-tone": "hsl(var(--on-tone))",
         tone: {
           todo: { DEFAULT: "hsl(var(--tone-todo))", soft: "hsl(var(--tone-todo-soft))", ink: "hsl(var(--tone-todo-ink))" },
           list: { DEFAULT: "hsl(var(--tone-list))", soft: "hsl(var(--tone-list-soft))", ink: "hsl(var(--tone-list-ink))" },
@@ -47,13 +49,18 @@ const config: Config = {
           agenda: { DEFAULT: "hsl(var(--tone-agenda))", soft: "hsl(var(--tone-agenda-soft))", ink: "hsl(var(--tone-agenda-ink))" },
         },
       },
+      fontFamily: {
+        // Même famille que la landing v2 (Plus Jakarta Sans), poussée en 800.
+        display: ["var(--font-sans)", "sans-serif"],
+      },
       keyframes: {
-        "check-pop": { "0%": { transform: "scale(0.82)" }, "60%": { transform: "scale(1.08)" }, "100%": { transform: "scale(1)" } },
-        "row-in": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "translateY(0)" } },
+        "pop-in": { from: { opacity: "0", transform: "translateY(10px) scale(0.96)" }, to: { opacity: "1", transform: "none" } },
+        "rise": { from: { transform: "translateY(110%)" }, to: { transform: "none" } },
+        "tick": { "0%": { transform: "scale(0.7)" }, "100%": { transform: "scale(1)" } },
       },
       animation: {
-        "check-pop": "check-pop 200ms ease-out",
-        "row-in": "row-in 220ms ease-out both",
+        "pop-in": "pop-in 520ms var(--spring-soft) both",
+        "tick": "tick 520ms var(--spring-pop) both",
       },
       boxShadow: {
         surface: "var(--shadow-surface)",

@@ -1,11 +1,11 @@
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cn } from "@/lib/utils";
+import { TONE_CLASSES, type Tone } from "./tone";
 
 /**
- * Onglets segmentés de l'app (Radix Tabs : flèches, rôles, focus). Pleine
- * largeur sur téléphone, segments de 44 px. Le compteur est un `count`
- * séparé pour rester en chiffres tabulaires.
+ * Onglets segmentés v2 (Radix Tabs : flèches, rôles, focus) : le segment actif
+ * est une pilule d'encre, son compteur prend l'aplat du module.
  */
 export const SegmentedList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
@@ -13,7 +13,7 @@ export const SegmentedList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn("flex w-full gap-1 rounded-2xl bg-muted p-1 sm:inline-flex sm:w-auto", className)}
+    className={cn("flex w-full gap-1 rounded-full bg-secondary p-1.5 sm:inline-flex sm:w-auto", className)}
     {...props}
   />
 ));
@@ -21,14 +21,14 @@ SegmentedList.displayName = "SegmentedList";
 
 export const SegmentedTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> & { count?: number; icon?: React.ReactNode }
->(({ className, children, count, icon, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> & { count?: number; icon?: React.ReactNode; tone?: Tone }
+>(({ className, children, count, icon, tone = "todo", ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 text-[0.9375rem] font-medium text-muted-foreground sm:flex-none",
-      "transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring",
-      "data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-surface",
+      "group/seg flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-base font-bold text-muted-foreground sm:flex-none",
+      "transition-[background-color,color,transform] duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]",
+      "data-[state=active]:bg-ink data-[state=active]:text-ink-foreground",
       className
     )}
     {...props}
@@ -36,7 +36,16 @@ export const SegmentedTrigger = React.forwardRef<
     {icon}
     {children}
     {count !== undefined && (
-      <span className="min-w-[1.5rem] rounded-full bg-foreground/[0.07] px-1.5 text-center text-xs font-semibold leading-5 tabular-nums">
+      <span
+        className={cn(
+          "min-w-[1.75rem] rounded-full bg-foreground/10 px-2 text-center text-sm font-extrabold leading-7 tabular-nums",
+          "group-data-[state=active]/seg:text-on-tone",
+          tone === "todo" && "group-data-[state=active]/seg:bg-tone-todo",
+          tone === "list" && "group-data-[state=active]/seg:bg-tone-list",
+          tone === "meal" && "group-data-[state=active]/seg:bg-tone-meal",
+          tone === "agenda" && "group-data-[state=active]/seg:bg-tone-agenda"
+        )}
+      >
         {count}
       </span>
     )}

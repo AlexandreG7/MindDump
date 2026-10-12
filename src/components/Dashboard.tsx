@@ -25,7 +25,6 @@ import {
   Thermometer,
   UtensilsCrossed,
   Users,
-  Sparkles,
   Wind,
 } from "lucide-react";
 import { useAuth } from "@/lib/useAuth";
@@ -39,7 +38,10 @@ import type { CalendarEvent } from "@/components/calendar/types";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "@/components/ui/check-circle";
 import { QuickAdd } from "@/components/ui/quick-add";
-import { ToneIcon } from "@/components/ui/tone-icon";
+import { AnimatedNumber } from "@/components/ui/animated-number";
+import { HeroIconButton } from "@/components/ui/module-hero";
+import { DayScene } from "./dashboard/DayScene";
+import { useFlip } from "@/lib/motionUi";
 import { TONE_CLASSES, type Tone } from "@/components/ui/tone";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -388,16 +390,17 @@ export function Dashboard() {
     fetchTodos();
   };
 
+  // Les lignes de la journée glissent (ressort) quand l'une est cochée ou arrive.
+  const listRef = useRef<HTMLUListElement>(null);
+  useFlip(listRef, dayEntries.filter((e) => e.kind === "event" || !done.has(e.todo.id)).map((e) => e.key).join("|"));
+
   if (status === "loading" || flagsLoading) {
     return (
       <div className="space-y-6" aria-busy="true" aria-label="Chargement de l'accueil">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-64 max-w-full" />
-        </div>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <Skeleton className="h-72 rounded-2xl" />
-          <Skeleton className="h-72 rounded-2xl" />
+        <Skeleton className="h-[21rem] rounded-[2rem]" />
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <Skeleton className="h-72 rounded-[2rem]" />
+          <Skeleton className="h-72 rounded-[2rem]" />
         </div>
       </div>
     );
@@ -430,49 +433,44 @@ export function Dashboard() {
     );
   }
 
+  const remainingItems = activeLists.reduce((n, l) => n + l.remaining, 0);
+
   const renderModule = (id: ModuleId): React.ReactNode => {
     switch (id) {
       case "today":
         return (
-          <section aria-labelledby="today-title" className="overflow-hidden rounded-[1.25rem] bg-card shadow-surface">
-            <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-              <ToneIcon icon={Sparkles} tone="todo" />
-              <h2 id="today-title" className="min-w-0 flex-1 text-[1.0625rem] font-semibold leading-tight text-balance">
-                Ce qui t&apos;attend aujourd&apos;hui
+          <section aria-labelledby="today-title" className="overflow-hidden rounded-[2rem] bg-card shadow-surface">
+            <div className="flex items-end justify-between gap-3 px-5 pb-2 pt-5">
+              <h2 id="today-title" className="font-display text-[2rem] md:text-[2.5rem]">
+                Ta journée
               </h2>
               {!dayLoading && visibleEntries.length > 0 && (
-                <span className="shrink-0 rounded-full bg-tone-todo-soft px-2.5 py-1 text-xs font-semibold tabular-nums text-tone-todo-ink">
+                <span className="mb-1 shrink-0 rounded-full bg-tone-todo px-3 py-1 text-sm font-extrabold tabular-nums text-on-tone">
                   {visibleEntries.length} {visibleEntries.length > 1 ? "choses" : "chose"}
                 </span>
               )}
             </div>
 
             {dayLoading ? (
-              <div className="px-4 pb-4 space-y-3" aria-busy="true" aria-label="Chargement de la journée">
+              <div className="space-y-3 px-5 pb-4" aria-busy="true" aria-label="Chargement de la journée">
                 {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-12 rounded-xl" />
+                  <Skeleton key={i} className="h-14 rounded-2xl" />
                 ))}
               </div>
             ) : visibleEntries.length === 0 ? (
-              <EmptyState icon={Check} tone="todo" title="Rien de prévu aujourd'hui" className="py-6">
+              <EmptyState icon={Check} tone="todo" title="Journée rangée." className="py-6">
                 Une chose te trotte dans la tête ? Note-la ci-dessous, le foyer la verra.
               </EmptyState>
             ) : (
-              <ul className="divide-y divide-border/60 border-t border-border/60">
-                {visibleEntries.map((entry, i) => (
-                  <DayRow
-                    key={entry.key}
-                    entry={entry}
-                    index={i}
-                    byId={profiles.byId}
-                    onComplete={completeTodo}
-                  />
+              <ul ref={listRef} className="relative px-2 pb-2">
+                {visibleEntries.map((entry) => (
+                  <DayRow key={entry.key} flipKey={entry.key} entry={entry} byId={profiles.byId} onComplete={completeTodo} />
                 ))}
               </ul>
             )}
 
             {flags.todos && (
-              <div className="border-t border-border/60 p-3">
+              <div className="p-3 pt-1">
                 <QuickAdd
                   value={quickAdd}
                   onChange={setQuickAdd}
@@ -480,7 +478,6 @@ export function Dashboard() {
                   placeholder="Ajouter une chose à faire…"
                   label="Ajouter une tâche à faire"
                   disabled={adding}
-                  className="bg-secondary/70 shadow-none"
                 />
               </div>
             )}
@@ -490,51 +487,57 @@ export function Dashboard() {
         return <MealsCard meals={meals} />;
       case "lists":
         return (
-          <AsideCard title="Courses" icon={ShoppingCart} tone="list" href="/lists" linkLabel="Voir les listes">
+          <BlockCard tone="list" title="Courses" href="/lists" linkLabel="Voir les listes" icon={ShoppingCart}>
             {activeLists.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Tout est coché.</p>
+              <p className="text-2xl font-extrabold leading-tight text-balance">Tout est dans le chariot.</p>
             ) : (
-              <ul className="-mx-2">
-                {activeLists.slice(0, 3).map((l) => (
-                  <li key={l.id}>
-                    <Link
-                      href="/lists"
-                      className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-2 text-[0.9375rem] transition-colors hover:bg-accent/60 active:bg-accent"
-                    >
-                      <span className="truncate">{l.name}</span>
-                      <span className="shrink-0 rounded-full bg-tone-list-soft px-2.5 py-0.5 text-xs font-semibold tabular-nums text-tone-list-ink">
-                        {l.remaining}
-                        <span className="sr-only"> {l.remaining > 1 ? "articles" : "article"}</span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <div className="flex items-end gap-3">
+                  <AnimatedNumber value={remainingItems} className="font-display text-[4.5rem] leading-none" />
+                  <p className="pb-1.5 text-base font-bold leading-tight">{remainingItems > 1 ? "articles" : "article"}<br />à prendre</p>
+                </div>
+                <ul className="mt-4 space-y-1.5">
+                  {activeLists.slice(0, 3).map((l) => (
+                    <li key={l.id}>
+                      <Link
+                        href="/lists"
+                        className="flex min-h-12 items-center justify-between gap-3 rounded-full bg-on-tone/[0.12] px-4 text-base font-bold transition-[transform,background-color] hover:bg-on-tone/20 active:scale-[0.98]"
+                      >
+                        <span className="truncate">{l.name}</span>
+                        <span className="shrink-0 rounded-full bg-on-tone px-2.5 py-0.5 text-sm font-extrabold tabular-nums text-tone-list">
+                          {l.remaining}
+                          <span className="sr-only"> {l.remaining > 1 ? "articles" : "article"}</span>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
-          </AsideCard>
+          </BlockCard>
         );
       case "week":
         return (
-          <AsideCard title="Cette semaine" icon={CalendarDays} tone="agenda" href="/calendar" linkLabel="Ouvrir l'agenda">
+          <BlockCard tone="agenda" title="Cette semaine" href="/calendar" linkLabel="Ouvrir l'agenda" icon={CalendarDays}>
             {upcoming.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Rien de prévu les 7 prochains jours.</p>
+              <p className="text-2xl font-extrabold leading-tight text-balance">Rien de prévu les 7 prochains jours.</p>
             ) : (
-              <ul className="space-y-1">
+              <ul className="space-y-1.5">
                 {upcoming.map((e) => (
-                  <li key={`${e.id}-${e.date}`} className="flex min-h-12 items-center gap-3 text-[0.9375rem]">
-                    <span className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-tone-agenda-soft leading-none text-tone-agenda-ink">
-                      <span className="text-[0.625rem] font-semibold uppercase tracking-wide">
+                  <li key={`${e.id}-${e.date}`} className="flex min-h-14 items-center gap-3 text-base">
+                    <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-on-tone leading-none text-tone-agenda">
+                      <span className="text-[0.625rem] font-extrabold uppercase">
                         {format(new Date(e.date), "EEE", { locale: fr }).replace(".", "")}
                       </span>
-                      <span className="mt-0.5 text-base font-bold tabular-nums">{format(new Date(e.date), "d")}</span>
+                      <span className="mt-0.5 text-lg font-extrabold tabular-nums">{format(new Date(e.date), "d")}</span>
                     </span>
-                    <span className="min-w-0 flex-1 truncate">{e.title}</span>
+                    <span className="min-w-0 flex-1 truncate font-bold">{e.title}</span>
                     <AssigneeAvatars ids={e.assigneeIds} byId={profiles.byId} />
                   </li>
                 ))}
               </ul>
             )}
-          </AsideCard>
+          </BlockCard>
         );
       case "weather":
         return <WeatherCard weather={weather} />;
@@ -544,56 +547,60 @@ export function Dashboard() {
   const shownCount = layout.filter((s) => s.visible && available.has(s.id)).length;
 
   return (
-    <div className="relative space-y-6">
-      <header className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[0.9375rem] font-medium text-muted-foreground first-letter:uppercase">{dateLabel}</p>
-          <h1 className="mt-0.5 text-[1.75rem] leading-8 font-bold tracking-[-0.02em] text-balance">Bonjour {firstName}</h1>
-          {(currentGroup || (weather && WeatherIcon)) && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {currentGroup && (
-                <span className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-card px-3 text-sm font-medium shadow-surface">
-                  <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <span className="truncate">{currentGroup.name}</span>
-                </span>
-              )}
-              {weather && WeatherIcon && (
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-card px-3 text-sm font-medium tabular-nums shadow-surface">
-                  <WeatherIcon className="h-4 w-4 text-tone-meal-ink" aria-hidden="true" />
-                  {Math.round(weather.current.temperature_2m)}°
-                  <span className="font-normal text-muted-foreground">{getWeatherInfo(weather.current.weather_code).label}</span>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        {!editing && (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            aria-label="Personnaliser l'accueil"
-            title="Personnaliser l'accueil"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-          </button>
+    <div className="relative space-y-5 md:space-y-6">
+      <DayScene
+        dateLabel={dateLabel}
+        greeting={
+          <>
+            Bonjour
+            <br />
+            {firstName}
+          </>
+        }
+        count={showDay ? (dayLoading ? null : visibleEntries.length) : 0}
+        countLabel={visibleEntries.length === 1 ? "chose aujourd'hui" : "choses aujourd'hui"}
+        action={
+          !editing ? (
+            <HeroIconButton
+              onClick={() => setEditing(true)}
+              aria-label="Personnaliser l'accueil"
+              title="Personnaliser l'accueil"
+              className="bg-ink-foreground/10 text-ink-foreground hover:bg-ink-foreground/20 focus-visible:ring-ink-foreground"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+            </HeroIconButton>
+          ) : null
+        }
+      >
+        {currentGroup && (
+          <span className="inline-flex h-9 max-w-full items-center gap-1.5 rounded-full bg-ink-foreground/10 px-3.5 text-sm font-bold">
+            <Users className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{currentGroup.name}</span>
+          </span>
         )}
-      </header>
+        {weather && WeatherIcon && (
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-tone-meal px-3.5 text-sm font-extrabold tabular-nums text-on-tone">
+            <WeatherIcon className="h-4 w-4" aria-hidden="true" />
+            {Math.round(weather.current.temperature_2m)}°
+            <span className="font-semibold">{getWeatherInfo(weather.current.weather_code).label}</span>
+          </span>
+        )}
+      </DayScene>
 
       {editing && (
-        <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] md:top-4 z-30 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card/95 backdrop-blur px-4 py-3 shadow-sm">
+        <div className="sticky top-[calc(4.5rem+env(safe-area-inset-top))] md:top-4 z-30 flex flex-wrap items-center gap-3 rounded-[1.5rem] bg-card/95 backdrop-blur px-4 py-3 shadow-surface">
           <div className="flex-1 min-w-[12rem]">
-            <p className="text-sm font-semibold">Personnalise ton accueil</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-base font-extrabold">Personnalise ton accueil</p>
+            <p className="text-sm text-muted-foreground">
               <span className="hidden md:inline">Glisse un module ou utilise les flèches, choisis sa largeur, ou masque-le.</span>
               <span className="md:hidden">Utilise les flèches pour réordonner, ou masque un module.</span>
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={resetLayout} disabled={!customLayout}>
+          <Button variant="ghost" onClick={resetLayout} disabled={!customLayout} className="h-11 rounded-full px-4">
             <RotateCcw className="h-4 w-4 mr-1.5" />
             Réinitialiser
           </Button>
-          <Button size="sm" onClick={() => setEditing(false)}>
+          <Button onClick={() => setEditing(false)} className="h-11 rounded-full px-5">
             <Check className="h-4 w-4 mr-1.5" />
             Terminé
           </Button>
@@ -601,10 +608,10 @@ export function Dashboard() {
       )}
 
       {shownCount === 0 && !editing ? (
-        <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
-          <p className="font-medium">Ton accueil est vide.</p>
-          <p className="text-sm text-muted-foreground mt-1">Tous les modules sont masqués.</p>
-          <Button size="sm" className="mt-4" onClick={() => setEditing(true)}>
+        <div className="rounded-[2rem] border-2 border-dashed border-border px-6 py-12 text-center">
+          <p className="font-display text-2xl">Ton accueil est vide.</p>
+          <p className="mt-1 text-base text-muted-foreground">Tous les modules sont masqués.</p>
+          <Button className="mt-4 h-12 rounded-full px-6" onClick={() => setEditing(true)}>
             Choisir les modules
           </Button>
         </div>
@@ -625,12 +632,12 @@ export function Dashboard() {
 
 function DayRow({
   entry,
-  index,
+  flipKey,
   byId,
   onComplete,
 }: {
   entry: DayEntry;
-  index: number;
+  flipKey: string;
   byId: ReturnType<typeof useFamilyProfiles>["byId"];
   onComplete: (todo: Todo) => void;
 }) {
@@ -638,64 +645,88 @@ function DayRow({
   const title = isTodo ? entry.todo.title : entry.event.title;
   const assignees = isTodo ? entry.todo.assigneeIds : entry.event.assigneeIds;
   const eventColor = !isTodo ? entry.event.displayColor || entry.event.color : null;
+  const timed = /^\d{2}:\d{2}$/.test(entry.label);
 
   return (
-    <li
-      className="flex min-h-[3.75rem] animate-row-in items-center gap-1 py-2 pl-1 pr-4"
-      style={{ animationDelay: `${Math.min(index, 6) * 30}ms` }}
-    >
+    <li data-flip={flipKey} className="flex min-h-[4rem] items-center gap-1 rounded-[1.25rem] py-2 pl-1 pr-3 transition-colors hover:bg-accent/50">
       {isTodo ? (
-        <CheckCircle
-          tone="todo"
-          checked={false}
-          onCheckedChange={() => onComplete(entry.todo)}
-          aria-label={`Cocher « ${title} »`}
-        />
+        <CheckCircle tone="todo" checked={false} onCheckedChange={() => onComplete(entry.todo)} aria-label={`Cocher « ${title} »`} />
       ) : (
         <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center">
-          <span
-            className="h-9 w-1.5 rounded-full bg-primary"
-            style={eventColor ? { backgroundColor: eventColor } : undefined}
-          />
+          <span className="h-9 w-2 rounded-full bg-tone-agenda" style={eventColor ? { backgroundColor: eventColor } : undefined} />
         </span>
       )}
 
       <div className="min-w-0 flex-1 pl-1">
         {isTodo ? (
-          <p className="line-clamp-2 text-base font-medium leading-snug">{title}</p>
+          <p className="line-clamp-2 text-[1.0625rem] font-bold leading-snug">{title}</p>
         ) : (
-          <Link href="/calendar" className="line-clamp-2 text-base font-medium leading-snug hover:underline underline-offset-2">
+          <Link href="/calendar" className="line-clamp-2 text-[1.0625rem] font-bold leading-snug hover:underline underline-offset-2">
             {title}
             <span className="sr-only"> (rendez-vous)</span>
           </Link>
         )}
         <p
           className={cn(
-            "mt-0.5 text-[0.8125rem] tabular-nums",
-            isTodo && entry.late ? "font-semibold text-destructive" : "text-muted-foreground"
+            "mt-0.5 text-sm tabular-nums",
+            isTodo && entry.late ? "font-extrabold text-destructive" : timed ? "font-extrabold text-foreground" : "font-semibold text-muted-foreground"
           )}
         >
           {entry.label}
         </p>
       </div>
 
-      <AssigneeAvatars ids={assignees} byId={byId} className="[&>*]:h-7 [&>*]:w-7 [&>*]:text-sm" />
+      <AssigneeAvatars ids={assignees} byId={byId} className="[&>*]:h-8 [&>*]:w-8 [&>*]:text-sm" />
     </li>
+  );
+}
+
+/** Module de l'accueil à l'aplat de sa teinte : titre en 800, contenu, flèche d'accès. */
+function BlockCard({
+  tone,
+  title,
+  href,
+  linkLabel,
+  icon: Icon,
+  children,
+}: {
+  tone: Tone;
+  title: string;
+  href: string;
+  linkLabel: string;
+  icon: typeof ShoppingCart;
+  children: React.ReactNode;
+}) {
+  return (
+    <section aria-label={title} className={cn("relative overflow-hidden rounded-[2rem] p-5", TONE_CLASSES[tone].block)}>
+      <Icon aria-hidden="true" className="pointer-events-none absolute -bottom-6 -right-5 h-36 w-36 rotate-[-12deg] opacity-[0.1]" strokeWidth={1.5} />
+      <div className="relative mb-3 flex items-center justify-between gap-3">
+        <h2 className="font-display text-[1.75rem]">{title}</h2>
+        <Link
+          href={href}
+          aria-label={linkLabel}
+          className="-mr-1 flex h-12 w-12 items-center justify-center rounded-full bg-on-tone/[0.12] transition-[transform,background-color] hover:bg-on-tone/20 active:scale-90"
+        >
+          <ArrowRight className="h-5 w-5" strokeWidth={2.5} />
+        </Link>
+      </div>
+      <div className="relative">{children}</div>
+    </section>
   );
 }
 
 function WeatherCard({ weather }: { weather: WeatherData | null }) {
   const header = (
-    <h2 className="text-sm font-semibold flex items-center gap-2 min-w-0">
-      <CloudSun className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+    <h2 className="flex min-w-0 items-center gap-2 text-base font-extrabold">
+      <CloudSun className="h-5 w-5 shrink-0" aria-hidden="true" />
       Météo
-      {weather?.city && <span className="font-normal text-muted-foreground truncate">· {weather.city}</span>}
+      {weather?.city && <span className="truncate font-semibold text-muted-foreground">· {weather.city}</span>}
     </h2>
   );
 
   if (!weather) {
     return (
-      <section aria-label="Météo" className="rounded-[1.25rem] bg-card px-4 py-4 shadow-surface space-y-3">
+      <section aria-label="Météo" className="space-y-3 rounded-[2rem] bg-card px-5 py-5 shadow-surface">
         {header}
         <div className="flex items-center gap-4">
           <Skeleton className="h-11 w-11 rounded-full" />
@@ -712,33 +743,30 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
   const NowIcon = now.icon;
 
   return (
-    <section
-      aria-label={`Météo${weather.city ? ` à ${weather.city}` : ""}`}
-      className="rounded-[1.25rem] bg-card px-4 py-4 shadow-surface space-y-4"
-    >
+    <section aria-label={`Météo${weather.city ? ` à ${weather.city}` : ""}`} className="space-y-4 rounded-[2rem] bg-card px-5 py-5 shadow-surface">
       {header}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="flex items-center gap-4">
-          <NowIcon className="h-11 w-11 text-tone-meal-ink shrink-0" strokeWidth={1.75} aria-hidden="true" />
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-tone-meal text-on-tone">
+            <NowIcon className="h-9 w-9" strokeWidth={1.75} aria-hidden="true" />
+          </span>
           <div>
-            <p className="text-3xl font-bold tracking-tight tabular-nums leading-none">
-              {Math.round(weather.current.temperature_2m)}°C
-            </p>
-            <p className="text-sm text-muted-foreground mt-1.5">{now.label}</p>
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground">
+            <p className="font-display text-[3rem] tabular-nums leading-none">{Math.round(weather.current.temperature_2m)}°</p>
+            <p className="mt-1.5 text-base font-bold">{now.label}</p>
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
-                <Thermometer className="h-3 w-3" aria-hidden="true" />
+                <Thermometer className="h-3.5 w-3.5" aria-hidden="true" />
                 Ressenti {Math.round(weather.current.apparent_temperature)}°
               </span>
               <span className="flex items-center gap-1">
-                <Wind className="h-3 w-3" aria-hidden="true" />
+                <Wind className="h-3.5 w-3.5" aria-hidden="true" />
                 {Math.round(weather.current.wind_speed_10m)} km/h
               </span>
             </div>
           </div>
         </div>
 
-        <ul className="grid grid-cols-3 gap-2 flex-1 min-w-[12rem] max-w-xs ml-auto" aria-label="Prévisions des 3 prochains jours">
+        <ul className="ml-auto grid min-w-[12rem] max-w-xs flex-1 grid-cols-3 gap-2" aria-label="Prévisions des 3 prochains jours">
           {weather.daily.time.slice(1, 4).map((day, i) => {
             const idx = i + 1;
             const info = getWeatherInfo(weather.daily.weather_code[idx]);
@@ -749,13 +777,13 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
             return (
               <li
                 key={day}
-                className="flex flex-col items-center gap-1 rounded-xl bg-tone-meal-soft px-2 py-2 text-tone-meal-ink"
+                className="flex flex-col items-center gap-1 rounded-2xl bg-tone-meal-soft px-2 py-2.5 text-tone-meal-ink"
                 aria-label={`${new Date(day).toLocaleDateString("fr-FR", { weekday: "long" })} : ${info.label}, ${max}° / ${min}°`}
               >
-                <span className="text-xs capitalize" aria-hidden="true">{weekday}</span>
+                <span className="text-xs font-bold capitalize" aria-hidden="true">{weekday}</span>
                 <DayIcon className="h-5 w-5" aria-hidden="true" />
                 <span className="text-xs tabular-nums" aria-hidden="true">
-                  <span className="font-semibold">{max}°</span>
+                  <span className="font-extrabold">{max}°</span>
                   <span className="opacity-75"> / {min}°</span>
                 </span>
               </li>
@@ -763,39 +791,6 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
           })}
         </ul>
       </div>
-    </section>
-  );
-}
-
-function AsideCard({
-  title,
-  icon,
-  tone,
-  href,
-  linkLabel,
-  children,
-}: {
-  title: string;
-  icon: typeof ShoppingCart;
-  tone: Tone;
-  href: string;
-  linkLabel: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section aria-label={title} className="rounded-[1.25rem] bg-card px-4 pt-3 pb-4 shadow-surface">
-      <div className="mb-2 flex items-center gap-3">
-        <ToneIcon icon={icon} tone={tone} />
-        <h2 className="min-w-0 flex-1 text-[1.0625rem] font-semibold">{title}</h2>
-        <Link
-          href={href}
-          aria-label={linkLabel}
-          className="-mr-2 flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </div>
-      {children}
     </section>
   );
 }
@@ -808,53 +803,39 @@ function MealsCard({ meals }: { meals: Meal[] }) {
   const planned = slots
     .map((s) => ({ ...s, items: meals.filter((m) => m.slot === s.slot) }))
     .filter((s) => s.items.length > 0);
-  const t = TONE_CLASSES.meal;
 
   return (
-    <section aria-label="Au menu aujourd'hui" className={cn("rounded-[1.25rem] px-4 pt-3 pb-4 shadow-surface", t.soft)}>
-      <div className="mb-1 flex items-center gap-3">
-        <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-tone-meal text-primary-foreground">
-          <UtensilsCrossed className="h-[1.125rem] w-[1.125rem]" />
-        </span>
-        <h2 className={cn("min-w-0 flex-1 text-[1.0625rem] font-semibold", t.ink)}>Au menu aujourd&apos;hui</h2>
-        <Link
-          href="/recipes"
-          aria-label="Voir les recettes"
-          className={cn("-mr-2 flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-foreground/5", t.ink)}
-        >
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </div>
+    <BlockCard tone="meal" title="Au menu" href="/recipes" linkLabel="Voir les recettes" icon={UtensilsCrossed}>
       {planned.length === 0 ? (
-        <p className="text-[0.9375rem] text-foreground/80">
+        <p className="text-xl font-extrabold leading-tight text-balance">
           Rien de prévu.{" "}
-          <Link href="/recipes" className="font-medium text-foreground underline underline-offset-2">
+          <Link href="/recipes" className="underline decoration-2 underline-offset-4">
             Planifier un repas
           </Link>
         </p>
       ) : (
-        <ul className="space-y-1">
+        <ul className="space-y-3">
           {planned.map((s) => (
             <li key={s.slot}>
-              <p className={cn("text-xs font-semibold", t.ink)}>{s.label}</p>
+              <p className="text-sm font-extrabold opacity-80">{s.label}</p>
               {s.items.map((m) =>
                 m.recipe ? (
                   <Link
                     key={m.id}
                     href={`/recipes/${m.recipe.id}`}
-                    className="-mx-2 flex min-h-12 items-center gap-2 rounded-xl px-2 text-lg font-semibold leading-snug transition-colors hover:bg-foreground/5 active:bg-foreground/10"
+                    className="-mx-2 flex min-h-14 items-center gap-2 rounded-2xl px-2 font-display text-[1.625rem] leading-tight tracking-[-0.03em] transition-[transform,background-color] hover:bg-on-tone/[0.08] active:scale-[0.98]"
                   >
                     <span className="min-w-0 flex-1 text-balance">{m.recipe.title}</span>
-                    <ChefHat className={cn("h-4 w-4 shrink-0", t.ink)} aria-hidden="true" />
+                    <ChefHat className="h-5 w-5 shrink-0" aria-hidden="true" />
                   </Link>
                 ) : (
-                  <span key={m.id} className="block min-h-10 py-2 text-base">{m.note}</span>
+                  <span key={m.id} className="block min-h-10 py-2 text-lg font-bold">{m.note}</span>
                 )
               )}
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </BlockCard>
   );
 }

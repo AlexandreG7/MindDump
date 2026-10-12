@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { nativeHaptic } from "@/lib/native";
 import { fillMatchCart, useMatchDriveAvailable } from "@/lib/matchDrive";
@@ -20,7 +20,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { SegmentedList, SegmentedTrigger } from "@/components/ui/segmented";
-import { PageHeader } from "@/components/ui/page-header";
+import { ModuleHero, HeroChip, HeroIconButton } from "@/components/ui/module-hero";
+import { CheckCircle } from "@/components/ui/check-circle";
+import { SwipeRow } from "@/components/ui/swipe-row";
+import { FlipList } from "@/components/ui/flip-list";
+import { cn } from "@/lib/utils";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -173,6 +177,7 @@ export default function ListsPage() {
   const { currentGroupId } = useGroupContext();
   const { toast } = useFeedback();
   const [lists, setLists] = useState<ShoppingList[]>([]);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newList, setNewList] = useState({ name: "", type: "GROCERY" as "GROCERY" | "ONLINE" });
@@ -191,7 +196,8 @@ export default function ListsPage() {
       .then((data: ShoppingList[] | null) => {
         if (data) setLists(withPending(data));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadedOnce(true));
   }, []);
 
   const fetchRecipes = useCallback(() => {
@@ -301,76 +307,80 @@ export default function ListsPage() {
   const toBuy = groceryLists.reduce((n, l) => n + l.items.filter((i) => !i.checked).length, 0);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 md:mx-0">
-      <PageHeader
-        title="Mes listes"
-        meta={
-          <>
-            {toBuy > 0 ? `${toBuy} ${toBuy > 1 ? "articles" : "article"} à prendre` : lists.length > 0 ? "Tout est dans le chariot" : null}
-            <OfflineStatus online={online} pending={pending} onRetry={sync} />
-          </>
-        }
+    <div className="mx-auto w-full max-w-3xl space-y-5 md:mx-0">
+      <ModuleHero
+        tone="list"
+        title="Listes"
+        count={lists.length === 0 && !loadedOnce ? null : toBuy}
+        countLabel={toBuy > 1 ? "articles à prendre" : "article à prendre"}
+        kicker={toBuy === 0 && lists.length > 0 ? "Tout est dans le chariot" : undefined}
         action={
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={!online} className="h-11 rounded-xl px-4 text-[0.9375rem]">
-              <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} />
-              Nouvelle liste
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Créer une liste</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="lists-nom">Nom</Label>
-                <Input id="lists-nom"
-                  value={newList.name}
-                  onChange={(e) => setNewList({ ...newList, name: e.target.value })}
-                  placeholder="Ex. : courses de la semaine, idées cadeaux…"
-                />
-              </div>
-              <div>
-                <Label id="list-type">Type</Label>
-                <div className="flex gap-2 mt-1" role="group" aria-labelledby="list-type">
-                  <Button
-                    type="button"
-                    variant={newList.type === "GROCERY" ? "default" : "outline"}
-                    size="sm"
-                    aria-pressed={newList.type === "GROCERY"}
-                    onClick={() => setNewList({ ...newList, type: "GROCERY" })}
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-1" />
-                    Courses
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={newList.type === "ONLINE" ? "default" : "outline"}
-                    size="sm"
-                    aria-pressed={newList.type === "ONLINE"}
-                    onClick={() => setNewList({ ...newList, type: "ONLINE" })}
-                  >
-                    <Globe className="h-4 w-4 mr-1" />
-                    Achats en ligne
-                  </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <HeroIconButton
+                disabled={!online}
+                aria-label="Nouvelle liste"
+                title="Nouvelle liste"
+                className="bg-on-tone text-tone-list hover:bg-on-tone/90 disabled:opacity-50"
+              >
+                <Plus className="h-6 w-6" strokeWidth={3} />
+              </HeroIconButton>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Créer une liste</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="lists-nom">Nom</Label>
+                  <Input id="lists-nom"
+                    value={newList.name}
+                    onChange={(e) => setNewList({ ...newList, name: e.target.value })}
+                    placeholder="Ex. : courses de la semaine, idées cadeaux…"
+                  />
                 </div>
+                <div>
+                  <Label id="list-type">Type</Label>
+                  <div className="flex gap-2 mt-1" role="group" aria-labelledby="list-type">
+                    <Button
+                      type="button"
+                      variant={newList.type === "GROCERY" ? "default" : "outline"}
+                      size="sm"
+                      aria-pressed={newList.type === "GROCERY"}
+                      onClick={() => setNewList({ ...newList, type: "GROCERY" })}
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-1" />
+                      Courses
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={newList.type === "ONLINE" ? "default" : "outline"}
+                      size="sm"
+                      aria-pressed={newList.type === "ONLINE"}
+                      onClick={() => setNewList({ ...newList, type: "ONLINE" })}
+                    >
+                      <Globe className="h-4 w-4 mr-1" />
+                      Achats en ligne
+                    </Button>
+                  </div>
+                </div>
+                <Button className="w-full" onClick={createList}>
+                  Créer
+                </Button>
               </div>
-              <Button className="w-full" onClick={createList}>
-                Créer
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
         }
-      />
+      >
+        <OfflineStatus online={online} pending={pending} onRetry={sync} />
+      </ModuleHero>
 
       <Tabs defaultValue="grocery">
         <SegmentedList>
-          <SegmentedTrigger value="grocery" icon={<ShoppingCart className="h-4 w-4" />} count={groceryLists.length}>
+          <SegmentedTrigger value="grocery" tone="list" icon={<ShoppingCart className="h-4 w-4" />} count={groceryLists.length}>
             Courses
           </SegmentedTrigger>
-          <SegmentedTrigger value="online" icon={<Globe className="h-4 w-4" />} count={onlineLists.length}>
+          <SegmentedTrigger value="online" tone="list" icon={<Globe className="h-4 w-4" />} count={onlineLists.length}>
             En ligne
           </SegmentedTrigger>
         </SegmentedList>
@@ -432,14 +442,96 @@ function OfflineStatus({
       {pending > 0 && ` · ${pending} modification${pending > 1 ? "s" : ""}`}
     </>
   );
-  const className = "mt-1 flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap";
   // En ligne avec des modifications en attente : un envoi a échoué, on peut relancer.
   return online ? (
-    <button className={`${className} hover:text-foreground`} onClick={onRetry} title="Renvoyer">
-      {content}
+    <button type="button" className="inline-flex" onClick={onRetry} title="Renvoyer">
+      <HeroChip className="min-h-11 whitespace-nowrap">{content}</HeroChip>
     </button>
   ) : (
-    <span className={className}>{content}</span>
+    <HeroChip className="whitespace-nowrap">{content}</HeroChip>
+  );
+}
+
+/* ── Ajout d'un article : toujours sous la main ───────────── */
+
+function AddItemRow({
+  type,
+  onAdd,
+}: {
+  type: "GROCERY" | "ONLINE";
+  onAdd: (item: Omit<NewItem, "id">) => void;
+}) {
+  const [name, setName] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [url, setUrl] = useState("");
+  const [price, setPrice] = useState("");
+  const [store, setStore] = useState("");
+  const nameInput = useRef<HTMLInputElement>(null);
+
+  const submit = () => {
+    if (!name.trim()) return;
+    const item: Omit<NewItem, "id"> = { name, quantity: quantity || null };
+    if (type === "ONLINE") {
+      item.url = url || null;
+      item.price = price ? Number(price) : null;
+      item.store = store || null;
+    }
+    onAdd(item);
+    setName("");
+    setQuantity("");
+    setUrl("");
+    setPrice("");
+    setStore("");
+    // On enchaîne : le champ garde le focus pour l'article suivant.
+    nameInput.current?.focus();
+  };
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+      className="space-y-2 p-3"
+    >
+      <div className="flex h-16 items-center gap-2 rounded-full bg-ink pl-6 pr-2 text-ink-foreground focus-within:ring-[3px] focus-within:ring-ring/70">
+        <input
+          ref={nameInput}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Ajouter un article…"
+          aria-label="Article"
+          enterKeyHint="done"
+          className="h-full min-w-0 flex-1 bg-transparent text-[1.0625rem] font-medium outline-none placeholder:text-ink-foreground/60"
+        />
+        <input
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          placeholder="Qté"
+          aria-label="Quantité"
+          enterKeyHint="done"
+          className="h-10 w-16 shrink-0 rounded-full bg-ink-foreground/10 px-3 text-center text-base font-semibold outline-none placeholder:text-ink-foreground/60 focus:bg-ink-foreground/20"
+        />
+        <button
+          type="submit"
+          aria-label="Ajouter"
+          disabled={!name.trim()}
+          className={cn(
+            "flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-[transform,background-color] duration-150 active:scale-90",
+            name.trim() ? "bg-tone-list text-on-tone" : "bg-ink-foreground/15 text-ink-foreground/60"
+          )}
+        >
+          <Plus className="h-6 w-6" strokeWidth={3} />
+        </button>
+      </div>
+      {type === "ONLINE" && (
+        <div className="flex flex-wrap gap-2">
+          <Input placeholder="URL" aria-label="Lien" value={url} onChange={(e) => setUrl(e.target.value)} className="h-12 min-w-[10rem] flex-1 rounded-full px-4" />
+          <Input placeholder="Prix" aria-label="Prix" type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="h-12 w-24 rounded-full px-4" />
+          <Input placeholder="Magasin" aria-label="Magasin" value={store} onChange={(e) => setStore(e.target.value)} className="h-12 w-32 rounded-full px-4" />
+        </div>
+      )}
+    </form>
   );
 }
 
@@ -472,42 +564,19 @@ function ListGroup({
   onDeleteItem: (listId: string, itemId: string) => void;
   onDeleteList: (list: ShoppingList) => void;
 }) {
-  const [addingTo, setAddingTo] = useState<string | null>(null);
-  const [itemName, setItemName] = useState("");
-  const [itemQuantity, setItemQuantity] = useState("");
-  const [itemUrl, setItemUrl] = useState("");
-  const [itemPrice, setItemPrice] = useState("");
-  const [itemStore, setItemStore] = useState("");
   const [showRecipeTags, setShowRecipeTags] = useState(false);
   // Dans l'app seulement : remplir le panier drive Match depuis la liste.
   const matchDrive = useMatchDriveAvailable();
-
-  const handleAddItem = (listId: string) => {
-    if (!itemName.trim()) return;
-    const item: Omit<NewItem, "id"> = { name: itemName, quantity: itemQuantity || null };
-    if (type === "ONLINE") {
-      item.url = itemUrl || null;
-      item.price = itemPrice ? Number(itemPrice) : null;
-      item.store = itemStore || null;
-    }
-    onAddItem(listId, item);
-    setItemName("");
-    setItemQuantity("");
-    setItemUrl("");
-    setItemPrice("");
-    setItemStore("");
-    setAddingTo(null);
-  };
 
   if (lists.length === 0) {
     return (
       <EmptyState
         icon={type === "GROCERY" ? ShoppingCart : Globe}
         tone="list"
-        title={type === "GROCERY" ? "Pas encore de liste de courses" : "Pas encore d’achats en ligne"}
+        title={type === "GROCERY" ? "Pas encore de liste de courses." : "Pas encore d’achats en ligne."}
         action={
-          <Button onClick={onCreate} className="h-11 rounded-xl px-5">
-            <Plus className="mr-1.5 h-4 w-4" strokeWidth={2.5} />
+          <Button onClick={onCreate} className="h-12 rounded-full px-6 text-base font-bold">
+            <Plus className="mr-1.5 h-5 w-5" strokeWidth={3} />
             Créer une liste
           </Button>
         }
@@ -518,6 +587,9 @@ function ListGroup({
       </EmptyState>
     );
   }
+
+  const headBtn =
+    "flex h-12 w-12 items-center justify-center rounded-full transition-[transform,background-color] hover:bg-on-tone/[0.14] active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-tone";
 
   return (
     <div className="space-y-5">
@@ -535,31 +607,31 @@ function ListGroup({
         const hasRecipeItems = unchecked.some((i) => i.recipeId);
 
         return (
-          <div key={list.id} className="grocery-list overflow-hidden rounded-[1.25rem]">
-            {/* Header */}
-            <div className="grocery-list-header">
+          <div key={list.id} className="overflow-hidden rounded-[2rem] bg-card shadow-surface">
+            {/* En-tête à l'aplat vert */}
+            <div className="flex items-center gap-3 bg-tone-list py-4 pl-4 pr-2 text-on-tone">
               {list.items.length > 0 && (
-                <ProgressRing value={progress / 100} size={46} tone="list">
+                <ProgressRing value={progress / 100} size={56}>
                   {checkedUniqueCount}/{uniqueCount + checkedUniqueCount}
                 </ProgressRing>
               )}
               <div className="min-w-0 flex-1">
-                <h2 className="line-clamp-2 break-words text-[1.0625rem] font-semibold leading-tight">{list.name}</h2>
+                <h2 className="font-display line-clamp-2 break-words text-[1.5rem] leading-[1.02]">{list.name}</h2>
                 {list.items.length > 0 && (
-                  <p className="mt-0.5 text-[0.8125rem] tabular-nums text-tone-list-ink/80">
+                  <p className="mt-0.5 text-sm font-bold tabular-nums">
                     {uniqueCount > 0 ? `${uniqueCount} ${uniqueCount > 1 ? "articles" : "article"} à prendre` : "Tout est pris"}
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex shrink-0 items-center">
                 {type === "ONLINE" && total > 0 && (
-                  <span className="text-sm text-muted-foreground mr-2">
+                  <span className="mr-2 text-sm font-extrabold tabular-nums">
                     {total.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
                   </span>
                 )}
                 {matchDrive && online && type === "GROCERY" && unchecked.length > 0 && (
                   <button
-                    className="grocery-icon-btn"
+                    className={headBtn}
                     title="Remplir mon panier Match"
                     aria-label="Remplir mon panier Match"
                     onClick={() => fillMatchCart(list.id)}
@@ -570,7 +642,7 @@ function ListGroup({
                 {online && type === "GROCERY" && recipes.length > 0 && (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <button className="grocery-icon-btn" title="Ajouter une recette" aria-label="Ajouter une recette">
+                      <button className={headBtn} title="Ajouter une recette" aria-label="Ajouter une recette">
                         <CookingPot className="h-4 w-4" />
                       </button>
                     </DialogTrigger>
@@ -600,7 +672,7 @@ function ListGroup({
                 )}
                 {hasRecipeItems && (
                   <button
-                    className={`grocery-icon-btn ${showRecipeTags ? "grocery-icon-btn-active" : ""}`}
+                    className={cn(headBtn, showRecipeTags && "bg-on-tone/[0.18]")}
                     onClick={() => setShowRecipeTags(!showRecipeTags)}
                     title={showRecipeTags ? "Masquer les recettes" : "Voir les recettes"}
                     aria-label={showRecipeTags ? "Masquer les recettes" : "Voir les recettes"}
@@ -610,85 +682,39 @@ function ListGroup({
                   </button>
                 )}
                 {online && (
-                  <>
-                    <span className="grocery-icon-divider" aria-hidden="true" />
-                    <button
-                      className="grocery-icon-btn grocery-icon-btn-danger grocery-icon-btn-delete"
-                      onClick={() => onDeleteList(list)}
-                      title="Supprimer la liste"
-                      aria-label={`Supprimer la liste « ${list.name} »`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </>
+                  <button
+                    className={cn(headBtn, "ml-1 hover:bg-destructive hover:text-destructive-foreground")}
+                    onClick={() => onDeleteList(list)}
+                    title="Supprimer la liste"
+                    aria-label={`Supprimer la liste « ${list.name} »`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 )}
               </div>
             </div>
 
-            {/* Items (grouped) */}
-            <div className="divide-y divide-border/50">
+            {/* Articles à prendre (regroupés) */}
+            <FlipList signature={grouped.map((g) => g.key).join(",")} className="px-2 pt-2">
               {grouped.map((group) => (
                 <GroceryRow
                   key={group.key}
                   group={group}
                   listId={list.id}
-                  type={type}
                   showRecipe={showRecipeTags}
                   onToggle={onToggleGroup}
                   onDelete={onDeleteGroup}
                 />
               ))}
-            </div>
+            </FlipList>
 
-            {/* Add item */}
-            <div className="grocery-add-section">
-              {addingTo === list.id ? (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Article"
-                      value={itemName}
-                      onChange={(e) => setItemName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleAddItem(list.id);
-                      }}
-                      autoFocus
-                      className="h-12 rounded-xl text-base"
-                    />
-                    <Input
-                      placeholder="Qté"
-                      value={itemQuantity}
-                      onChange={(e) => setItemQuantity(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleAddItem(list.id);
-                      }}
-                      className="h-12 w-24 rounded-xl"
-                    />
-                  </div>
-                  {type === "ONLINE" && (
-                    <div className="flex gap-2">
-                      <Input placeholder="URL" value={itemUrl} onChange={(e) => setItemUrl(e.target.value)} />
-                      <Input placeholder="Prix" type="number" value={itemPrice} onChange={(e) => setItemPrice(e.target.value)} className="w-24" />
-                      <Input placeholder="Magasin" value={itemStore} onChange={(e) => setItemStore(e.target.value)} className="w-32" />
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <Button className="h-11 rounded-xl px-5" onClick={() => handleAddItem(list.id)}>Ajouter</Button>
-                    <Button className="h-11 rounded-xl" variant="ghost" onClick={() => setAddingTo(null)}>Annuler</Button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  className="grocery-add-btn"
-                  onClick={() => setAddingTo(list.id)}
-                >
-                  <Plus className="h-5 w-5" strokeWidth={2.5} />
-                  Ajouter un article
-                </button>
-              )}
-            </div>
+            {list.items.length === 0 && (
+              <p className="py-6 text-center text-base font-semibold text-muted-foreground">Liste vide</p>
+            )}
 
-            {/* Checked items */}
+            <AddItemRow type={type} onAdd={(item) => onAddItem(list.id, item)} />
+
+            {/* Articles pris */}
             {checkedGrouped.length > 0 && (
               <CheckedSection
                 groups={checkedGrouped}
@@ -697,12 +723,6 @@ function ListGroup({
                 onToggle={onToggleGroup}
                 onDelete={onDeleteGroup}
               />
-            )}
-
-            {list.items.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6">
-                Liste vide
-              </p>
             )}
           </div>
         );
@@ -716,38 +736,37 @@ function ListGroup({
 function GroceryRow({
   group,
   listId,
-  type,
   showRecipe,
   onToggle,
   onDelete,
 }: {
   group: GroupedItem;
   listId: string;
-  type: "GROCERY" | "ONLINE";
   showRecipe: boolean;
   onToggle: (listId: string, items: ShoppingItem[]) => void;
   onDelete: (listId: string, items: ShoppingItem[]) => void;
 }) {
   return (
-    <div className="grocery-item group">
-      <button
-        className="grocery-checkbox-zone"
-        onClick={() => onToggle(listId, group.items)}
+    <SwipeRow
+      data-flip={group.key}
+      tone="list"
+      className="rounded-[1.25rem]"
+      frontClassName="group/card flex min-h-16 items-center gap-1 bg-card pl-1 pr-1 transition-colors hover:bg-accent/40"
+      onSwipeRight={() => onToggle(listId, group.items)}
+    >
+      <CheckCircle
+        tone="list"
+        checked={false}
+        onCheckedChange={() => onToggle(listId, group.items)}
         aria-label={`Cocher ${group.name}`}
-      >
-        <div className="grocery-checkbox">
-          {/* empty unchecked */}
-        </div>
-      </button>
+      />
 
-      <div className="flex-1 min-w-0 py-3">
-        <div className="flex items-baseline gap-2">
-          <span className="grocery-item-name">{group.name}</span>
-        </div>
+      <div className="min-w-0 flex-1 py-2.5 pl-1">
+        <span className="block text-[1.0625rem] font-bold leading-snug">{group.name}</span>
         {showRecipe && group.recipes.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-0.5">
+          <div className="mt-1 flex flex-wrap gap-1">
             {group.recipes.map((r) => (
-              <span key={r.id} className="grocery-recipe-tag">
+              <span key={r.id} className="inline-flex items-center gap-1 rounded-full bg-tone-list-soft px-2 py-0.5 text-xs font-bold text-tone-list-ink">
                 <ChefHat className="h-3 w-3" />
                 {r.title}
               </span>
@@ -757,7 +776,9 @@ function GroceryRow({
       </div>
 
       {group.totalQty && (
-        <span className="grocery-qty-badge">{group.totalQty}</span>
+        <span className="shrink-0 rounded-full bg-tone-list-soft px-3 py-1 text-sm font-extrabold tabular-nums text-tone-list-ink">
+          {group.totalQty}
+        </span>
       )}
 
       {group.items.some((i) => i.url) && (
@@ -765,20 +786,22 @@ function GroceryRow({
           href={group.items.find((i) => i.url)!.url!}
           target="_blank"
           rel="noopener noreferrer"
-          className="grocery-icon-btn opacity-0 group-hover:opacity-100 group-active:opacity-100 touch:opacity-100 shrink-0"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-secondary group-hover/card:opacity-100 focus-visible:opacity-100 touch:opacity-100"
           title="Ouvrir le lien"
+          aria-label="Ouvrir le lien"
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
       )}
 
-      <button aria-label="Supprimer l'article"
-        className="grocery-icon-btn opacity-0 group-hover:opacity-100 group-active:opacity-100 touch:opacity-100 shrink-0"
+      <button
+        aria-label="Supprimer l'article"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-secondary group-hover/card:opacity-100 focus-visible:opacity-100 touch:opacity-100"
         onClick={() => onDelete(listId, group.items)}
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
-    </div>
+    </SwipeRow>
   );
 }
 
@@ -800,56 +823,49 @@ function CheckedSection({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="grocery-checked-section">
+    <div className="border-t border-border/60 bg-tone-list-soft/50 px-2 pb-2">
       <button
-        className="grocery-checked-toggle"
+        className="flex h-14 w-full items-center gap-2 rounded-full px-3 text-base font-extrabold text-tone-list-ink transition-colors hover:bg-tone-list-soft"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
       >
-        <Check className="h-3.5 w-3.5" />
-        <span>Fait ({groups.length})</span>
-        {expanded ? (
-          <ChevronUp className="h-3.5 w-3.5 ml-auto" />
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5 ml-auto" />
-        )}
+        <Check className="h-4 w-4" strokeWidth={3} />
+        <span>Dans le chariot ({groups.length})</span>
+        {expanded ? <ChevronUp className="ml-auto h-4 w-4" /> : <ChevronDown className="ml-auto h-4 w-4" />}
       </button>
       {expanded && (
-        <div className="divide-y divide-border/30">
+        <FlipList signature={groups.map((g) => g.key).join(",")}>
           {groups.map((group) => (
-            <div key={group.key} className="grocery-checked-item group">
-              <button aria-label={`Décocher ${group.name}`}
-                className="grocery-checkbox-zone"
-                onClick={() => onToggle(listId, group.items)}
-              >
-                <div className="grocery-checkbox grocery-checkbox-checked grocery-checkbox-muted">
-                  <Check className="h-3.5 w-3.5" />
-                </div>
-              </button>
-              <span className="flex-1 grocery-item-name grocery-item-done">
-                {group.name}
+            <div key={group.key} data-flip={group.key} className="group/card flex min-h-14 items-center gap-1 rounded-[1.25rem] pl-1 pr-1 hover:bg-tone-list-soft">
+              <CheckCircle
+                tone="list"
+                checked
+                onCheckedChange={() => onToggle(listId, group.items)}
+                aria-label={`Décocher ${group.name}`}
+              />
+              <span className="min-w-0 flex-1 pl-1 text-base font-semibold text-muted-foreground">
+                <span className="strike" data-done="true">{group.name}</span>
               </span>
-              {group.totalQty && (
-                <span className="text-xs text-muted-foreground/50">{group.totalQty}</span>
-              )}
+              {group.totalQty && <span className="text-sm font-bold text-muted-foreground">{group.totalQty}</span>}
               {showRecipe && group.recipes.length > 0 && (
                 <div className="flex gap-1">
                   {group.recipes.map((r) => (
-                    <span key={r.id} className="grocery-recipe-tag grocery-recipe-tag-muted">
+                    <span key={r.id} className="rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-muted-foreground">
                       {r.title}
                     </span>
                   ))}
                 </div>
               )}
-              <button aria-label="Supprimer l'article"
-                className="grocery-icon-btn opacity-0 group-hover:opacity-100 touch:opacity-100 shrink-0"
+              <button
+                aria-label="Supprimer l'article"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-secondary group-hover/card:opacity-100 focus-visible:opacity-100 touch:opacity-100"
                 onClick={() => onDelete(listId, group.items)}
               >
-                <Trash2 className="h-3 w-3" />
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
           ))}
-        </div>
+        </FlipList>
       )}
     </div>
   );

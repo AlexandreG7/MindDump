@@ -3,12 +3,12 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TONE_CLASSES, type Tone } from "./tone";
 
 /**
- * Champ d'ajout rapide : 52 px, bouton « + » toujours visible (le clavier
- * mobile n'est pas le seul moyen de valider), validation par Entrée aussi.
- * Le parent garde la logique d'envoi ; ce composant ne fait que collecter le
- * texte et appeler `onSubmit`.
+ * Ajout rapide : pilule d'encre de 64 px, bouton « + » à l'aplat du module
+ * toujours visible (le clavier mobile n'est pas le seul moyen de valider),
+ * Entrée valide aussi. Le parent garde la logique d'envoi.
  */
 export function QuickAdd({
   value,
@@ -16,6 +16,7 @@ export function QuickAdd({
   onSubmit,
   placeholder,
   label,
+  tone = "todo",
   disabled,
   className,
 }: {
@@ -24,6 +25,7 @@ export function QuickAdd({
   onSubmit: () => void;
   placeholder: string;
   label: string;
+  tone?: Tone;
   disabled?: boolean;
   className?: string;
 }) {
@@ -34,8 +36,8 @@ export function QuickAdd({
         if (value.trim() && !disabled) onSubmit();
       }}
       className={cn(
-        "flex h-[3.25rem] items-center gap-1 rounded-2xl bg-card pl-4 pr-1 shadow-surface",
-        "transition-shadow focus-within:ring-2 focus-within:ring-ring/70",
+        "flex h-16 items-center gap-2 rounded-full bg-ink pl-6 pr-2 text-ink-foreground",
+        "shadow-[0_14px_30px_-16px_hsl(var(--surface-ink)/0.7)] transition-shadow focus-within:ring-[3px] focus-within:ring-ring/70",
         className
       )}
     >
@@ -46,18 +48,19 @@ export function QuickAdd({
         aria-label={label}
         enterKeyHint="done"
         disabled={disabled}
-        className="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
+        className="h-full min-w-0 flex-1 bg-transparent text-[1.0625rem] font-medium text-ink-foreground outline-none placeholder:text-ink-foreground/60"
       />
       <button
         type="submit"
         aria-label="Ajouter"
         disabled={!value.trim() || disabled}
         className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-[transform,background-color,opacity] duration-150",
-          "bg-primary text-primary-foreground active:scale-90 disabled:bg-secondary disabled:text-muted-foreground"
+          "flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-[transform,background-color,opacity] duration-150",
+          "active:scale-90 disabled:bg-ink-foreground/15 disabled:text-ink-foreground/60",
+          value.trim() && !disabled && TONE_CLASSES[tone].block
         )}
       >
-        <Plus className="h-5 w-5" strokeWidth={2.5} />
+        <Plus className="h-6 w-6" strokeWidth={3} />
       </button>
     </form>
   );
