@@ -6,7 +6,7 @@ import { fr } from "date-fns/locale";
 import type { CalendarEvent } from "./types";
 import { cn } from "@/lib/utils";
 import { timeLabel } from "./EventList";
-import { evState, evVars, isAllDayLike, layoutDay, occursOn } from "./utils";
+import { evState, evVars, isAllDayLike, layoutDay, occursOn, spanBars } from "./utils";
 
 const HOUR_PX = 56;
 const GUTTER = "2.75rem";
@@ -59,52 +59,72 @@ export function TimeGrid({
   }, []);
 
   const single = days.length === 1;
+  const { bars, lanes } = spanBars(days, events.filter(isAllDayLike));
   // Téléphone : colonnes d'un tiers de l'écran ; dès `sm`, toute la semaine tient.
   const cols = { gridTemplateColumns: `${GUTTER} repeat(${days.length}, minmax(0, 1fr))` };
   const minWidth = single ? undefined : `calc(${GUTTER} + (100% - ${GUTTER}) * ${days.length} / 3)`;
 
   return (
-    <div ref={scrollRef} className="max-h-[70vh] overflow-auto overscroll-x-contain rounded-3xl border border-border/60 bg-card">
+    <div ref={scrollRef} className="max-h-[70vh] overflow-auto overscroll-x-contain rounded-3xl border border-border/60 bg-card [container-type:inline-size]">
       <div className={single ? undefined : "sm:!min-w-0"} style={{ minWidth }}>
         {/* En-têtes et journées entières */}
-        <div className="sticky top-0 z-30 grid border-b border-border/60 bg-card" style={cols}>
-          <div className="sticky left-0 z-20 bg-card" />
-          {days.map((day) => {
-            const allDay = events.filter((e) => isAllDayLike(e) && occursOn(e, day));
-            const selected = selectedDate && isSameDay(day, selectedDate);
-            return (
-              <div key={day.toISOString()} className="border-l border-border/40 p-1 min-w-0">
-                <button
-                  onClick={() => onSelectDay(day)}
-                  className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded transition-colors hover:bg-accent ${selected ? "bg-accent" : ""}`}
-                >
-                  <span className="text-xs font-medium capitalize text-muted-foreground">
-                    {format(day, single ? "EEEE" : "EEE", { locale: fr }).replace(".", "")}
-                  </span>
-                  <span
-                    className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-sm font-medium tabular-nums ${
-                      isToday(day) ? "bg-tone-agenda text-on-tone" : ""
-                    }`}
+        <div className="sticky top-0 z-30 border-b border-border/60 bg-card">
+          <div className="grid" style={cols}>
+            <div className="sticky left-0 z-20 bg-card" />
+            {days.map((day) => {
+              const selected = selectedDate && isSameDay(day, selectedDate);
+              return (
+                <div key={day.toISOString()} className="min-w-0 border-l border-border/40 p-1">
+                  <button
+                    onClick={() => onSelectDay(day)}
+                    className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded transition-colors hover:bg-accent ${selected ? "bg-accent" : ""}`}
                   >
-                    {format(day, "d")}
+                    <span className="text-xs font-medium capitalize text-muted-foreground">
+                      {format(day, single ? "EEEE" : "EEE", { locale: fr }).replace(".", "")}
+                    </span>
+                    <span
+                      className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-sm font-medium tabular-nums ${
+                        isToday(day) ? "bg-tone-agenda-ink/15 font-bold text-tone-agenda-ink" : ""
+                      }`}
+                    >
+                      {format(day, "d")}
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {/* Journées entières et événements sur plusieurs jours : une seule bande continue par événement,
+              son titre une fois, collé au bord visible quand la grille défile (téléphone). */}
+          {bars.length > 0 && (
+            <div className="grid pb-1" style={{ ...cols, gridTemplateRows: `repeat(${lanes}, auto)`, rowGap: 4 }}>
+              <div aria-hidden className="sticky left-0 z-20 bg-card" style={{ gridColumn: 1, gridRow: "1 / -1" }} />
+              {days.map((day, i) => (
+                <div key={day.toISOString()} aria-hidden className="border-l border-border/40" style={{ gridColumn: i + 2, gridRow: "1 / -1" }} />
+              ))}
+              {bars.map((b) => (
+                <button
+                  key={b.event.id}
+                  onClick={() => onOpen(b.event)}
+                  title={b.event.title}
+                  className={cn(
+                    "ev-chip flex min-h-11 min-w-0 items-center py-1 text-left text-xs leading-snug sm:min-h-7 sm:text-[0.8125rem]",
+                    evState(b.event, now, selectedId),
+                    b.fromBefore ? "ev-chip-cont rounded-l-none pl-2.5" : "ml-1 rounded-l pl-2.5",
+                    b.toAfter ? "rounded-r-none pr-1.5" : "mr-1 rounded-r pr-1.5"
+                  )}
+                  style={{ ...evVars(b.event), gridColumn: `${b.startCol + 2} / span ${b.span}`, gridRow: b.lane + 1 }}
+                >
+                  <span
+                    className="sticky line-clamp-2 min-w-0 max-w-full break-words"
+                    style={{ left: `calc(${GUTTER} + 0.5rem)`, maxWidth: `min(100%, calc(100cqw - ${GUTTER} - 1.25rem))` }}
+                  >
+                    {b.event.title}
                   </span>
                 </button>
-                <div className="mt-1 space-y-1">
-                  {allDay.map((e) => (
-                    <button
-                      key={e.id}
-                      onClick={() => onOpen(e)}
-                      className={cn("ev-chip block min-h-11 w-full break-words rounded py-1.5 pl-2.5 pr-1.5 text-left text-xs leading-snug sm:min-h-7 sm:py-1 sm:text-[0.8125rem]", evState(e, now, selectedId))}
-                      style={evVars(e)}
-                      title={e.title}
-                    >
-                      {e.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Heures */}
@@ -135,14 +155,15 @@ export function TimeGrid({
                   {positioned.map(({ event, top, height, column, columns }) => {
                     const px = Math.max(height * (HOUR_PX / 60) - 2, 24);
                     const time = timeLabel(event, day);
+                    // Heure sous le titre dès 44 px ; un bloc d'une heure (≥ 56 px nominal) laisse deux lignes au titre.
                     const twoLines = !!time && px >= 44;
-                    const lines = Math.max(1, Math.floor((px - 8 - (twoLines ? 16 : 0)) / 16));
+                    const lines = Math.max(1, Math.floor((px - 6 - (twoLines ? 16 : 0)) / 16));
                     return (
                       <button
                         key={event.id}
                         onClick={() => onOpen(event)}
                         title={`${event.title}${time ? ` ${time}` : ""}`}
-                        className={cn("ev-chip absolute overflow-hidden rounded py-1 pl-2 pr-1 text-left text-xs leading-4 sm:text-[0.8125rem] sm:leading-4", evState(event, now, selectedId))}
+                        className={cn("ev-chip absolute overflow-hidden rounded py-[3px] pl-2 pr-1 text-left text-xs leading-4 sm:text-[0.8125rem] sm:leading-4", evState(event, now, selectedId))}
                         style={{
                           top: top * (HOUR_PX / 60),
                           height: px,

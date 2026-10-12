@@ -197,12 +197,12 @@
 
 @layer components {
   /* Événement de l'agenda, à la manière de Cron : chaque couleur donne une
-     famille de teintes (fond très pâle, titre en nuance foncée, heure en
+     famille de teintes (fond soutenu (15 % en clair, 27 % en sombre), titre en nuance foncée, heure en
      nuance moyenne, ruban plein). Passé = famille atténuée ; ouvert dans la
      fiche = aplat plein, texte blanc. Contrastes mesurés (voir le retour). */
   .ev-chip {
     --ev-base: var(--ev, hsl(var(--tone-agenda-ink)));
-    --ev-bg: color-mix(in srgb, var(--ev-base) 11%, hsl(var(--card)));
+    --ev-bg: color-mix(in srgb, var(--ev-base) 15%, hsl(var(--card)));
     --ev-bg-past: color-mix(in srgb, var(--ev-base) 5%, hsl(var(--card)));
     --ev-ribbon: var(--ev-base);
     --ev-ribbon-past: color-mix(in srgb, var(--ev-base) 40%, hsl(var(--card)));
@@ -237,7 +237,7 @@
     }
   }
   .dark .ev-chip {
-    --ev-bg: color-mix(in srgb, var(--ev-base) 22%, hsl(var(--card)));
+    --ev-bg: color-mix(in srgb, var(--ev-base) 27%, hsl(var(--card)));
     --ev-bg-past: color-mix(in srgb, var(--ev-base) 9%, hsl(var(--card)));
     --ev-ribbon-past: color-mix(in srgb, var(--ev-base) 45%, hsl(var(--card)));
   }

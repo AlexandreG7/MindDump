@@ -78,7 +78,7 @@ export function WeekStrip({
               <span
                 className={cn(
                   "font-display grid h-9 w-9 place-items-center rounded-full text-lg leading-none tabular-nums",
-                  today && "bg-tone-agenda text-on-tone"
+                  today && "bg-tone-agenda-ink/15 font-bold text-tone-agenda-ink"
                 )}
               >
                 {format(day, "d")}

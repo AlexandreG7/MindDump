@@ -10,7 +10,7 @@ import { reminderLabel } from "@/lib/reminderOptions";
 import { AssigneePicker } from "@/components/profiles/Assignees";
 import { textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
 import type { CalendarEvent } from "./types";
-import { daysCovered, eventEnd, eventStart, formatEventRange, isAllDayLike } from "./utils";
+import { resolveEventColor, daysCovered, eventEnd, eventStart, formatEventRange, isAllDayLike } from "./utils";
 
 function whenText(e: CalendarEvent): string {
   const start = eventStart(e);
@@ -54,6 +54,7 @@ export function EventSheet({
   onSetAssignees: (id: string, assigneeIds: string[]) => void;
 }) {
   const color = event ? (event.displayColor ?? event.color ?? null) : null;
+  const defaultColor = event ? resolveEventColor(null, event.assigneeIds, profiles.byId) : "";
   const editable = !!event && !event.subscriptionId;
   const groupId = event?.assigneeIds?.map((id) => profiles.byId.get(id)?.groupId).find(Boolean);
   const choices = groupId ? profiles.all.filter((p) => p.groupId === groupId) : profiles.all;
@@ -120,13 +121,13 @@ export function EventSheet({
                           type="button"
                           role="radio"
                           aria-checked={on}
-                          aria-label={c.label}
-                          title={c.label}
+                          aria-label={c.value ? c.label : "Par défaut (couleur de la personne, sinon bleu)"}
+                          title={c.value ? c.label : "Par défaut"}
                           onClick={() => onSetColor(event.id, c.value)}
-                          style={c.value ? { backgroundColor: c.value } : undefined}
+                          style={{ backgroundColor: c.value ?? defaultColor }}
                           className={cn(
                             "flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-150 active:scale-90 touch:h-12 touch:w-12",
-                            !c.value && "border border-border bg-tone-agenda",
+                            !c.value && "border-2 border-dashed border-foreground/40",
                             on ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:scale-110"
                           )}
                         >
@@ -134,7 +135,7 @@ export function EventSheet({
                             <Check
                               className="h-4 w-4 touch:h-6 touch:w-6"
                               strokeWidth={3}
-                              style={{ color: c.value ? textOn(c.value) : undefined }}
+                              style={{ color: textOn(c.value ?? defaultColor) }}
                               aria-hidden
                             />
                           )}

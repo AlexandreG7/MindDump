@@ -14,7 +14,7 @@ import { SegmentedList, SegmentedTrigger } from "@/components/ui/segmented";
 import { useFeedback } from "@/components/ui/feedback";
 import { fr } from "date-fns/locale";
 import { type CalendarEvent, type Subscription, type ViewMode, VIEW_LABELS, isViewMode } from "@/components/calendar/types";
-import { eventEnd, eventStart, occursOn, rangeForView, shiftAnchor, sortEvents, titleForView } from "@/components/calendar/utils";
+import { eventEnd, eventStart, occursOn, rangeForView, resolveEventColor, shiftAnchor, sortEvents, titleForView } from "@/components/calendar/utils";
 import { EventList } from "@/components/calendar/EventList";
 import { TimeGrid } from "@/components/calendar/TimeGrid";
 import { MonthGrid, YearGrid } from "@/components/calendar/MonthGrid";
@@ -369,7 +369,7 @@ export default function CalendarPage() {
       .filter((e) => matchesPeople(e.assigneeIds, activeFilter))
       .map((e) => ({
         ...e,
-        displayColor: e.color ?? profiles.byId.get(e.assigneeIds?.[0] ?? "")?.color ?? null,
+        displayColor: resolveEventColor(e.color, e.assigneeIds, profiles.byId),
       }));
 
   const allEvents = useMemo(

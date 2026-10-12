@@ -4,7 +4,7 @@ import { addDays, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "./types";
-import { dayKey, eventDays, eventStart, evState, evVars, occursOn, startTimePrefix } from "./utils";
+import { eventDays, eventStart, evState, evVars, occursOn, spanBars, startTimePrefix } from "./utils";
 
 const WEEK = { weekStartsOn: 1 as const };
 
@@ -19,39 +19,13 @@ const MAX_LANES = 3; // bandes multi-jours visibles (2 sur téléphone)
 const MAX_CHIPS = 3; // puces d'un jour sur ordinateur
 const MAX_DOTS = 3; // points d'un jour sur téléphone
 
-interface Bar {
-  event: CalendarEvent;
-  startCol: number;
-  span: number;
-  lane: number;
-  fromBefore: boolean;
-  toAfter: boolean;
-}
-
 const isMulti = (e: CalendarEvent) => {
   const d = eventDays(e);
   return d.first !== d.last;
 };
 
-/** Bandes des événements sur plusieurs jours pour une semaine, rangées en lignes sans chevauchement. */
-function weekBars(week: Date[], events: CalendarEvent[]): { bars: Bar[]; lanes: number } {
-  const keys = week.map(dayKey);
-  const bars: Bar[] = [];
-  const laneEnds: number[] = [];
-  const multi = events
-    .map((event) => ({ event, ...eventDays(event) }))
-    .filter((m) => m.first !== m.last && m.last >= keys[0] && m.first <= keys[6])
-    .sort((a, b) => (a.first < b.first ? -1 : a.first > b.first ? 1 : a.last < b.last ? 1 : a.last > b.last ? -1 : 0));
-  for (const m of multi) {
-    const startCol = m.first < keys[0] ? 0 : keys.indexOf(m.first);
-    const endCol = m.last > keys[6] ? 6 : keys.indexOf(m.last);
-    let lane = laneEnds.findIndex((end) => end < startCol);
-    if (lane === -1) lane = laneEnds.length;
-    laneEnds[lane] = endCol;
-    bars.push({ event: m.event, startCol, span: endCol - startCol + 1, lane, fromBefore: m.first < keys[0], toAfter: m.last > keys[6] });
-  }
-  return { bars, lanes: laneEnds.length };
-}
+/** Bandes des événements sur plusieurs jours pour une semaine. */
+const weekBars = (week: Date[], events: CalendarEvent[]) => spanBars(week, events.filter(isMulti));
 
 /**
  * Mois en grille, lisible d'abord. Ordinateur : chaque événement est une puce
@@ -128,7 +102,7 @@ export function MonthGrid({
                         className={cn(
                           "font-display grid h-6 w-6 shrink-0 place-items-center rounded-full text-sm leading-none tabular-nums",
                           !inMonth && "text-muted-foreground",
-                          today && "bg-tone-agenda text-on-tone",
+                          today && "bg-tone-agenda-ink/15 font-bold text-tone-agenda-ink",
                           !today && isSelected && "bg-tone-agenda-ink text-tone-agenda-soft"
                         )}
                       >

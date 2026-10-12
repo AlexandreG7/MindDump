@@ -223,21 +223,31 @@ export function eventStyle(e: CalendarEvent, solid = false): React.CSSProperties
     : { backgroundColor: `${color}20`, color };
 }
 
-/** Couleur de l'événement pour `.ev-chip` (liseré, points) ; sans couleur, l'encre du module. */
+/** Bleu de l'agenda : couleur d'un événement sans couleur choisie ni personne assignée (le « Bleu » de la palette). */
+export const AGENDA_DEFAULT_COLOR = "#3b82f6";
+
+/**
+ * Couleur affichée d'un événement : 1. celle choisie pour lui, 2. sinon celle
+ * du profil de la première personne assignée, 3. sinon le bleu de l'agenda.
+ * Calcul d'affichage seulement : rien n'est écrit en base.
+ */
+export function resolveEventColor(
+  color: string | null | undefined,
+  assigneeIds: string[] | undefined,
+  profilesById: Map<string, { color: string }>
+): string {
+  return color || profilesById.get(assigneeIds?.[0] ?? "")?.color || AGENDA_DEFAULT_COLOR;
+}
+
+/** Couleur de l'événement pour `.ev-chip` (liseré, points). */
 export function evVars(e: CalendarEvent): React.CSSProperties {
-  const color = e.displayColor ?? e.color;
-  return (color ? { "--ev": color } : {}) as React.CSSProperties;
+  return { "--ev": e.displayColor ?? e.color ?? AGENDA_DEFAULT_COLOR } as React.CSSProperties;
 }
 
 /** Heure de début affichée en préfixe (« 17:30 »), rien pour une journée entière ou un événement sur plusieurs jours. */
 export function startTimePrefix(e: CalendarEvent): string | null {
   const start = eventStart(e);
   return e.allDay || isAllDayLike(e) ? null : format(start, "HH:mm");
-}
-
-/** Sans couleur propre ni personne : couleur par défaut du thème. */
-export function hasColor(e: CalendarEvent): boolean {
-  return !!(e.displayColor ?? e.color);
 }
 
 /** Jour calendaire (minuit local) d'une clé yyyy-MM-dd. */
@@ -279,4 +289,39 @@ export function isPast(e: Timed, now: Date): boolean {
 export function evState(e: CalendarEvent, now: Date, selectedId?: string | null): string {
   if (selectedId && e.id === selectedId) return "ev-sel";
   return isPast(e, now) ? "ev-past" : "";
+}
+
+export interface SpanBar {
+  event: CalendarEvent;
+  /** Colonne de départ (0 = premier jour affiché) et nombre de colonnes couvertes. */
+  startCol: number;
+  span: number;
+  lane: number;
+  fromBefore: boolean;
+  toAfter: boolean;
+}
+
+/**
+ * Bandes continues des événements qui touchent une suite de jours : une bande
+ * par événement, rangée en lignes sans chevauchement. `fromBefore` / `toAfter`
+ * disent que la bande déborde de la période affichée.
+ */
+export function spanBars(days: Date[], events: CalendarEvent[]): { bars: SpanBar[]; lanes: number } {
+  const keys = days.map(dayKey);
+  const last = keys.length - 1;
+  const bars: SpanBar[] = [];
+  const laneEnds: number[] = [];
+  const items = events
+    .map((event) => ({ event, ...eventDays(event) }))
+    .filter((m) => m.last >= keys[0] && m.first <= keys[last])
+    .sort((a, b) => (a.first < b.first ? -1 : a.first > b.first ? 1 : a.last < b.last ? 1 : a.last > b.last ? -1 : 0));
+  for (const m of items) {
+    const startCol = m.first < keys[0] ? 0 : keys.indexOf(m.first);
+    const endCol = m.last > keys[last] ? last : keys.indexOf(m.last);
+    let lane = laneEnds.findIndex((end) => end < startCol);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = endCol;
+    bars.push({ event: m.event, startCol, span: endCol - startCol + 1, lane, fromBefore: m.first < keys[0], toAfter: m.last > keys[last] });
+  }
+  return { bars, lanes: laneEnds.length };
 }

@@ -12,6 +12,7 @@ import { EVENT_COLORS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
 import { ReminderField } from "@/components/reminders/ReminderField";
 import { DEFAULT_REMINDER, NO_REMINDER, settleReminder } from "@/lib/reminderOptions";
 import { startOf, type EventDraft } from "./eventDraft";
+import { resolveEventColor } from "./utils";
 import { AssigneePicker } from "@/components/profiles/Assignees";
 import { textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
 
@@ -72,6 +73,11 @@ export function EventDialog({
       notifyBefore: time ? settleReminder(startOf(date, time), want, Date.now()) : NO_REMINDER,
     });
   };
+
+  // Couleur proposée tant qu'aucune n'est choisie : celle de la première personne assignée, sinon le bleu de l'agenda.
+  const profilesById = new Map(profiles.map((p) => [p.id, p]));
+  const defaultColor = resolveEventColor(null, draft.assigneeIds, profilesById);
+  const defaultOwner = profilesById.get(draft.assigneeIds[0] ?? "")?.name;
 
   const multiDay = !!draft.endDate && draft.endDate > draft.date;
   const endDateInvalid = !!draft.endDate && !!draft.date && draft.endDate < draft.date;
@@ -186,8 +192,8 @@ export function EventDialog({
             </Select>
           </div>
           <div>
-            <Label>Couleur</Label>
-            <div className="flex items-center gap-2 touch:gap-3 flex-wrap mt-2" role="radiogroup" aria-label="Couleur">
+            <Label id="eventdialog-couleur">Couleur</Label>
+            <div className="flex items-center gap-2 touch:gap-3 flex-wrap mt-2" role="radiogroup" aria-labelledby="eventdialog-couleur">
               {[{ value: "", label: "Par défaut" }, ...EVENT_COLORS].map((c) => {
                 const on = draft.color === c.value;
                 return (
@@ -196,12 +202,12 @@ export function EventDialog({
                     type="button"
                     role="radio"
                     aria-checked={on}
-                    aria-label={c.label}
-                    title={c.label}
+                    aria-label={c.value ? c.label : `Par défaut, ${defaultOwner ? `couleur de ${defaultOwner}` : "bleu de l'agenda"}`}
+                    title={c.value ? c.label : "Par défaut"}
                     onClick={() => setDraft({ ...draft, color: c.value })}
-                    style={c.value ? { backgroundColor: c.value } : undefined}
+                    style={{ backgroundColor: c.value || defaultColor }}
                     className={`relative flex items-center justify-center rounded-full w-6 h-6 touch:w-12 touch:h-12 transition-transform duration-150 active:scale-90 ${
-                      c.value ? "" : "border border-border bg-primary/10"
+                      c.value ? "" : "border-2 border-dashed border-foreground/40"
                     } ${on ? "ring-2 ring-offset-2 ring-offset-background ring-primary" : "hover:scale-110"}`}
                   >
                     {/* Sélection lisible sans la couleur : coche sur la pastille */}
@@ -209,7 +215,7 @@ export function EventDialog({
                       <Check
                         className="h-3.5 w-3.5 touch:h-6 touch:w-6"
                         strokeWidth={3}
-                        style={{ color: c.value ? textOn(c.value) : undefined }}
+                        style={{ color: textOn(c.value || defaultColor) }}
                         aria-hidden
                       />
                     )}
@@ -217,6 +223,11 @@ export function EventDialog({
                 );
               })}
             </div>
+            {!draft.color && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Par défaut : {defaultOwner ? `couleur de ${defaultOwner}` : "bleu de l'agenda"}.
+              </p>
+            )}
           </div>
           <ReminderField
             id="eventdialog-rappel"
