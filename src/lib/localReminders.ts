@@ -1,4 +1,5 @@
 import { isNativeApp } from "./native";
+import { safeCallbackPath } from "./safeCallback";
 
 /**
  * Rappels locaux dans l'app (docs/app-mobile.md, étape 3.3, « Rappels
@@ -360,7 +361,9 @@ export function onReminderNotificationTapped(callback: (url: string) => void): (
   Promise.resolve(
     p.addListener("localNotificationActionPerformed", (action) => {
       const url = action.notification?.extra?.url;
-      if (typeof url === "string" && url.startsWith("/") && !url.startsWith("//")) callback(url);
+      // Chemin interne uniquement (safeCallbackPath refuse « // », « \ », tabulations, autre origine).
+      const safe = safeCallbackPath(url, "");
+      if (safe) callback(safe);
     })
   )
     .then((h) => {

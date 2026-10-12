@@ -7,10 +7,11 @@ import { GROUP_INVITE_COOKIE, GROUP_INVITE_INVALID_MESSAGE, findSignupGroupInvit
 export const dynamic = "force-dynamic";
 
 /**
- * POST { invite } ou { groupInvite } (lien de foyer, /groups/join/…) : avant de lancer Google/Apple depuis /register?invite=…, pose le
- * jeton dans un cookie httpOnly de 15 minutes (SameSite=None en HTTPS pour survivre au
- * retour en POST cross-site d'Apple, voir INVITE_COOKIE). Le jeton n'est PAS consommé
- * ici : il l'est à la création du compte (src/lib/signupInvite.ts).
+ * POST { invite } ou { groupInvite } (lien de foyer nominatif, /groups/join/…) : avant de lancer
+ * Google/Apple depuis /register?invite=… ou ?groupInvite=…, pose le jeton dans un cookie
+ * httpOnly de 15 minutes (SameSite=None en HTTPS pour survivre au retour en POST cross-site
+ * d'Apple, voir INVITE_COOKIE). Le jeton n'est PAS consommé ici : il l'est à la création du
+ * compte (src/lib/signupInvite.ts).
  */
 export async function POST(req: NextRequest) {
   // Pose un cookie : jamais depuis un autre site, et pas via un formulaire HTML

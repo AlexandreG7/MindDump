@@ -4,7 +4,7 @@ import { prisma } from "./prisma";
 import { useSecureCookies } from "./secureCookies";
 import { isSignupAllowed } from "./signupAllowlist";
 import { parseEmail } from "./email";
-import { isGroupInviteToken } from "./groupInviteSignup";
+import { isSignupGroupInviteToken } from "./groupInviteSignup";
 
 /**
  * Liens d'inscription à usage unique (bêta privée).
@@ -120,8 +120,7 @@ export type CreateUserResult =
  *    l'administrateur est tranché proprement) ; sinon consommation de l'invitation par un `updateMany` conditionnel :
  *    0 ligne = jeton absent, utilisé, expiré, remplacé ou pour une autre adresse. À défaut
  *    d'invitation bêta, une invitation de FOYER (`groupInviteToken`, groupInviteSignup.ts) est
- *    « réclamée » de la même façon (une seule inscription par lien, adresse conforme si le lien
- *    est nominatif) sans être consommée pour rejoindre le groupe ;
+ *    « réclamée » de la même façon (une seule inscription par lien, lien nominatif pour cette adresse) sans être consommée pour rejoindre le groupe ;
  * 4. création de l'utilisateur (adresse stockée en minuscules) ;
  * 5. la demande d'accès correspondante passe à « inscrite ».
  */
@@ -136,7 +135,7 @@ export async function createUserWithGrant(
   // Pré-contrôle avant le verrou : sans jeton ni adresse autorisée, « fermé » AVANT toute lecture
   // de comptes (un compte existant ne se distingue pas d'une adresse inconnue). Refait plus bas
   // sous le verrou pour l'adresse autorisée.
-  if (!isToken(inviteToken) && !isGroupInviteToken(groupInviteToken) && !(await isSignupAllowed(normalized))) {
+  if (!isToken(inviteToken) && !isSignupGroupInviteToken(groupInviteToken) && !(await isSignupAllowed(normalized))) {
     return { ok: false, reason: "closed" };
   }
 
@@ -165,7 +164,7 @@ export async function createUserWithGrant(
       });
       if (consumed.count === 1) granted = true;
     }
-    if (!granted && isGroupInviteToken(groupInviteToken)) {
+    if (!granted && isSignupGroupInviteToken(groupInviteToken)) {
       const now = new Date();
       const claimed = await tx.groupInvite.updateMany({
         where: {
@@ -173,8 +172,9 @@ export async function createUserWithGrant(
           usedAt: null,
           signupClaimedAt: null,
           expiresAt: { gt: now },
-          // Lien ouvert (sans adresse) ou nominatif pour cette adresse, sans tenir compte de la casse.
-          OR: [{ email: null }, { email: { equals: normalized, mode: "insensitive" } }],
+          // Lien NOMINATIF pour cette adresse, sans tenir compte de la casse : un lien ouvert ne
+          // donne aucun droit d'inscription (groupInviteSignup.ts).
+          email: { equals: normalized, mode: "insensitive" },
         },
         data: { signupClaimedAt: now },
       });

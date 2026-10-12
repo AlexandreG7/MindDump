@@ -257,14 +257,25 @@ async function main() {
   );
 
   console.log("10. Inscription par invitation de foyer, adhésion, puis départ du groupe");
-  // Inscriptions fermées (aucune liste blanche sur ce serveur) : seul le lien de foyer ouvre
-  // l'inscription (src/lib/groupInviteSignup.ts). L'adhésion suit le flux existant (rôle « member »).
+  // Inscriptions fermées (aucune liste blanche sur ce serveur) : seul un lien de foyer NOMINATIF
+  // ouvre l'inscription, pour son adresse (src/lib/groupInviteSignup.ts). L'adhésion suit le flux
+  // existant (rôle « member »).
   {
     const token = randomBytes(24).toString("base64url");
-    await prisma.groupInvite.create({
-      data: { groupId: alice.defaultGroupId, token, expiresAt: new Date(Date.now() + 7 * 86_400_000) },
-    });
     const addr = `hugo-${run}@test.local`;
+    await prisma.groupInvite.create({
+      data: { groupId: alice.defaultGroupId, token, email: addr, expiresAt: new Date(Date.now() + 7 * 86_400_000) },
+    });
+    const openToken = randomBytes(24).toString("base64url");
+    await prisma.groupInvite.create({
+      data: { groupId: alice.defaultGroupId, token: openToken, expiresAt: new Date(Date.now() + 7 * 86_400_000) },
+    });
+    const openTry = await fetch(`${BASE_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Hugo", email: addr, password: "motdepasse-solide", consent: true, groupInvite: openToken }),
+    });
+    check(openTry.status === 403, `un lien de foyer ouvert ne permet pas de s'inscrire (${openTry.status})`);
     const closed = await fetch(`${BASE_URL}/api/auth/register`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -288,6 +299,10 @@ async function main() {
     check(membership?.role === "member", "Hugo est membre simple (aucun droit d'admin)");
     const denied = await api(hugo, "POST", `/api/groups/${alice.defaultGroupId}/invite`, {});
     check(denied.status === 403, `un membre simple ne peut pas inviter à son tour (${denied.status})`);
+    const seen = await api(hugo, "GET", `/api/groups/${alice.defaultGroupId}/invite`);
+    check(seen.status === 200 && Array.isArray(seen.json) && seen.json.every((i) => i.token === undefined && i.joinUrl === undefined), "un membre simple ne voit aucun jeton de lien d'invitation");
+    const adminSeen = await api(alice, "GET", `/api/groups/${alice.defaultGroupId}/invite`);
+    check(adminSeen.status === 200 && adminSeen.json.some((i) => typeof i.token === "string"), "le propriétaire voit les liens en attente");
     const hugoItems = await createAll(hugo, alice.defaultGroupId, "hugo-chez-alice");
     await expectVisible(alice, hugoItems, alice.defaultGroupId, "inscrit par lien de foyer (partage au foyer)");
     await expectVisible(hugo, aliceItems, alice.defaultGroupId, "inscrit par lien de foyer (éléments du foyer)");

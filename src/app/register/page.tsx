@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { INVITE_INVALID_MESSAGE, findValidInvite } from "@/lib/signupInvite";
-import { GROUP_INVITE_INVALID_MESSAGE, findSignupGroupInvite, isGroupInviteToken } from "@/lib/groupInviteSignup";
+import { GROUP_INVITE_INVALID_MESSAGE, findSignupGroupInvite, isSignupGroupInviteToken } from "@/lib/groupInviteSignup";
 import { Link as LinkIcon } from "lucide-react";
 import { BetaShell } from "./BetaShell";
 import { RegisterForm } from "./RegisterForm";
@@ -21,7 +21,7 @@ export default async function RegisterPage({
   // Lien d'invitation de foyer (/groups/join/…) : il ouvre aussi l'inscription, puis ramène au groupe.
   if (token === undefined && groupToken !== undefined) {
     const group = await findSignupGroupInvite(groupToken);
-    if (group && isGroupInviteToken(groupToken)) {
+    if (group && isSignupGroupInviteToken(groupToken)) {
       return <RegisterForm groupInviteToken={groupToken} groupName={group.groupName} inviteEmail={group.email} />;
     }
     return <InvalidLink message={GROUP_INVITE_INVALID_MESSAGE} />;

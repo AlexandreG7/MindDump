@@ -9,6 +9,7 @@ import {
   StaleWhileRevalidate,
 } from "serwist";
 import { OFFLINE_CACHES } from "@/lib/offlineCache";
+import { safeCallbackPath } from "@/lib/safeCallback";
 
 // Service worker de la PWA, compilé en public/sw.js par @serwist/next
 // (next.config.mjs). Voir docs/app-mobile.md, étape 1.2.
@@ -177,9 +178,8 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const path = (event.notification.data as { url?: string } | null)?.url ?? "/";
-  // Seulement un chemin de l'app, jamais une URL externe (« //site » en est une).
-  const isAppPath = path.startsWith("/") && !path.startsWith("//");
-  const target = new URL(isAppPath ? path : "/", self.location.origin).href;
+  // Seulement un chemin de l'app, jamais une URL externe (« //site », « /\t/site » en sont).
+  const target = new URL(safeCallbackPath(path), self.location.origin).href;
 
   event.waitUntil(
     (async () => {

@@ -67,23 +67,41 @@ n'a pas autorisé et consomme l'invitation.
 ### Invitation de foyer : le lien de groupe ouvre aussi l'inscription
 
 Un lien `/groups/join/<jeton>` (`GroupInvite`, valable 7 jours, créé par un admin ou le propriétaire
-du groupe) donne le droit de créer UN compte, puis ramène au groupe (`src/lib/groupInviteSignup.ts`).
+du groupe) sert à rejoindre le foyer ; **nominatif** (avec l'e-mail de la personne), il donne aussi le
+droit de créer UN compte, puis ramène au groupe (`src/lib/groupInviteSignup.ts`).
 
-- Modèle existant : le lien est **ouvert** (`email` vide) ou **nominatif** (`email`), et sert **une
-  fois** à rejoindre (`usedAt`, posé par `POST /api/groups/join/[token]`, flux inchangé : rôle
-  « member »). Les nouveaux jetons font 32 caractères aléatoires (`randomBytes(24)`), les anciens
-  (cuid) restent acceptés.
-- Règle d'inscription (la plus prudente pour un lien qui peut fuiter) : lien non expiré, pas encore
-  utilisé pour rejoindre, **une seule inscription par lien** (`GroupInvite.signupClaimedAt`, posé par
-  un `updateMany` conditionnel dans la transaction de `createUserWithGrant`, sous le même verrou
-  consultatif par adresse) ; nominatif = seule son adresse (sans tenir compte de la casse). Un lien
-  de foyer ouvert qui fuite ne crée donc qu'un compte, pas un accès à la bêta pour tout le monde.
+- **Seul un lien nominatif permet de s'inscrire**, et seulement pour son adresse (normalisée, sans
+  tenir compte de la casse). Un lien **ouvert** (`email` vide) ne sert qu'à rejoindre le foyer avec un
+  compte existant : il ne donne aucun droit d'inscription (`findSignupGroupInvite` et le `updateMany`
+  de `createUserWithGrant` exigent `email`). Un lien qui fuite ne peut donc pas ouvrir la bêta à un
+  inconnu : c'est l'invitant qui fixe l'adresse.
+- Jetons : l'inscription n'accepte que les jetons de **32 caractères** (`randomBytes(24)`,
+  `isSignupGroupInviteToken`). Les anciens (cuid, 25 caractères) restent valables pour **rejoindre**
+  seulement (`isGroupInviteToken`).
+- Création (`POST /api/groups/[id]/invite`) : même origine exigée, `email` facultatif validé par
+  `parseEmail`, **5 liens en attente au plus par groupe** (non utilisés, non expirés ; 409 au-delà,
+  plafond tenu sous un verrou consultatif par groupe), 20 créations par heure et par utilisateur.
+  Révocation : `DELETE /api/groups/[id]/invite/[inviteId]` (libère une place). Le `GET` ne renvoie
+  `token` et `joinUrl` qu'au propriétaire ou à un admin.
+- Règle d'inscription : lien non expiré, pas encore utilisé pour rejoindre, **une seule inscription par
+  lien** (`GroupInvite.signupClaimedAt`, posé par un `updateMany` conditionnel dans la transaction de
+  `createUserWithGrant`, sous le même verrou consultatif par adresse).
   Limites de débit : `/api/auth/register` (10 essais / 15 min / IP), `/api/signup-invite` (30), et
   `GET /api/groups/join/[token]` (60).
+- Rejoindre (`POST /api/groups/join/[token]`) : un lien nominatif n'est pris que par le compte de son
+  adresse ; sinon 403 « Cette invitation est destinée à une autre adresse », sans consommer le lien.
+  Après un join réussi, le client rend le foyer actif (`GroupContext.activateGroup`).
 - Parcours : lien sans session → la page du groupe propose « Se connecter » (`/login?callbackUrl=`)
-  et, si le lien le permet, « Créer mon compte » (`/register?groupInvite=<jeton>`). Après
-  l'inscription (mot de passe : connexion automatique ; Google/Apple : `callbackUrl` du fournisseur),
-  retour sur `/groups/join/<jeton>` et adhésion par le bouton habituel.
+  et, **si le lien est nominatif**, « Créer mon compte » (`/register?groupInvite=<jeton>`) ; un lien
+  ouvert renvoie vers une demande d'accès. Après l'inscription (mot de passe : connexion automatique ;
+  Google/Apple : `callbackUrl` du fournisseur), retour sur `/groups/join/<jeton>` et adhésion par le
+  bouton habituel.
+- **Risque résiduel (B4)** : l'adresse n'est pas prouvée par un e-mail de vérification (compte créé
+  avec `emailVerified` posé à l'inscription, comme pour les autres voies par mot de passe). Le lien
+  nominatif le réduit, puisque l'adresse est choisie par l'invitant et non par l'inscrit ; il reste
+  qu'une personne qui intercepte le lien peut créer le compte de cette adresse avant son titulaire,
+  et qu'un invitant peut saisir l'adresse d'un tiers. `emailVerified` n'est volontairement pas
+  modifié ici.
 - Google/Apple : même mécanique que le lien bêta, avec son propre cookie httpOnly de 15 minutes
   (`minddump.signup-group-invite`, posé par `POST /api/signup-invite` avec `{ groupInvite }`, lu
   uniquement sur le callback). Comme pour le lien bêta, dans l'app native : mot de passe seulement.

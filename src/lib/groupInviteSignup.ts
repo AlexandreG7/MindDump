@@ -5,22 +5,26 @@ import { useSecureCookies } from "./secureCookies";
  * Invitation de foyer (`GroupInvite`, lien /groups/join/<jeton>) qui ouvre AUSSI le droit de
  * créer un compte, puis ramène au groupe.
  *
- * Modèle existant : un lien vaut 7 jours et sert une fois à REJOINDRE le groupe (`usedAt`,
- * posé par POST /api/groups/join/[token]). Il peut être nominatif (`email`) ou ouvert
- * (`email` vide). Règle d'inscription, la plus prudente pour un lien qui peut fuiter :
+ * Règle (décision « option A ») : SEUL un lien NOMINATIF (`GroupInvite.email` renseigné) permet
+ * de s'inscrire, et seulement pour cette adresse (normalisée). Un lien ouvert (sans adresse)
+ * sert uniquement à rejoindre le foyer quand on a déjà un compte : il ne donne aucun droit
+ * d'inscription. Un lien qui fuite ne peut donc pas ouvrir la bêta à un inconnu : c'est
+ * l'invitant qui fixe l'adresse.
  * - le lien doit être valide : jeton connu, non expiré, pas encore utilisé pour rejoindre ;
- * - UNE seule inscription par lien : `signupClaimedAt` est posé par un `updateMany`
- *   conditionnel DANS la transaction de création du compte (createUserWithGrant). Un lien
- *   ouvert qui fuite ne crée donc qu'un compte, pas un accès à la bêta pour tout le monde ;
- * - lien nominatif : seule son adresse peut s'inscrire (comparaison sans casse) ;
- * - le jeton n'est PAS consommé pour rejoindre : la personne revient sur la page du groupe
- *   et rejoint par le flux existant (même rôle « member », mêmes règles de visibilité).
+ * - jeton de 32 caractères (`isSignupGroupInviteToken`) : les anciens cuid ne servent qu'à
+ *   rejoindre, jamais à s'inscrire ;
+ * - UNE seule inscription par lien : `signupClaimedAt` est posé par un `updateMany` conditionnel
+ *   DANS la transaction de création du compte (createUserWithGrant) ;
+ * - le jeton n'est PAS consommé pour s'inscrire : la personne revient sur la page du groupe et
+ *   rejoint par le flux existant (même rôle « member », mêmes règles de visibilité).
+ * Risque résiduel (B4, docs/oauth.md) : l'adresse n'est pas prouvée par un e-mail de
+ * vérification ; elle est choisie par l'invitant, qui est un membre connu du foyer.
  * Les mêmes limites de débit que l'inscription par mot de passe s'appliquent
  * (/api/auth/register, /api/signup-invite, GET /api/groups/join/[token]).
  */
 
 export const GROUP_INVITE_INVALID_MESSAGE =
-  "Ce lien d'invitation de groupe n'est plus valable (expiré, déjà utilisé ou déjà associé à une inscription).";
+  "Ce lien d'invitation de groupe ne permet pas de créer un compte (expiré, déjà utilisé, déjà associé à une inscription, ou sans adresse e-mail associée). Demande à la personne qui t'invite un lien à ton adresse.";
 
 /** Cookie posé juste avant Google/Apple depuis /register?groupInvite= (voir /api/signup-invite). */
 export const GROUP_INVITE_COOKIE = {
@@ -39,25 +43,28 @@ export const clearGroupInviteCookieHeader = `${GROUP_INVITE_COOKIE.name}=; Path=
   useSecureCookies ? "; Secure; SameSite=None" : "; SameSite=Lax"
 }`;
 
-/** Jetons de foyer : cuid historique (25 caractères) ou 32 caractères aléatoires base64url. */
+/** Jetons de foyer pour REJOINDRE : cuid historique (25 caractères) ou 32 caractères aléatoires base64url. */
 export const isGroupInviteToken = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9_-]{20,64}$/.test(value);
 
-/** Chemin de la page du groupe, où l'on revient après l'inscription (jeton validé par sa forme). */
-export function groupJoinPath(token: string): string {
-  return `/groups/join/${token}`;
-}
+/** Jetons de foyer pour S'INSCRIRE : uniquement les 32 caractères aléatoires (`randomBytes(24)`), pas les anciens cuid. */
+export const isSignupGroupInviteToken = (value: unknown): value is string =>
+  typeof value === "string" && /^[A-Za-z0-9_-]{32}$/.test(value);
 
-/** Ce lien de foyer peut-il encore servir à créer un compte ? (existe, non expiré, ni utilisé, ni déjà associé à une inscription). */
+/**
+ * Ce lien de foyer peut-il encore servir à créer un compte ? Existe, jeton de 32 caractères,
+ * NOMINATIF, non expiré, ni utilisé, ni déjà associé à une inscription. `email` : adresse imposée.
+ */
 export async function findSignupGroupInvite(token: unknown) {
-  if (!isGroupInviteToken(token)) return null;
+  if (!isSignupGroupInviteToken(token)) return null;
   const invite = await prisma.groupInvite.findFirst({
-    where: { token, usedAt: null, signupClaimedAt: null, expiresAt: { gt: new Date() } },
+    where: { token, usedAt: null, signupClaimedAt: null, expiresAt: { gt: new Date() }, email: { not: null } },
     select: { email: true, group: { select: { name: true } } },
   });
-  return invite ? { email: invite.email?.trim().toLowerCase() || null, groupName: invite.group.name } : null;
+  const email = invite?.email?.trim().toLowerCase();
+  return invite && email ? { email, groupName: invite.group.name } : null;
 }
 
-/** Une adresse peut-elle s'inscrire avec ce lien ? Lien ouvert : toute adresse. Nominatif : la sienne. */
-export const groupInviteAcceptsEmail = (inviteEmail: string | null, email: string | null) =>
-  !!email && (inviteEmail === null || inviteEmail === email);
+/** Une adresse peut-elle s'inscrire avec ce lien nominatif ? Seulement la sienne. */
+export const groupInviteAcceptsEmail = (inviteEmail: string, email: string | null) =>
+  !!email && inviteEmail === email;

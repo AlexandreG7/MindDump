@@ -11,8 +11,8 @@ import { formatDate } from "./format";
 
 /**
  * Section « Adresses autorisées » de l'onglet « Demandes d'accès » : ces personnes créent leur
- * compte directement sur /register, sans lien. Retirer une adresse ne touche jamais à un compte
- * existant (ADR 0001). Routes : /api/admin/allowed-emails (requireAdmin + même origine).
+ * compte sans lien, sur la page d'inscription, via « Tu es déjà autorisé·e ? ». Retirer une
+ * adresse ne touche jamais à un compte existant (ADR 0001). Routes : /api/admin/allowed-emails (requireAdmin + même origine).
  */
 export function AllowedEmailsPanel({ initial }: { initial: AllowedEmail[] }) {
   const { confirm } = useFeedback();
@@ -82,7 +82,7 @@ export function AllowedEmailsPanel({ initial }: { initial: AllowedEmail[] }) {
         </h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        Ces personnes peuvent créer leur compte directement sur /register, sans lien.
+        Ces personnes peuvent créer leur compte sans lien, sur la page d’inscription, via « Tu es déjà autorisé·e ? ».
       </p>
       <form onSubmit={add} className="flex flex-col sm:flex-row gap-2 sm:items-end">
         <div className="flex-1 space-y-1.5">
