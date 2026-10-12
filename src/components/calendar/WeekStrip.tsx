@@ -3,9 +3,8 @@
 import { addDays, format, isToday, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { textOn } from "@/components/profiles/ProfileAvatar";
 import type { CalendarEvent } from "./types";
-import { dayKey, eventDays, occursOn } from "./utils";
+import { dayKey, eventDays, evVars, occursOn } from "./utils";
 
 const MAX_LANES = 3;
 
@@ -100,27 +99,19 @@ export function WeekStrip({
       </div>
       {shown.length > 0 && (
         <div aria-hidden className="mt-1 grid grid-cols-7 gap-x-1 gap-y-1">
-          {shown.map((b) => {
-            const c = b.event.displayColor ?? b.event.color;
-            return (
-              <span
-                key={b.event.id}
-                className={cn(
-                  "flex h-6 items-center truncate px-2.5 text-xs font-bold leading-none",
-                  !c && "bg-tone-agenda text-on-tone",
-                  b.fromBefore ? "rounded-l-none" : "rounded-l-full",
-                  b.toAfter ? "rounded-r-none" : "rounded-r-full"
-                )}
-                style={{
-                  gridColumn: `${b.startCol + 1} / span ${b.span}`,
-                  gridRow: b.lane + 1,
-                  ...(c ? { backgroundColor: c, color: textOn(c) } : null),
-                }}
-              >
-                <span className="truncate">{b.event.title}</span>
-              </span>
-            );
-          })}
+          {shown.map((b) => (
+            <span
+              key={b.event.id}
+              className={cn(
+                "ev-chip flex min-h-7 items-center py-1 pl-2.5 pr-2 text-xs font-bold leading-4",
+                b.fromBefore ? "ev-chip-cont rounded-l-none" : "rounded-l-2xl",
+                b.toAfter ? "rounded-r-none" : "rounded-r-2xl"
+              )}
+              style={{ ...evVars(b.event), gridColumn: `${b.startCol + 1} / span ${b.span}`, gridRow: b.lane + 1 }}
+            >
+              <span className="line-clamp-2 break-words">{b.event.title}</span>
+            </span>
+          ))}
         </div>
       )}
     </section>

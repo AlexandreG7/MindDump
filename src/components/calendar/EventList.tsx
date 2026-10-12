@@ -115,12 +115,16 @@ export function EventList({
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block break-words text-base font-bold leading-snug">{event.title}</span>
-                  {(time || span || event.subscriptionName) && (
+                  {(time || span || event.subscriptionName || (event.assigneeIds?.length ?? 0) > 0) && (
                     <span className="block text-sm text-muted-foreground">
                       {[
                         time,
                         span && `jusqu'au ${format(span.lastDay, "EEE d MMM", { locale: fr })} · ${span.total} jours`,
                         event.subscriptionName,
+                        (event.assigneeIds ?? [])
+                          .map((id) => profiles.byId.get(id)?.name)
+                          .filter(Boolean)
+                          .join(", "),
                       ]
                         .filter(Boolean)
                         .join(" · ")}

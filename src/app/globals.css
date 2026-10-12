@@ -196,6 +196,22 @@
 }
 
 @layer components {
+  /* Événement de l'agenda : fond teinté clair (sombre en mode sombre), liseré
+     de la couleur de l'événement, texte toujours --foreground. Le contraste du
+     texte ne dépend donc pas de la couleur choisie (>= 7:1, mesuré). */
+  .ev-chip {
+    --ev-base: var(--ev, hsl(var(--tone-agenda-ink)));
+    background-color: color-mix(in srgb, var(--ev-base) 16%, hsl(var(--card)));
+    color: hsl(var(--foreground));
+    box-shadow: inset 4px 0 0 var(--ev-base);
+  }
+  .dark .ev-chip {
+    background-color: color-mix(in srgb, var(--ev-base) 24%, hsl(var(--card)));
+  }
+  .ev-chip-cont {
+    box-shadow: none;
+  }
+
   /* Barre de progression de la maquette de la landing (LoopSection) : inchangée.
      La liste de courses de l'app v2 est en Tailwind (src/app/lists/page.tsx). */
   .grocery-progress-bar {

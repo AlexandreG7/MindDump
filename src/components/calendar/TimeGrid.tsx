@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { format, isSameDay, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { CalendarEvent } from "./types";
-import { eventStyle, hasColor, isAllDayLike, layoutDay, occursOn } from "./utils";
+import { evVars, isAllDayLike, layoutDay, occursOn, startTimePrefix } from "./utils";
 
-const HOUR_PX = 48;
+const HOUR_PX = 56;
+const GUTTER = "2.75rem";
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
 /**
@@ -36,21 +37,34 @@ export function TimeGrid({
     if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOUR_PX;
   }, []);
 
+  // Téléphone : trois jours visibles à la fois (glisser pour les autres), le jour choisi en premier.
+  const firstKey = days[0]?.getTime();
+  const selKey = selectedDate?.toDateString();
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || days.length < 2 || el.scrollWidth <= el.clientWidth + 1) return;
+    const colW = (el.clientWidth - 44) / 3;
+    const target = Math.max(0, days.findIndex((d) => (selectedDate ? isSameDay(d, selectedDate) : isToday(d))));
+    el.scrollLeft = Math.min(target, days.length - 3) * colW;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstKey, selKey, days.length]);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
   const single = days.length === 1;
-  const cols = { gridTemplateColumns: `3rem repeat(${days.length}, minmax(0, 1fr))` };
-  const minWidth = single ? undefined : "40rem";
+  // Téléphone : colonnes d'un tiers de l'écran ; dès `sm`, toute la semaine tient.
+  const cols = { gridTemplateColumns: `${GUTTER} repeat(${days.length}, minmax(0, 1fr))` };
+  const minWidth = single ? undefined : `calc(${GUTTER} + (100% - ${GUTTER}) * ${days.length} / 3)`;
 
   return (
-    <div className="overflow-x-auto rounded-3xl border border-border/70 bg-card">
-      <div style={{ minWidth }}>
+    <div ref={scrollRef} className="max-h-[70vh] overflow-auto overscroll-x-contain rounded-3xl border border-border/70 bg-card">
+      <div className={single ? undefined : "sm:!min-w-0"} style={{ minWidth }}>
         {/* En-têtes et journées entières */}
-        <div className="grid border-b border-border bg-muted/40" style={cols}>
-          <div />
+        <div className="sticky top-0 z-30 grid border-b border-border bg-muted" style={cols}>
+          <div className="sticky left-0 z-20 bg-muted" />
           {days.map((day) => {
             const allDay = events.filter((e) => isAllDayLike(e) && occursOn(e, day));
             const selected = selectedDate && isSameDay(day, selectedDate);
@@ -58,9 +72,9 @@ export function TimeGrid({
               <div key={day.toISOString()} className="border-l border-border p-1 min-w-0">
                 <button
                   onClick={() => onSelectDay(day)}
-                  className={`w-full flex flex-col items-center py-1 rounded-md transition-colors hover:bg-accent ${selected ? "bg-accent" : ""}`}
+                  className={`flex min-h-11 w-full flex-col items-center justify-center rounded-md py-1 transition-colors hover:bg-accent ${selected ? "bg-accent" : ""}`}
                 >
-                  <span className="text-[11px] uppercase text-muted-foreground">
+                  <span className="text-xs font-bold uppercase text-muted-foreground">
                     {format(day, single ? "EEEE" : "EEE", { locale: fr })}
                   </span>
                   <span
@@ -71,13 +85,13 @@ export function TimeGrid({
                     {format(day, "d")}
                   </span>
                 </button>
-                <div className="space-y-0.5 mt-1">
+                <div className="mt-1 space-y-1">
                   {allDay.map((e) => (
                     <button
                       key={e.id}
                       onClick={() => onOpen(e)}
-                      className={`block w-full text-left text-xs rounded px-1.5 py-0.5 truncate ${hasColor(e) ? "" : "bg-tone-agenda-soft text-tone-agenda-ink"}`}
-                      style={eventStyle(e)}
+                      className="ev-chip block min-h-11 w-full break-words rounded-md py-1.5 pl-2.5 pr-1.5 text-left text-xs font-bold leading-snug sm:min-h-8 sm:text-[0.8125rem]"
+                      style={evVars(e)}
                       title={e.title}
                     >
                       {e.title}
@@ -90,12 +104,12 @@ export function TimeGrid({
         </div>
 
         {/* Heures */}
-        <div ref={scrollRef} className="overflow-y-auto max-h-[65vh]">
+        <div>
           <div className="grid relative" style={cols}>
-            <div>
+            <div className="sticky left-0 z-20 bg-card">
               {HOURS.map((h) => (
-                <div key={h} className="relative text-[10px] text-muted-foreground text-right pr-1.5" style={{ height: HOUR_PX }}>
-                  {h > 0 && <span className="absolute -top-1.5 right-1.5">{`${h}:00`}</span>}
+                <div key={h} className="relative pr-1.5 text-right text-xs tabular-nums text-muted-foreground" style={{ height: HOUR_PX }}>
+                  {h > 0 && <span className="absolute -top-2 right-1.5">{`${h}:00`}</span>}
                 </div>
               ))}
             </div>
@@ -114,28 +128,34 @@ export function TimeGrid({
                       style={{ height: HOUR_PX }}
                     />
                   ))}
-                  {positioned.map(({ event, top, height, column, columns }) => (
-                    <button
-                      key={event.id}
-                      onClick={() => onOpen(event)}
-                      title={`${format(new Date(event.date), "HH:mm")} ${event.title}`}
-                      className={`absolute rounded-md px-1.5 py-0.5 text-left text-xs overflow-hidden border border-background ${
-                        hasColor(event) ? "" : "bg-tone-agenda text-on-tone"
-                      }`}
-                      style={{
-                        top: top * (HOUR_PX / 60),
-                        height: Math.max(height * (HOUR_PX / 60) - 2, 18),
-                        left: `calc(${(column / columns) * 100}% + 2px)`,
-                        width: `calc(${100 / columns}% - 4px)`,
-                        ...eventStyle(event, true),
-                      }}
-                    >
-                      <span className="font-medium block truncate">{event.title}</span>
-                      {height >= 45 && (
-                        <span className="opacity-80 block truncate">{format(new Date(event.date), "HH:mm")}</span>
-                      )}
-                    </button>
-                  ))}
+                  {positioned.map(({ event, top, height, column, columns }) => {
+                    const px = Math.max(height * (HOUR_PX / 60) - 2, 24);
+                    const time = startTimePrefix(event);
+                    const lines = Math.max(1, Math.floor((px - 6) / 16));
+                    return (
+                      <button
+                        key={event.id}
+                        onClick={() => onOpen(event)}
+                        title={`${time ?? ""} ${event.title}`.trim()}
+                        className="ev-chip absolute overflow-hidden rounded-md border border-card py-0.5 pl-2 pr-1 text-left text-xs leading-4 sm:text-[0.8125rem] sm:leading-4"
+                        style={{
+                          top: top * (HOUR_PX / 60),
+                          height: px,
+                          left: `calc(${(column / columns) * 100}% + 2px)`,
+                          width: `calc(${100 / columns}% - 4px)`,
+                          ...evVars(event),
+                        }}
+                      >
+                        <span
+                          className="block break-words"
+                          style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: lines, overflow: "hidden" }}
+                        >
+                          {time && <span className="font-extrabold tabular-nums">{time} </span>}
+                          <span className="font-semibold">{event.title}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
                   {nowTop !== null && (
                     <div className="absolute left-0 right-0 pointer-events-none" style={{ top: nowTop }}>
                       <div className="h-px bg-destructive" />

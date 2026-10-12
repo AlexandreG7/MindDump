@@ -95,6 +95,7 @@ export default function CalendarPage() {
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiStatus, setAiStatus] = useAiImportStatus();
   const requestId = useRef(0);
+  const detailRef = useRef<HTMLElement>(null);
   const { confirm, toast } = useFeedback();
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
@@ -407,6 +408,18 @@ export default function CalendarPage() {
   const sheetEvent = openId ? (allEvents.find((e) => e.id === openId) ?? null) : null;
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor, { weekStartsOn: 1 }), i));
 
+  // Téléphone : choisir un jour du mois amène son détail à l'écran s'il est sous la grille.
+  const pickMonthDay = (day: Date) => {
+    setSelectedDate(day);
+    if (!window.matchMedia("(max-width: 639px)").matches) return;
+    requestAnimationFrame(() => {
+      const el = detailRef.current;
+      if (!el || el.getBoundingClientRect().top < window.innerHeight * 0.7) return;
+      const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" });
+    });
+  };
+
   const goToday = () => {
     const today = new Date();
     setAnchor(today);
@@ -539,7 +552,7 @@ export default function CalendarPage() {
       </div>
 
       {view === "month" && (
-        <MonthGrid month={anchor} events={allEvents} selectedDate={selectedDate} onSelectDay={setSelectedDate} />
+        <MonthGrid month={anchor} events={allEvents} selectedDate={selectedDate} onSelectDay={pickMonthDay} />
       )}
 
       {(view === "week" || view === "day") && (
@@ -578,8 +591,9 @@ export default function CalendarPage() {
       {/* Détail du jour sélectionné */}
       {selectedDate && (view === "month" || view === "week" || view === "day") && (
         <section
+          ref={detailRef}
           aria-label={format(selectedDate, "EEEE d MMMM", { locale: fr })}
-          className="rounded-[1.75rem] border border-border/70 bg-card p-4 sm:p-5"
+          className="scroll-mb-28 rounded-[1.75rem] border border-border/70 bg-card p-4 sm:p-5"
         >
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="font-display text-xl first-letter:uppercase">

@@ -223,6 +223,18 @@ export function eventStyle(e: CalendarEvent, solid = false): React.CSSProperties
     : { backgroundColor: `${color}20`, color };
 }
 
+/** Couleur de l'événement pour `.ev-chip` (liseré, points) ; sans couleur, l'encre du module. */
+export function evVars(e: CalendarEvent): React.CSSProperties {
+  const color = e.displayColor ?? e.color;
+  return (color ? { "--ev": color } : {}) as React.CSSProperties;
+}
+
+/** Heure de début affichée en préfixe (« 17:30 »), rien pour une journée entière ou un événement sur plusieurs jours. */
+export function startTimePrefix(e: CalendarEvent): string | null {
+  const start = eventStart(e);
+  return e.allDay || isAllDayLike(e) ? null : format(start, "HH:mm");
+}
+
 /** Sans couleur propre ni personne : couleur par défaut du thème. */
 export function hasColor(e: CalendarEvent): boolean {
   return !!(e.displayColor ?? e.color);
