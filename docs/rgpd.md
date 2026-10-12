@@ -30,7 +30,7 @@
   du consentement est `createdAt`), statut. **Finalité** : répondre à la demande et décider d'inviter
   la personne. **Base légale** : mesures précontractuelles prises à la demande de la personne (art. 6.1.b) ; la case à cocher du formulaire (obligatoire, vérifiée côté serveur) atteste qu'elle a pris connaissance de la politique de confidentialité. Les
   invitations ne stockent que l'empreinte SHA-256 du jeton, l'adresse invitée et les dates (14 jours,
-  usage unique). **Conservation : la durée de la bêta.**
+  usage unique). **Conservation : la durée de la bêta, au plus tard jusqu'au 31/12/2027** (date butoir publiée dans `/confidentialite`, décidée par Alexandre le 12/10/2026).
   Aucune suppression automatique : décision de l'éditeur, qui ne veut effacer aucune donnée sans
   demande. À la fin de la bêta, l'administrateur décide et efface à la main les demandes et liens restants
   (corbeille de `/admin`, demande par demande). *Point
@@ -61,7 +61,7 @@
   personne ne saisit rien. **Finalité** : lui permettre de créer son compte sans lien d'invitation.
   **Base légale** : intérêt légitime de l'éditeur à gérer l'accès à une bêta privée (art. 6.1.f) ; la
   personne est informée quand elle crée son compte (case de consentement à la politique de
-  confidentialité). **Conservation : la durée de la bêta**, comme les demandes d'accès. La suppression
+  confidentialité). **Conservation : la durée de la bêta, au plus tard jusqu'au 31/12/2027**, comme les demandes d'accès. La suppression
   d'un compte retire son adresse de la table (`src/lib/account.ts`). **Effacement sur demande** : corbeille
   de la ligne dans `/admin` (`DELETE /api/admin/allowed-emails/:id`), qui ne touche jamais à un compte.
   Visible des seuls administrateurs ; non incluse dans l'export du compte (c'est l'adresse du compte

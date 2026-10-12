@@ -310,7 +310,8 @@ export default function PrivacyPolicyPage() {
             de MindDump et l&apos;éditeur y ont accès.
           </li>
           <li>
-            <strong className="text-foreground">Combien de temps</strong> : pendant la durée de la bêta ;
+            <strong className="text-foreground">Combien de temps</strong> : pendant la durée de la bêta, et au plus
+            tard jusqu&apos;au 31 décembre 2027 ;
             suppression sur simple demande, traitée dans un délai d&apos;un mois. Si tu crées ton
             compte, la demande et ses liens sont effacés avec lui lorsque tu le supprimes.
           </li>
