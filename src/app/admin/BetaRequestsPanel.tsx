@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Link2, RefreshCw, X } from "lucide-react";
+import { Check, Copy, Link2, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFeedback } from "@/components/ui/feedback";
-import type { AdminBetaRequest, AdminBetaRequestsPage, RequestStatus } from "@/lib/betaAccess";
+import type { AdminBetaRequest, AdminBetaRequestsPage, AdminDirectInvite, RequestStatus } from "@/lib/betaAccess";
 import { formatDate } from "./format";
 
 const STATUS_LABEL: Record<RequestStatus, string> = {
@@ -14,6 +14,13 @@ const STATUS_LABEL: Record<RequestStatus, string> = {
   invited: "Invitée",
   registered: "Inscrite",
   refused: "Refusée",
+};
+
+const DIRECT_STATUS_LABEL: Record<AdminDirectInvite["status"], string> = {
+  active: "En cours",
+  used: "Utilisé",
+  revoked: "Remplacé",
+  expired: "Expiré",
 };
 
 type Issued = { link: string; expiresAt: string };
@@ -66,6 +73,7 @@ export function BetaRequestsPanel({
   const [requests, setRequests] = useState(initial.requests);
   const [pending, setPending] = useState(initial.pending);
   const [hasMore, setHasMore] = useState(initial.hasMore);
+  const [directInvites, setDirectInvites] = useState(initial.directInvites);
   const [loadingMore, setLoadingMore] = useState(false);
   const [issued, setIssued] = useState<Record<string, Issued>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -82,6 +90,7 @@ export function BetaRequestsPanel({
     });
     setPending(page.pending);
     setHasMore(page.hasMore);
+    setDirectInvites(page.directInvites);
     onPendingChange(page.pending);
   };
 
@@ -111,12 +120,18 @@ export function BetaRequestsPanel({
     setLoadingMore(false);
   };
 
-  const call = async (key: string, url: string, body?: unknown, report: (message: string) => void = setError) => {
+  const call = async (
+    key: string,
+    url: string,
+    body?: unknown,
+    report: (message: string) => void = setError,
+    method: "POST" | "DELETE" = "POST"
+  ) => {
     setBusy(key);
     report("");
     try {
       const res = await fetch(url, {
-        method: "POST",
+        method,
         ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
       });
       const data = await res.json().catch(() => ({}));
@@ -167,6 +182,37 @@ export function BetaRequestsPanel({
     }
   };
 
+  const remove = async (r: AdminBetaRequest) => {
+    const ok = await confirm({
+      title: "Supprimer cette demande ?",
+      description:
+        r.status === "registered"
+          ? `La demande de ${r.email} et ses liens d'invitation seront effacés. Son compte n'est pas touché.`
+          : `La demande de ${r.email} et ses liens d'invitation seront effacés définitivement.`,
+      confirmLabel: "Supprimer",
+      destructive: true,
+    });
+    if (!ok) return;
+    if (await call(r.id, `/api/admin/beta-requests/${r.id}`, undefined, setError, "DELETE")) {
+      setIssued(({ [r.id]: _dropped, ...rest }) => rest);
+      await reload();
+    }
+  };
+
+  const removeDirect = async (d: AdminDirectInvite) => {
+    const ok = await confirm({
+      title: "Supprimer ce lien ?",
+      description: `Les liens créés pour ${d.email} seront effacés et ne marcheront plus. Un éventuel compte n'est pas touché.`,
+      confirmLabel: "Supprimer",
+      destructive: true,
+    });
+    if (!ok) return;
+    if (await call(d.id, `/api/admin/signup-invites/${d.id}`, undefined, setDirectError, "DELETE")) {
+      setDirect((current) => (current?.email === d.email ? null : current));
+      await reload();
+    }
+  };
+
   const createDirect = async (e: React.FormEvent) => {
     e.preventDefault();
     const data = await call("direct", "/api/admin/signup-invites", { email: directEmail }, setDirectError);
@@ -213,6 +259,35 @@ export function BetaRequestsPanel({
             <LinkBox issued={direct} />
           </div>
         )}
+        {directInvites.length > 0 && (
+          <div className="pt-2 space-y-1">
+            <h3 className="text-sm font-medium">Liens directs</h3>
+            <ul className="divide-y divide-border">
+              {directInvites.map((d) => (
+                <li key={d.id} className="py-2 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm break-all">{d.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {DIRECT_STATUS_LABEL[d.status]} · créé le {formatDate(d.createdAt, true)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Supprimer les liens de ${d.email}`}
+                    title="Supprimer"
+                    disabled={busy === d.id}
+                    onClick={() => removeDirect(d)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <section className="bg-card border border-border rounded-2xl p-5 space-y-3">
@@ -240,9 +315,23 @@ export function BetaRequestsPanel({
                       {r.name} · {formatDate(r.createdAt, true)}
                     </p>
                   </div>
-                  <span className="text-[11px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                    {STATUS_LABEL[r.status]}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                      {STATUS_LABEL[r.status]}
+                    </span>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      aria-label={`Supprimer la demande de ${r.email}`}
+                      title="Supprimer"
+                      disabled={busy === r.id}
+                      onClick={() => remove(r)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
                 {r.message && <p className="text-sm whitespace-pre-wrap break-words">{r.message}</p>}
                 {r.status !== "registered" && (
@@ -286,7 +375,7 @@ export function BetaRequestsPanel({
           </div>
         )}
         <p className="text-xs text-muted-foreground">
-          Les demandes sont supprimées automatiquement après 6 mois. Les liens ne sont jamais stockés en clair.
+          Les demandes et les liens sont supprimés automatiquement après 6 mois. Les liens ne sont jamais stockés en clair.
         </p>
       </section>
     </div>

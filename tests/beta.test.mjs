@@ -31,9 +31,10 @@ const { hashPassword } = unwrap(await import("../src/lib/password.ts"));
 const { INVITE_EMAIL_MISMATCH_URL, INVITE_INVALID_MESSAGE, INVITE_EMAIL_MISMATCH_MESSAGE, INVITE_COOKIE, issueInvite, createUserWithGrant } = unwrap(
   await import("../src/lib/signupInvite.ts")
 );
-const { purgeOldBetaData, purgeOldBetaDataThrottled, listBetaRequests, refuseBetaRequest, submitAccessRequest } = unwrap(
+const { purgeOldBetaData, purgeOldBetaDataThrottled, listBetaRequests, refuseBetaRequest, submitAccessRequest, deleteBetaRequest, deleteDirectInvites } = unwrap(
   await import("../src/lib/betaAccess.ts")
 );
+const { findValidInvite: findValid } = unwrap(await import("../src/lib/signupInvite.ts"));
 const { rateLimit } = unwrap(await import("../src/lib/rateLimit.ts"));
 const { deleteUserAccount } = unwrap(await import("../src/lib/account.ts"));
 const { oauthErrorMessage } = unwrap(await import("../src/components/OAuthButtons.tsx"));
@@ -592,6 +593,107 @@ async function main() {
     check(retryAfter === "3600", "…avec Retry-After");
     check((await requestAccess({ email: email("global-autre-ip") })).status === 429, "…même depuis une IP jamais vue");
     check((await prisma.betaAccessRequest.count({ where: { email: { startsWith: "global-" } } })) === firstLimited, "…et les demandes limitées ne sont pas stockées");
+  }
+
+  console.log("RGPD : suppression d'une demande ou d'un lien direct depuis l'admin");
+  {
+    const del = (path, cookie, headers) => api("DELETE", path, cookie, undefined, headers);
+    const mk = async (label, status = "pending") =>
+      prisma.betaAccessRequest.create({ data: { email: email(label), name: "Suppr", consentVersion: "x", status } });
+    const probe = await mk("suppr-droits");
+    const noCookie = await del(`/api/admin/beta-requests/${probe.id}`);
+    const asUser = await del(`/api/admin/beta-requests/${probe.id}`, userCookie);
+    check(noCookie.status === 401 || noCookie.status === 403, "DELETE sans session : refusé");
+    check(asUser.status === 403, "DELETE par un non-admin : 403");
+    const evil = await del(`/api/admin/beta-requests/${probe.id}`, adminCookie, { origin: EVIL });
+    const evilNull = await del(`/api/admin/beta-requests/${probe.id}`, adminCookie, { origin: "null" });
+    check(evil.status === 403 && evilNull.status === 403, "DELETE avec Origin étranger (ou null), même admin : 403");
+    check(!!(await prisma.betaAccessRequest.findUnique({ where: { id: probe.id } })), "…la demande est intacte");
+    check((await del("/api/admin/beta-requests/inconnu", adminCookie)).status === 404, "id inconnu : 404");
+
+    // Demande invitée : la demande et ses liens (par requestId ET par adresse) disparaissent.
+    const invited = await mk("suppr-invitee");
+    const link = await issueInvite({ email: invited.email, createdById: admin.id, requestId: invited.id });
+    const stray = await prisma.signupInvite.create({
+      data: { tokenHash: sha(randomBytes(8).toString("hex")), email: invited.email, expiresAt: new Date(Date.now() + 1e6), requestId: null },
+    });
+    const ok = await del(`/api/admin/beta-requests/${invited.id}`, adminCookie, { origin: BASE_URL });
+    check(ok.status === 200, "DELETE par l'admin (Origin du site) : 200");
+    check(!(await prisma.betaAccessRequest.findUnique({ where: { id: invited.id } })), "…la demande n'existe plus");
+    check((await prisma.signupInvite.count({ where: { OR: [{ email: invited.email }, { requestId: invited.id }, { id: stray.id }] } })) === 0, "…ni ses invitations (par demande et par adresse)");
+    const reuse = await register({ name: "Suppr", email: invited.email, invite: link.token });
+    check(reuse.status !== 200 && reuse.status !== 201 && !(await prisma.user.findUnique({ where: { email: invited.email } })), "…le lien supprimé ne permet plus de créer un compte");
+    check((await del(`/api/admin/beta-requests/${invited.id}`, adminCookie)).status === 404, "…une seconde suppression : 404");
+    check((await findValid(link.token)) === null, "…findValidInvite ne le reconnaît plus");
+
+    // Tous les statuts.
+    let allGone = true;
+    for (const st of ["pending", "refused"]) {
+      const r = await mk(`suppr-${st}`, st);
+      const res = await del(`/api/admin/beta-requests/${r.id}`, adminCookie);
+      if (res.status !== 200 || (await prisma.betaAccessRequest.findUnique({ where: { id: r.id } }))) allGone = false;
+    }
+    check(allGone, "statuts pending et refused : supprimés");
+
+    // Inscrite : le compte (et ce qu'il contient) reste (ADR 0001).
+    const regEmail = email("suppr-inscrite");
+    const regReq = await mk("suppr-inscrite");
+    const regLink = await issueInvite({ email: regEmail, createdById: admin.id, requestId: regReq.id });
+    const created = await createUserWithGrant(regEmail, { name: "Inscrite" }, regLink.token);
+    const todo = await prisma.todo.create({ data: { title: "Reste visible", userId: created.user.id } });
+    check((await prisma.betaAccessRequest.findUnique({ where: { id: regReq.id } }))?.status === "registered", "demande « registered » avant suppression");
+    const regDel = await del(`/api/admin/beta-requests/${regReq.id}`, adminCookie);
+    check(regDel.status === 200 && !(await prisma.betaAccessRequest.findUnique({ where: { id: regReq.id } })), "demande registered : supprimée");
+    check((await prisma.signupInvite.count({ where: { email: regEmail } })) === 0, "…avec ses invitations");
+    check(!!(await prisma.user.findUnique({ where: { id: created.user.id } })), "…mais le compte existe toujours (ADR 0001)");
+    check(!!(await prisma.todo.findFirst({ where: { id: todo.id, userId: created.user.id } })), "…et son contenu reste attaché à son auteur");
+    check((await createUserWithGrant(regEmail, { name: "Bis" }, undefined)).ok === false, "…et l'adresse reste prise (pas de second compte)");
+
+    // Liens directs (sans demande).
+    const directEmail = email("suppr-direct");
+    const d1 = await issueInvite({ email: directEmail, createdById: admin.id });
+    const d2 = await issueInvite({ email: directEmail, createdById: admin.id });
+    const otherDirect = await issueInvite({ email: email("suppr-direct-autre"), createdById: admin.id });
+    const page = await listBetaRequests();
+    const entry = page.directInvites.find((d) => d.email === directEmail);
+    check(!!entry && entry.status === "active" && page.directInvites.filter((d) => d.email === directEmail).length === 1, "liste admin : un lien direct par adresse, le plus récent en cours");
+    check(!page.directInvites.some((d) => d.email === invited.email), "…sans les invitations rattachées à une demande");
+    check((await del(`/api/admin/signup-invites/${entry.id}`, adminCookie, { origin: EVIL })).status === 403, "DELETE lien direct : Origin étranger 403");
+    check((await del(`/api/admin/signup-invites/${entry.id}`, userCookie)).status === 403, "…non-admin 403");
+    check((await del("/api/admin/signup-invites/inconnu", adminCookie)).status === 404, "…id inconnu 404");
+    const viaRequest = await prisma.signupInvite.create({
+      data: { tokenHash: sha(randomBytes(8).toString("hex")), email: email("suppr-rattache"), expiresAt: new Date(Date.now() + 1e6), requestId: (await mk("suppr-rattache")).id },
+    });
+    check((await del(`/api/admin/signup-invites/${viaRequest.id}`, adminCookie)).status === 404, "…invitation rattachée à une demande : 404 (passer par la demande)");
+    const delDirect = await del(`/api/admin/signup-invites/${entry.id}`, adminCookie, { origin: BASE_URL });
+    check(delDirect.status === 200, "lien direct supprimé : 200");
+    check((await prisma.signupInvite.count({ where: { email: directEmail } })) === 0, "…tous les liens directs de l'adresse disparaissent (ancien et récent)");
+    check((await findValid(d1.token)) === null && (await findValid(d2.token)) === null, "…et ne marchent plus");
+    check((await findValid(otherDirect.token)) !== null, "…le lien d'une autre adresse reste valide");
+    check(![200, 201].includes((await register({ name: "Direct", email: directEmail, invite: d2.token })).status), "…inscription avec le lien supprimé refusée");
+    check((await deleteDirectInvites("inconnu")) === "not-found" && (await deleteBetaRequest("inconnu")) === "not-found", "fonctions : id inconnu = not-found");
+
+    // Course suppression / inscription : pas d'interblocage (verrou par adresse), cohérence.
+    let consistent = true;
+    let accounts = 0;
+    const started = Date.now();
+    for (let i = 0; i < 10; i++) {
+      const address = email(`suppr-course-${i}`);
+      const request = await prisma.betaAccessRequest.create({ data: { email: address, name: "Course", consentVersion: "x" } });
+      const lk = await issueInvite({ email: address, createdById: admin.id, requestId: request.id });
+      const del1 = () => deleteBetaRequest(request.id);
+      const add1 = () => createUserWithGrant(address, { name: "Course" }, lk.token);
+      // Départ dans les deux ordres, pour exercer « suppression d'abord » et « inscription d'abord ».
+      const [deleted, created2] = i % 2 ? await Promise.all([del1(), add1()]) : (await Promise.all([add1(), del1()])).reverse();
+      const user = await prisma.user.findUnique({ where: { email: address } });
+      const left = await prisma.betaAccessRequest.findUnique({ where: { id: request.id } });
+      const invitesLeft = await prisma.signupInvite.count({ where: { email: address } });
+      if (user) accounts++;
+      // Quel que soit l'ordre : plus de demande ni d'invitation après la suppression ; le
+      // compte, s'il a été créé, reste.
+      if (deleted !== "ok" || left || invitesLeft !== 0 || (created2.ok && !user)) consistent = false;
+    }
+    check(consistent, `10 courses suppression / inscription : aucune erreur, aucun reste, compte conservé s'il a été créé (${accounts} comptes, ${Date.now() - started} ms, sans interblocage)`);
   }
 
   console.log("Invariants");

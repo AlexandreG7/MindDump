@@ -28,7 +28,7 @@
   `src/lib/signupInvite.ts`) : formulaire public de `/register`. Données : e-mail (normalisé),
   prénom, message facultatif de 500 caractères, version du texte de confidentialité acceptée (la date
   du consentement est `createdAt`), statut. **Finalité** : répondre à la demande et décider d'inviter
-  la personne. **Base légale** : consentement (case obligatoire, vérifiée côté serveur). Les
+  la personne. **Base légale** : mesures précontractuelles prises à la demande de la personne (art. 6.1.b) ; la case à cocher du formulaire (obligatoire, vérifiée côté serveur) atteste qu'elle a pris connaissance de la politique de confidentialité. Les
   invitations ne stockent que l'empreinte SHA-256 du jeton, l'adresse invitée et les dates (14 jours,
   usage unique). **Conservation : 6 mois** après la **création** de la demande ou de l'invitation (`createdAt`), quel que
   soit le statut : redéposer sa demande ne prolonge pas la durée. La purge (`purgeOldBetaData`) s'exécute à
@@ -40,9 +40,16 @@
   attente. La suppression d'un compte efface la demande et les invitations de son
   adresse (`src/lib/account.ts`). Visibles des seuls administrateurs. Non incluses dans l'export du
   compte : elles concernent des personnes sans compte, et celles d'un compte sont supprimées avec lui.
-  **À faire dans `/confidentialite`** : une courte section pour les visiteurs sans compte (qui est
-  collecté, pourquoi, 6 mois). Elle ne change rien pour les comptes existants : ne pas incrémenter
-  `CONSENT_VERSION`, sinon tout le monde repasserait par `/consentement`.
+  **Effacement sur demande** : suppression dans un délai d'**1 mois**. Procédure : *demande reçue à
+  l'adresse de contact → bouton « Supprimer » (corbeille) sur la demande dans `/admin`, onglet
+  « Demandes d'accès » → répondre à la personne*. Le bouton (`DELETE /api/admin/beta-requests/:id`,
+  `deleteBetaRequest`) efface, dans une transaction, la demande (quel que soit son statut) et ses
+  invitations (par demande et par adresse) ; il ne touche jamais à un compte existant. Pour une
+  personne qui n'a eu qu'un lien direct (« Créer un lien pour un e-mail », sans demande) : corbeille
+  dans « Liens directs » du même onglet (`DELETE /api/admin/signup-invites/:id`, efface tous les liens
+  directs de l'adresse). La section « Si tu demandes un accès à la bêta, sans compte » de
+  `/confidentialite` informe ces personnes ; elle ne change rien pour les comptes existants
+  (`CONSENT_VERSION` inchangée, sinon tout le monde repasserait par `/consentement`).
 - **Mot de passe oublié** (`src/lib/passwordReset.ts`) : table `VerificationToken` de NextAuth,
   `identifier` = adresse du compte, `token` = empreinte SHA-256 du jeton envoyé par e-mail (jamais le
   jeton lui-même). Valable une heure, à usage unique, un seul lien actif, un envoi au plus toutes les
