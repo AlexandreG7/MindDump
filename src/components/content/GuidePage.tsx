@@ -1,3 +1,4 @@
+import "./content.css";
 import Link from "next/link";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { GUIDES, type Guide } from "@/lib/content/guides";
