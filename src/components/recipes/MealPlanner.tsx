@@ -196,27 +196,27 @@ export function MealPlanner({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => setWeekStart((w) => addWeeks(w, -1))} aria-label="Semaine précédente">
+          <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full" onClick={() => setWeekStart((w) => addWeeks(w, -1))} aria-label="Semaine précédente">
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setWeekStart((w) => addWeeks(w, 1))} aria-label="Semaine suivante">
+          <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full" onClick={() => setWeekStart((w) => addWeeks(w, 1))} aria-label="Semaine suivante">
             <ChevronRight className="h-5 w-5" />
           </Button>
-          <Button variant="outline" size="sm" className="ml-1" onClick={() => setWeekStart(startOfWeek(new Date(), WEEK))}>
+          <Button variant="secondary" className="ml-1 h-11 rounded-full px-4 text-sm font-bold" onClick={() => setWeekStart(startOfWeek(new Date(), WEEK))}>
             Cette semaine
           </Button>
-          <h2 className="ml-2 font-semibold">
+          <h2 className="ml-2 text-lg font-extrabold tracking-tight">
             {format(days[0], "d MMM", { locale: fr })} – {format(days[6], "d MMM yyyy", { locale: fr })}
           </h2>
         </div>
-        <Button onClick={makeShoppingList} disabled={recipeMeals === 0 || shopping === "busy"}>
+        <Button className="h-12 rounded-full bg-tone-meal px-5 text-base font-bold text-on-tone shadow-none hover:bg-tone-meal/90" onClick={makeShoppingList} disabled={recipeMeals === 0 || shopping === "busy"}>
           <ShoppingCart className="h-4 w-4 mr-2" />
           Courses de la semaine
         </Button>
       </div>
 
       {unplaced.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+        <div className="rounded-[1.25rem] bg-card p-4 shadow-surface space-y-2">
           <p className="text-sm">
             <span className="font-medium">À placer</span>
             <span className="text-muted-foreground">
@@ -232,10 +232,10 @@ export function MealPlanner({
                 onClick={() => setToPlace(toPlace?.id === r.id ? null : r)}
                 aria-pressed={toPlace?.id === r.id}
                 className={cn(
-                  "px-3 py-1 touch:py-2 rounded-full border text-sm transition-colors",
+                  "px-4 py-2 min-h-11 rounded-full text-sm font-semibold transition-colors",
                   toPlace?.id === r.id
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border hover:bg-secondary"
+                    ? "bg-ink text-ink-foreground"
+                    : "bg-secondary hover:bg-accent"
                 )}
               >
                 {r.title}
@@ -257,16 +257,16 @@ export function MealPlanner({
             <div
               key={date}
               ref={isToday(d) ? todayRef : undefined}
-              className={cn("rounded-xl border p-3 space-y-3 scroll-mt-20", isToday(d) ? "border-primary bg-primary/5" : "border-border bg-card")}
+              className={cn("rounded-[1.25rem] p-3 space-y-3 scroll-mt-20 shadow-surface", isToday(d) ? "bg-tone-meal-soft" : "bg-card")}
             >
-              <p className={cn("text-sm font-semibold first-letter:uppercase", isToday(d) && "text-primary")}>
+              <p className={cn("text-base font-extrabold tracking-tight first-letter:uppercase", isToday(d) && "text-tone-meal-ink")}>
                 {format(d, "EEEE d", { locale: fr })}
               </p>
               {MEAL_SLOTS.map((slot) => {
                 const slotEntries = entries.filter((e) => e.date === date && e.slot === slot.value);
                 return (
                   <div key={slot.value} className="space-y-1.5">
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{slot.label}</p>
+                    <p className="text-xs font-bold text-muted-foreground">{slot.label}</p>
                     {slotEntries.map((e) => (
                       <div key={e.id} className="group/meal flex items-start gap-1 rounded-lg bg-secondary/60 px-2 py-1.5">
                         {e.recipe ? (
@@ -294,7 +294,7 @@ export function MealPlanner({
                     {toPlace ? (
                       <button
                         onClick={() => add({ recipeId: toPlace.id }, { date, slot: slot.value })}
-                        className="w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-primary bg-primary/5 py-1.5 touch:py-2.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                        className="w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-tone-meal-ink bg-tone-meal/20 py-1.5 touch:py-2.5 text-xs font-bold text-tone-meal-ink hover:bg-tone-meal/30 transition-colors"
                         aria-label={`Placer ${toPlace.title} le ${format(d, "EEEE d", { locale: fr })}, ${slot.label.toLowerCase()}`}
                       >
                         Placer ici

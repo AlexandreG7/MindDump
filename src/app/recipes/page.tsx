@@ -3,42 +3,37 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MealPlanner } from "@/components/recipes/MealPlanner";
-import { prepareRecipePhoto, thumbnailUrl } from "@/lib/image";
+import { prepareRecipePhoto } from "@/lib/image";
 import { useFeaturesContext } from "@/components/FeaturesContext";
 import { useAuth } from "@/lib/useAuth";
 import { useGroupContext } from "@/components/GroupContext";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SegmentedNav } from "@/components/ui/segmented-nav";
+import { ModuleHero, HeroChip, HeroIconButton } from "@/components/ui/module-hero";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
-  Trash2,
   Clock,
-  ShoppingCart,
   X,
-  Pencil,
   Check,
   Search,
   Camera,
   CalendarCheck,
   CalendarDays,
-  CalendarX2,
   BookOpen,
-  BookMarked,
-  Users,
-  UtensilsCrossed,
   Download,
   Loader2,
-  ExternalLink,
   LayoutGrid,
   List,
   Grid3X3,
@@ -46,46 +41,63 @@ import {
   Heart,
 } from "lucide-react";
 import { useFeedback } from "@/components/ui/feedback";
+import { RecipeCard, RecipeRow, RecipeTile, type CardHandlers, type ShoppingListRef } from "@/components/recipes/RecipeCard";
+import type { CatalogRecipe, Ingredient } from "@/components/recipes/RecipeEditor";
+import { recipeSource, SOURCE_LABELS, totalMinutes, type RecipeSource } from "@/components/recipes/meta";
 
-interface Ingredient {
-  id?: string;
-  name: string;
-  quantity: string;
-  unit: string;
-}
-
-interface Recipe {
-  id: string;
-  title: string;
-  description: string | null;
-  servings: number;
-  prepTime: number | null;
-  cookTime: number | null;
-  steps: string;
-  image: string | null;
-  planned: boolean;
-  inCatalog: boolean;
-  favorite: boolean;
-  createdAt: string;
-  ingredients: Ingredient[];
-}
-
-interface ShoppingList {
-  id: string;
-  name: string;
-  type?: string;
-}
+type ShoppingList = ShoppingListRef;
 
 type Tab = "catalogue" | "prevues" | "semaine";
 type ViewMode = "grid" | "list" | "compact";
 type SortOption = "recent" | "oldest" | "alpha-asc" | "alpha-desc" | "fastest" | "slowest";
+
+const VIEWS: { mode: ViewMode; icon: typeof LayoutGrid; label: string }[] = [
+  { mode: "grid", icon: LayoutGrid, label: "grandes cartes" },
+  { mode: "compact", icon: Grid3X3, label: "grille réduite" },
+  { mode: "list", icon: List, label: "liste" },
+];
+
+const SORTS: { value: SortOption; label: string }[] = [
+  { value: "recent", label: "Plus récent" },
+  { value: "oldest", label: "Plus ancien" },
+  { value: "alpha-asc", label: "A → Z" },
+  { value: "alpha-desc", label: "Z → A" },
+  { value: "fastest", label: "Plus rapide" },
+  { value: "slowest", label: "Plus long" },
+];
+
+const TIME_FILTERS = [
+  { max: 30, label: "30 min max" },
+  { max: 60, label: "1 h max" },
+];
+
+/** Pastille de filtre : fond carte au repos, encre quand elle est active. */
+function FilterChip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-bold shadow-surface transition-[background-color,color,transform] duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        on ? "bg-ink text-ink-foreground" : "bg-card text-foreground/80 hover:bg-accent"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+const roundBtn =
+  "flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-surface transition-[background-color,color,transform] duration-150 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export default function RecipesPage() {
   const { confirm, toast } = useFeedback();
   const { isReady } = useAuth();
   const router = useRouter();
   const { currentGroupId } = useGroupContext();
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [recipes, setRecipes] = useState<CatalogRecipe[]>([]);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,6 +127,8 @@ export default function RecipesPage() {
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [sortOpen, setSortOpen] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [maxMinutes, setMaxMinutes] = useState<number | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<RecipeSource | null>(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const [newRecipe, setNewRecipe] = useState({
     title: "",
@@ -135,6 +149,7 @@ export default function RecipesPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data) setRecipes(data);
+        setLoadedOnce(true);
       });
   }, [currentGroupId]);
 
@@ -179,8 +194,19 @@ export default function RecipesPage() {
     setFilters((f) => f.filter((n) => n !== name));
   };
 
+  const sourceCounts = tabRecipes.reduce<Partial<Record<RecipeSource, number>>>((acc, r) => {
+    const s = recipeSource(r.image);
+    acc[s] = (acc[s] ?? 0) + 1;
+    return acc;
+  }, {});
+
   const filteredRecipes = tabRecipes.filter((recipe) => {
     if (favoritesOnly && !recipe.favorite) return false;
+    if (sourceFilter && recipeSource(recipe.image) !== sourceFilter) return false;
+    if (maxMinutes !== null) {
+      const t = totalMinutes(recipe);
+      if (t === 0 || t > maxMinutes) return false;
+    }
     const matchesFilters = filters.every((f) =>
       recipe.ingredients.some((ing) => ing.name.toLowerCase().includes(f))
     );
@@ -293,10 +319,12 @@ export default function RecipesPage() {
   };
 
   // Optimiste : le cœur réagit tout de suite, la liste est rechargée ensuite.
-  const toggleFavorite = (e: React.MouseEvent, id: string, favorite: boolean) => {
+  const toggleFavorite = (e: React.MouseEvent, recipe: CatalogRecipe) => {
     e.stopPropagation();
-    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, favorite } : r)));
-    updateRecipe(id, { favorite });
+    e.preventDefault();
+    const favorite = !recipe.favorite;
+    setRecipes((rs) => rs.map((r) => (r.id === recipe.id ? { ...r, favorite } : r)));
+    updateRecipe(recipe.id, { favorite });
   };
 
   const deleteRecipe = async (id: string) => {
@@ -311,6 +339,13 @@ export default function RecipesPage() {
           body: JSON.stringify({ planned: false }),
         });
       } else {
+        const ok = await confirm({
+          title: `Supprimer « ${recipe.title} » ?`,
+          description: "Elle n'est pas dans le catalogue : cette action est irréversible.",
+          confirmLabel: "Supprimer",
+          destructive: true,
+        });
+        if (!ok) return;
         await fetch(`/api/recipes/${id}`, { method: "DELETE" });
       }
     } else {
@@ -528,28 +563,265 @@ export default function RecipesPage() {
     }
   };
 
+
   const plannedCount = recipes.filter((r) => r.planned).length;
   const catalogCount = recipes.filter((r) => r.inCatalog).length;
+  const favoriteCount = recipes.filter((r) => r.inCatalog && r.favorite).length;
+  const anyFilter = favoritesOnly || maxMinutes !== null || sourceFilter !== null || filters.length > 0 || searchQuery.trim() !== "";
+  const onlyFavorites = favoritesOnly && !searchQuery && !sourceFilter && maxMinutes === null && filters.length === 0;
+  const clearAll = () => {
+    setFavoritesOnly(false);
+    setMaxMinutes(null);
+    setSourceFilter(null);
+    setFilters([]);
+    setSearchQuery("");
+  };
+
+  const handlers: CardHandlers = {
+    lists,
+    tab: activeTab === "prevues" ? "prevues" : "catalogue",
+    onToggleFavorite: toggleFavorite,
+    onUpdate: updateRecipe,
+    onDelete: deleteRecipe,
+    onAddToList: addToShoppingList,
+    onUploadImage: uploadImage,
+    onRemoveImage: removeImage,
+    onEnriched: fetchRecipes,
+    onPickImage: pickTileImage,
+  };
 
   if (!isReady) return null;
 
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-[10rem]">
-          <h1 className="text-2xl font-semibold tracking-tight">Recettes</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {catalogCount} recette{catalogCount !== 1 ? "s" : ""} au catalogue
-          </p>
+  const view = VIEWS.find((v) => v.mode === viewMode)!;
+  const nextView = VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length];
+
+  const browse = (
+    <div className="space-y-4">
+      {/* Recherche, tri, affichage */}
+      <div className="flex items-start gap-2">
+        <div className="relative min-w-0 flex-1" ref={searchRef}>
+          <div className="flex min-h-12 flex-wrap items-center gap-1.5 rounded-[1.5rem] bg-card px-4 py-1 shadow-surface focus-within:ring-2 focus-within:ring-ring">
+            {filters.map((f) => (
+              <span key={f} className="inline-flex h-8 items-center gap-1 rounded-full bg-tone-meal-soft pl-3 pr-1 text-sm font-bold text-tone-meal-ink">
+                {f}
+                <button
+                  type="button"
+                  aria-label={`Retirer le filtre ${f}`}
+                  onClick={() => removeFilter(f)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-black/10"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+            <div className="relative min-w-[7rem] flex-1">
+              <Search className={`pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground ${filters.length > 0 ? "hidden" : ""}`} />
+              <input
+                placeholder={filters.length > 0 ? "Autre ingrédient…" : "Titre ou ingrédient…"}
+                aria-label="Rechercher une recette par titre ou ingrédient"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onKeyDown={(e) => {
+                  if (e.key === "Backspace" && !searchQuery && filters.length > 0) {
+                    removeFilter(filters[filters.length - 1]);
+                  }
+                  if (e.key === "Enter" && suggestions.length > 0) {
+                    e.preventDefault();
+                    addFilter(suggestions[0]);
+                  }
+                }}
+                className={`h-10 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground ${filters.length > 0 ? "pl-1" : "pl-6"}`}
+              />
+            </div>
+            {(searchQuery || filters.length > 0) && (
+              <button
+                type="button"
+                aria-label="Effacer la recherche"
+                onClick={() => { setSearchQuery(""); setFilters([]); }}
+                className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-2xl bg-popover py-1 shadow-surface">
+              {suggestions.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => addFilter(name)}
+                  className="flex min-h-11 w-full items-center px-4 text-left text-base transition-colors hover:bg-secondary"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) { setImportUrl(""); setImportError(""); } }}>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="shrink-0 px-3 sm:px-4" aria-label="Importer une recette">
-              <Download className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Importer</span>
+        <div className="relative" ref={sortRef}>
+          <button
+            type="button"
+            onClick={() => setSortOpen(!sortOpen)}
+            aria-label="Trier"
+            aria-expanded={sortOpen}
+            title="Trier"
+            className={cn(roundBtn, sortBy !== "recent" ? "bg-ink text-ink-foreground" : "bg-card text-foreground/70 hover:text-foreground")}
+          >
+            <ArrowUpDown className="h-5 w-5" />
+          </button>
+          {sortOpen && (
+            <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-2xl bg-popover py-1 shadow-surface">
+              {SORTS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => { setSortBy(value); setSortOpen(false); }}
+                  aria-pressed={sortBy === value}
+                  className={cn(
+                    "flex min-h-11 w-full items-center px-4 text-left text-base transition-colors",
+                    sortBy === value ? "bg-tone-meal-soft font-bold text-tone-meal-ink" : "hover:bg-secondary"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setViewMode(nextView.mode)}
+          aria-label={`Affichage : ${view.label}. Passer en ${nextView.label}`}
+          title={`Affichage : ${view.label}`}
+          className={cn(roundBtn, "bg-card text-foreground/70 hover:text-foreground")}
+        >
+          <view.icon className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Filtres */}
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
+        <FilterChip on={favoritesOnly} onClick={() => setFavoritesOnly(!favoritesOnly)}>
+          <Heart className={cn("h-4 w-4", favoritesOnly && "fill-current")} />
+          Favoris
+        </FilterChip>
+        {TIME_FILTERS.map((t) => (
+          <FilterChip key={t.max} on={maxMinutes === t.max} onClick={() => setMaxMinutes(maxMinutes === t.max ? null : t.max)}>
+            <Clock className="h-4 w-4" />
+            {t.label}
+          </FilterChip>
+        ))}
+        {(Object.keys(SOURCE_LABELS) as RecipeSource[])
+          .filter((s) => sourceCounts[s])
+          .map((s) => (
+            <FilterChip key={s} on={sourceFilter === s} onClick={() => setSourceFilter(sourceFilter === s ? null : s)}>
+              {SOURCE_LABELS[s]}
+              <span className="tabular-nums opacity-60">{sourceCounts[s]}</span>
+            </FilterChip>
+          ))}
+        {anyFilter && (
+          <button
+            type="button"
+            onClick={clearAll}
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+            Tout effacer
+          </button>
+        )}
+      </div>
+      <p className="sr-only" role="status" aria-live="polite">
+        {sortedRecipes.length} recette{sortedRecipes.length > 1 ? "s" : ""}
+      </p>
+
+      {/* États vides */}
+      {loadedOnce && sortedRecipes.length === 0 && !anyFilter && activeTab === "prevues" && (
+        <EmptyState icon={CalendarCheck} tone="meal" title="Rien de prévu pour l'instant">
+          Planifie une recette depuis le catalogue avec l&apos;icône calendrier.
+        </EmptyState>
+      )}
+      {loadedOnce && sortedRecipes.length === 0 && !anyFilter && activeTab === "catalogue" && (
+        <EmptyState
+          icon={BookOpen}
+          tone="meal"
+          title="Ton catalogue est vide"
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button className="h-12 rounded-full px-5 text-base font-bold" onClick={() => setImportOpen(true)}>
+                <Download className="mr-2 h-4 w-4" />
+                Importer une recette
+              </Button>
+              <Button variant="outline" className="h-12 rounded-full px-5 text-base font-bold" onClick={() => setDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                La saisir moi-même
+              </Button>
+            </div>
+          }
+        >
+          Colle le lien d&apos;une recette Jow ou HelloFresh : ingrédients, étapes et photo arrivent tout seuls.
+        </EmptyState>
+      )}
+      {loadedOnce && sortedRecipes.length === 0 && anyFilter && (
+        <EmptyState
+          icon={onlyFavorites ? Heart : Search}
+          tone="meal"
+          title={onlyFavorites ? "Aucun favori ici" : "Aucune recette ne correspond"}
+          action={
+            <Button variant="outline" className="h-12 rounded-full px-5 text-base font-bold" onClick={clearAll}>
+              Tout effacer
             </Button>
-          </DialogTrigger>
+          }
+        >
+          {onlyFavorites ? "Touche le cœur d'une recette pour la retrouver ici." : "Essaie moins de filtres, ou un autre ingrédient."}
+        </EmptyState>
+      )}
+
+      {/* Cartes */}
+      {sortedRecipes.length > 0 && viewMode === "grid" && (
+        <ul className="grid gap-x-5 gap-y-8 pt-1 sm:grid-cols-2 lg:grid-cols-3">
+          {sortedRecipes.map((recipe, i) => (
+            <li key={recipe.id} className="min-w-0">
+              <RecipeCard recipe={recipe} h={handlers} priority={i < 2} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {sortedRecipes.length > 0 && viewMode === "list" && (
+        <ul className="space-y-2.5 pt-1">
+          {sortedRecipes.map((recipe) => (
+            <RecipeRow key={recipe.id} recipe={recipe} h={handlers} />
+          ))}
+        </ul>
+      )}
+      {sortedRecipes.length > 0 && viewMode === "compact" && (
+        <ul className="grid grid-cols-2 gap-x-3 gap-y-5 pt-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {sortedRecipes.map((recipe) => (
+            <RecipeTile key={recipe.id} recipe={recipe} h={handlers} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-5">
+      <ModuleHero
+        tone="meal"
+        title="Recettes"
+        count={loadedOnce ? catalogCount : null}
+        countLabel={catalogCount > 1 ? "recettes au catalogue" : "recette au catalogue"}
+        action={
+          <>
+            <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); if (!open) { setImportUrl(""); setImportError(""); } }}>
+              <DialogTrigger asChild>
+                <HeroIconButton aria-label="Importer une recette" title="Importer une recette">
+                  <Download className="h-5 w-5" />
+                </HeroIconButton>
+              </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Importer une recette</DialogTitle>
@@ -583,14 +855,13 @@ export default function RecipesPage() {
               </Button>
             </div>
           </DialogContent>
-        </Dialog>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="shrink-0 px-3 sm:px-4" aria-label="Nouvelle recette">
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Nouvelle recette</span>
-            </Button>
-          </DialogTrigger>
+            </Dialog>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <HeroIconButton aria-label="Nouvelle recette" title="Nouvelle recette" className="bg-on-tone text-tone-meal hover:bg-on-tone/90">
+                  <Plus className="h-6 w-6" strokeWidth={3} />
+                </HeroIconButton>
+              </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Ajouter une recette</DialogTitle>
@@ -709,399 +980,50 @@ export default function RecipesPage() {
               <Button className="w-full" onClick={addRecipe}>Enregistrer la recette</Button>
             </div>
           </DialogContent>
-        </Dialog>
-      </div>
+            </Dialog>
+          </>
+        }
+      >
+        {favoriteCount > 0 && (
+          <HeroChip>
+            <Heart className="h-3.5 w-3.5 fill-current" />
+            {favoriteCount} favori{favoriteCount > 1 ? "s" : ""}
+          </HeroChip>
+        )}
+        {plannedCount > 0 && showPlanned && (
+          <HeroChip>
+            <CalendarCheck className="h-3.5 w-3.5" />
+            {plannedCount} prévue{plannedCount > 1 ? "s" : ""}
+          </HeroChip>
+        )}
+      </ModuleHero>
 
-      {/* Tabs */}
       {(showPlanned || showWeek) && (
-      <div className="flex items-center gap-1 p-1 bg-secondary rounded-xl w-fit">
-        {showPlanned && (
-        <button
-          onClick={() => setActiveTab("prevues")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === "prevues"
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <CalendarCheck className="h-3.5 w-3.5" />
-          Prévues
-          {plannedCount > 0 && (
-            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-              activeTab === "prevues" ? "bg-primary/10 text-primary" : "bg-primary/10 text-primary"
-            }`}>
-              {plannedCount}
-            </span>
-          )}
-        </button>
-        )}
-        <button
-          onClick={() => setActiveTab("catalogue")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === "catalogue"
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <BookOpen className="h-3.5 w-3.5" />
-          Catalogue
-          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-            activeTab === "catalogue" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-          }`}>
-            {catalogCount}
-          </span>
-        </button>
-        {showWeek && (
-        <button
-          onClick={() => setActiveTab("semaine")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === "semaine"
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <CalendarDays className="h-3.5 w-3.5" />
-          Semaine
-        </button>
-        )}
-      </div>
-      )}
-
-      {activeTab === "semaine" ? (
-        <MealPlanner
-          recipes={recipes}
-          groupId={currentGroupId}
-          onOpenRecipe={(id) => router.push(`/recipes/${id}`)}
-          onPlannedChange={fetchRecipes}
+        <SegmentedNav
+          label="Vues des recettes"
+          idPrefix="recipes-tab"
+          tone="meal"
+          value={activeTab}
+          onChange={setActiveTab}
+          items={[
+            ...(showPlanned ? [{ value: "prevues" as Tab, label: "Prévues", icon: <CalendarCheck className="h-4 w-4" />, count: plannedCount }] : []),
+            { value: "catalogue" as Tab, label: "Catalogue", icon: <BookOpen className="h-4 w-4" />, count: catalogCount },
+            ...(showWeek ? [{ value: "semaine" as Tab, label: "Semaine", icon: <CalendarDays className="h-4 w-4" /> }] : []),
+          ]}
         />
-      ) : (
-      <>
-      {/* Search + View toggle */}
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-md flex-1" ref={searchRef}>
-          <div className="flex items-center gap-1.5 flex-wrap bg-card border border-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
-            {filters.map((f) => (
-              <span
-                key={f}
-                className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium pl-2.5 pr-1.5 py-1 rounded-full"
-              >
-                {f}
-                <button aria-label={`Retirer le filtre ${f}`}
-                  onClick={() => removeFilter(f)}
-                  className="p-0.5 touch:p-1 rounded-full hover:bg-primary/20"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            <div className="relative flex-1 min-w-[120px]">
-              <Search className={`absolute left-0 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none ${filters.length > 0 ? "hidden" : ""}`} />
-              <input
-                placeholder={filters.length > 0 ? "Autre filtre…" : "Rechercher…"}
-                aria-label="Rechercher une recette par titre ou ingrédient"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                onKeyDown={(e) => {
-                  if (e.key === "Backspace" && !searchQuery && filters.length > 0) {
-                    removeFilter(filters[filters.length - 1]);
-                  }
-                  if (e.key === "Enter" && suggestions.length > 0) {
-                    e.preventDefault();
-                    addFilter(suggestions[0]);
-                  }
-                }}
-                className={`w-full bg-transparent text-sm outline-none py-1 placeholder:text-muted-foreground ${filters.length > 0 ? "pl-1" : "pl-5"}`}
-              />
-            </div>
-            {(searchQuery || filters.length > 0) && (
-              <button aria-label="Effacer la recherche"
-                onClick={() => { setSearchQuery(""); setFilters([]); }}
-                className="p-1.5 -m-1 rounded-md text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-xl shadow-lg z-20 py-1 overflow-hidden">
-              {suggestions.map((name) => (
-                <button
-                  key={name}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => addFilter(name)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors"
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <button
-          onClick={() => setFavoritesOnly(!favoritesOnly)}
-          title={favoritesOnly ? "Afficher toutes les recettes" : "Afficher les favoris"}
-          className={`p-1.5 rounded-lg transition-all ${
-            favoritesOnly
-              ? "bg-rose-500/10 text-rose-500"
-              : "bg-secondary text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Heart className={`h-4 w-4 ${favoritesOnly ? "fill-current" : ""}`} />
-        </button>
-        <div className="relative" ref={sortRef}>
-          <button
-            onClick={() => setSortOpen(!sortOpen)}
-            title="Trier"
-            className={`p-1.5 rounded-lg transition-all ${
-              sortBy !== "recent"
-                ? "bg-primary/10 text-primary"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
-          {sortOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-xl shadow-lg z-20 py-1 w-44 overflow-hidden">
-              {([
-                { value: "recent" as SortOption, label: "Plus récent" },
-                { value: "oldest" as SortOption, label: "Plus ancien" },
-                { value: "alpha-asc" as SortOption, label: "A → Z" },
-                { value: "alpha-desc" as SortOption, label: "Z → A" },
-                { value: "fastest" as SortOption, label: "Plus rapide" },
-                { value: "slowest" as SortOption, label: "Plus long" },
-              ]).map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => { setSortBy(value); setSortOpen(false); }}
-                  className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                    sortBy === value
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "hover:bg-secondary"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-0.5 p-1 bg-secondary rounded-lg">
-          {([
-            { mode: "grid" as ViewMode, icon: LayoutGrid, title: "Grille" },
-            { mode: "list" as ViewMode, icon: List, title: "Liste" },
-            { mode: "compact" as ViewMode, icon: Grid3X3, title: "Grille réduite" },
-          ]).map(({ mode, icon: Icon, title }) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              title={title}
-              className={`p-1.5 rounded-md transition-all ${
-                viewMode === mode
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-            </button>
-          ))}
-        </div>
+      )}
+      <div id="recipes-tab-panel" role={showPlanned || showWeek ? "tabpanel" : undefined} aria-labelledby={`recipes-tab-${activeTab}`}>
+        {activeTab === "semaine" ? (
+          <MealPlanner
+            recipes={recipes}
+            groupId={currentGroupId}
+            onOpenRecipe={(id) => router.push(`/recipes/${id}`)}
+            onPlannedChange={fetchRecipes}
+          />
+        ) : (
+          browse
+        )}
       </div>
-
-      {/* Empty states */}
-      {activeTab === "prevues" && sortedRecipes.length === 0 && !searchQuery && !favoritesOnly && (
-        <div className="text-center py-16 space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
-            <CalendarCheck className="h-7 w-7 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Aucune recette prévue</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Planifie une recette depuis le catalogue en cliquant sur &quot;Planifier&quot;
-            </p>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "catalogue" && sortedRecipes.length === 0 && !searchQuery && !favoritesOnly && (
-        <div className="text-center py-16 space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
-            <BookOpen className="h-7 w-7 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Catalogue vide</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Colle le lien d&apos;une recette Jow ou HelloFresh : ingrédients, étapes et photo arrivent tout seuls.
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2 pt-1">
-            <Button size="sm" onClick={() => setImportOpen(true)}>
-              <Download className="h-4 w-4 mr-1.5" />
-              Importer une recette
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              La saisir moi-même
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {favoritesOnly && sortedRecipes.length === 0 && !searchQuery && (
-        <div className="text-center py-16 space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto">
-            <Heart className="h-7 w-7 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="font-medium text-foreground">Aucune recette favorite</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Touche le cœur d&apos;une recette pour la retrouver ici
-            </p>
-          </div>
-        </div>
-      )}
-
-      {searchQuery && sortedRecipes.length === 0 && (
-        <p className="text-sm text-muted-foreground py-4">
-          Aucun résultat pour &quot;{searchQuery}&quot;
-        </p>
-      )}
-
-      {/* Recipe grid */}
-      {sortedRecipes.length > 0 && viewMode === "grid" && (
-        <div className="masonry-grid">
-          {sortedRecipes.map((recipe) => (
-            <RecipeCard
-              key={recipe.id}
-              recipe={recipe}
-              lists={lists}
-              activeTab={activeTab}
-              isExpanded={false}
-              onToggleExpand={() => {}}
-              onUpdate={updateRecipe}
-              onDelete={deleteRecipe}
-              onAddToList={addToShoppingList}
-              onUploadImage={uploadImage}
-              onRemoveImage={removeImage}
-              onOpenDetail={() => router.push(`/recipes/${recipe.id}`)}
-              onEnriched={fetchRecipes}
-              onToggleFavorite={(e) => toggleFavorite(e, recipe.id, !recipe.favorite)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* List view */}
-      {sortedRecipes.length > 0 && viewMode === "list" && (
-        <div className="space-y-2">
-          {sortedRecipes.map((recipe) => (
-            <div
-              key={recipe.id}
-              onClick={() => router.push(`/recipes/${recipe.id}`)}
-              className="recipe-card group/list flex items-center gap-4 p-0 cursor-pointer"
-            >
-              <div className="relative shrink-0">
-                {recipe.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={thumbnailUrl(recipe.image, 240)}
-                    loading="lazy"
-                    decoding="async"
-                    alt={recipe.title}
-                    className="w-20 h-20 object-cover rounded-l-2xl"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-l-2xl bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/40 dark:to-orange-900/30 flex items-center justify-center">
-                    <UtensilsCrossed className="h-6 w-6 text-orange-300 dark:text-orange-400/60" />
-                  </div>
-                )}
-                <button
-                  onClick={(e) => pickTileImage(e, recipe.id)}
-                  className="absolute bottom-1 right-1 p-1 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/list:opacity-100 touch:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/50"
-                  title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
-                >
-                  <Camera className="h-3 w-3" />
-                </button>
-              </div>
-              <div className="flex-1 min-w-0 py-3 pr-4">
-                <h3 className="handwritten text-xl font-semibold truncate">{recipe.title}</h3>
-                {(recipe.prepTime || recipe.cookTime) && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <Clock className="h-3 w-3" />
-                    {[recipe.prepTime && `${recipe.prepTime} min prep`, recipe.cookTime && `${recipe.cookTime} min cuisson`].filter(Boolean).join(" · ")}
-                  </span>
-                )}
-              </div>
-              <FavoriteButton
-                favorite={recipe.favorite}
-                onClick={(e) => toggleFavorite(e, recipe.id, !recipe.favorite)}
-                className={`shrink-0 p-1.5 rounded-lg hover:bg-secondary ${
-                  (activeTab === "catalogue" ? recipe.planned : recipe.inCatalog) ? "" : "mr-3"
-                } ${recipe.favorite ? "" : "opacity-0 group-hover/list:opacity-100 touch:opacity-100"}`}
-                iconClassName="h-4 w-4"
-                idleIconClassName="text-muted-foreground"
-              />
-              {activeTab === "catalogue" && recipe.planned && (
-                <CalendarCheck className="h-4 w-4 text-primary shrink-0 mr-4" />
-              )}
-              {activeTab === "prevues" && recipe.inCatalog && (
-                <BookMarked className="h-4 w-4 text-emerald-500 shrink-0 mr-4" />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Compact grid view */}
-      {sortedRecipes.length > 0 && viewMode === "compact" && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {sortedRecipes.map((recipe) => (
-            <div
-              key={recipe.id}
-              onClick={() => router.push(`/recipes/${recipe.id}`)}
-              className="recipe-card cursor-pointer group/compact"
-            >
-              <div className="relative">
-                {recipe.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={thumbnailUrl(recipe.image, 480)}
-                    loading="lazy"
-                    decoding="async"
-                    alt={recipe.title}
-                    className="w-full aspect-square object-cover"
-                  />
-                ) : (
-                  <div className="w-full aspect-square bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/40 dark:to-orange-900/30 flex items-center justify-center">
-                    <UtensilsCrossed className="h-8 w-8 text-orange-300 dark:text-orange-400/60" />
-                  </div>
-                )}
-                <button
-                  onClick={(e) => pickTileImage(e, recipe.id)}
-                  className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/compact:opacity-100 touch:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/50"
-                  title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                </button>
-                <FavoriteButton
-                  favorite={recipe.favorite}
-                  onClick={(e) => toggleFavorite(e, recipe.id, !recipe.favorite)}
-                  className={`absolute top-1.5 right-1.5 p-1.5 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-opacity ${
-                    recipe.favorite ? "" : "opacity-0 group-hover/compact:opacity-100 touch:opacity-100"
-                  }`}
-                  iconClassName="h-3.5 w-3.5"
-                />
-              </div>
-              <div className="p-2.5">
-                <h3 className="handwritten text-base font-semibold leading-tight line-clamp-2">{recipe.title}</h3>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      </>
-      )}
 
       <input
         ref={tileImageInputRef}
@@ -1114,665 +1036,6 @@ export default function RecipesPage() {
           e.target.value = "";
         }}
       />
-    </div>
-  );
-}
-
-/* ── Favorite Button ─────────────────────────────────────── */
-
-function FavoriteButton({
-  favorite,
-  onClick,
-  className,
-  iconClassName,
-  idleIconClassName = "text-white",
-}: {
-  favorite: boolean;
-  onClick: (e: React.MouseEvent) => void;
-  className: string;
-  iconClassName: string;
-  idleIconClassName?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={className}
-      title={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-      aria-pressed={favorite}
-    >
-      <Heart
-        className={`${iconClassName} ${
-          favorite ? "fill-rose-500 text-rose-500" : idleIconClassName
-        }`}
-      />
-    </button>
-  );
-}
-
-/* ── Recipe Card ─────────────────────────────────────────── */
-
-function RecipeCard({
-  recipe,
-  lists,
-  activeTab,
-  isExpanded,
-  onToggleExpand,
-  onUpdate,
-  onDelete,
-  onAddToList,
-  onUploadImage,
-  onRemoveImage,
-  onOpenDetail,
-  onEnriched,
-  onToggleFavorite,
-}: {
-  recipe: Recipe;
-  lists: ShoppingList[];
-  activeTab: Tab;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onUpdate: (id: string, data: Record<string, unknown>) => void;
-  onDelete: (id: string) => void;
-  onAddToList: (recipeId: string, listId?: string) => void;
-  onUploadImage: (recipeId: string, file: File) => void;
-  onRemoveImage: (recipeId: string) => void;
-  onOpenDetail: () => void;
-  onEnriched: () => void;
-  onToggleFavorite: (e: React.MouseEvent) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(recipe.title);
-  const [editServings, setEditServings] = useState(String(recipe.servings));
-  const [editPrepTime, setEditPrepTime] = useState(String(recipe.prepTime || ""));
-  const [editCookTime, setEditCookTime] = useState(String(recipe.cookTime || ""));
-  const [editDescription, setEditDescription] = useState(recipe.description || "");
-  const [editIngredients, setEditIngredients] = useState<Ingredient[]>(
-    recipe.ingredients.map((i) => ({ ...i }))
-  );
-  const [editSteps, setEditSteps] = useState<string[]>(() => {
-    try {
-      const parsed = JSON.parse(recipe.steps);
-      return parsed.map((s: string | { text: string }) => typeof s === "string" ? s : s.text);
-    } catch { return []; }
-  });
-  const [addingIngredient, setAddingIngredient] = useState(false);
-  const [newIng, setNewIng] = useState({ name: "", quantity: "", unit: "" });
-  const [pendingEditImage, setPendingEditImage] = useState<File | null>(null);
-  const editImageRef = useRef<HTMLInputElement>(null);
-  const cardImageRef = useRef<HTMLInputElement>(null);
-  const [enrichOpen, setEnrichOpen] = useState(false);
-  const [enrichUrl, setEnrichUrl] = useState("");
-  const [enriching, setEnriching] = useState(false);
-  const [enrichError, setEnrichError] = useState("");
-  const [enrichResult, setEnrichResult] = useState<{
-    image?: boolean;
-    description?: boolean;
-    steps?: boolean;
-    stepsCount?: number;
-    stepImages?: number;
-    ingredients?: number;
-    prepTime?: boolean;
-    cookTime?: boolean;
-  } | null>(null);
-
-  const steps: string[] = (() => {
-    try {
-      const parsed = JSON.parse(recipe.steps);
-      return parsed.map((s: string | { text: string }) => typeof s === "string" ? s : s.text);
-    } catch { return []; }
-  })();
-
-  const startEditing = () => {
-    setEditTitle(recipe.title);
-    setEditServings(String(recipe.servings));
-    setEditPrepTime(String(recipe.prepTime || ""));
-    setEditCookTime(String(recipe.cookTime || ""));
-    setEditDescription(recipe.description || "");
-    setEditIngredients(recipe.ingredients.map((i) => ({ ...i })));
-    try {
-      const parsed = JSON.parse(recipe.steps);
-      setEditSteps(parsed.map((s: string | { text: string }) => typeof s === "string" ? s : s.text));
-    } catch { setEditSteps([]); }
-    setPendingEditImage(null);
-    setEditing(true);
-  };
-
-  const saveEdits = () => {
-    onUpdate(recipe.id, {
-      title: editTitle,
-      servings: Number(editServings) || 4,
-      prepTime: editPrepTime ? Number(editPrepTime) : null,
-      cookTime: editCookTime ? Number(editCookTime) : null,
-      description: editDescription || null,
-      ingredients: editIngredients.filter((i) => i.name.trim()).map((i) => ({
-        name: i.name,
-        quantity: i.quantity || "1",
-        unit: i.unit || null,
-      })),
-      steps: editSteps.filter((s) => s.trim()),
-    });
-    if (pendingEditImage) {
-      onUploadImage(recipe.id, pendingEditImage);
-    }
-    setEditing(false);
-  };
-
-  const cancelEdits = () => {
-    setEditing(false);
-    setAddingIngredient(false);
-    setPendingEditImage(null);
-  };
-
-  const quickAddIngredient = () => {
-    if (!newIng.name.trim()) return;
-    onUpdate(recipe.id, {
-      addIngredients: [{ name: newIng.name, quantity: newIng.quantity || "1", unit: newIng.unit || null }],
-    });
-    setNewIng({ name: "", quantity: "", unit: "" });
-    setAddingIngredient(false);
-  };
-
-  const togglePlanned = () => {
-    onUpdate(recipe.id, { planned: !recipe.planned });
-  };
-
-  const enrichFromHelloFresh = async () => {
-    if (!enrichUrl.trim()) return;
-    setEnriching(true);
-    setEnrichError("");
-    setEnrichResult(null);
-    try {
-      const targetUrl = enrichUrl.trim().split("?")[0];
-      const idMatch = targetUrl.match(/([0-9a-f]{20,})(?:\?|$)/);
-      if (!idMatch) throw new Error("URL HelloFresh invalide");
-      const recipeHFId = idMatch[1];
-
-      const tokenRes = await fetch("/api/hellofresh-token");
-      const tokenData = await tokenRes.json();
-      if (!tokenData.token) throw new Error("Token HelloFresh non configure");
-
-      const apiRes = await fetch(
-        `https://gw.hellofresh.com/api/recipes/${recipeHFId}?country=FR&locale=fr-FR`,
-        { headers: { Authorization: `Bearer ${tokenData.token}`, Accept: "application/json" } }
-      );
-      if (!apiRes.ok) throw new Error(`HelloFresh API: ${apiRes.status}`);
-      const hfData = await apiRes.json();
-
-      const stripHtml = (t: string) => t.replace(/<[^>]*>/g, "").replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
-      const heroImage = hfData.imagePath
-        ? `https://img.hellofresh.com/q_auto,f_auto,w_1200/hellofresh_s3${hfData.imagePath}`
-        : hfData.imageLink || null;
-      const steps = (hfData.steps || [])
-        .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
-        .map((s: { instructionsMarkdown?: string; instructions?: string; images?: { path?: string; link?: string }[] }) => ({
-          text: stripHtml(s.instructionsMarkdown || s.instructions || ""),
-          image: s.images?.[0]?.path
-            ? `https://img.hellofresh.com/q_auto,f_auto,w_750/hellofresh_s3${s.images[0].path}`
-            : s.images?.[0]?.link || null,
-        }))
-        .filter((s: { text: string; image: string | null }) => s.text || s.image);
-
-      const yieldForServings = hfData.yields?.find((y: { yields: number }) => y.yields === recipe.servings) || hfData.yields?.[0];
-      const ingredients = (hfData.ingredients || []).map((ing: { id?: string; name?: string }) => {
-        const yieldIng = yieldForServings?.ingredients?.find((yi: { id?: string }) => yi.id === ing.id);
-        return { name: ing.name || "", quantity: yieldIng?.amount != null ? String(yieldIng.amount) : "", unit: yieldIng?.unit || "" };
-      }).filter((i: { name: string }) => i.name);
-
-      let totalTime: number | null = null;
-      const timeStr = hfData.prepTime || hfData.totalTime;
-      if (timeStr) { const tm = timeStr.match(/PT(\d+)M/); if (tm) totalTime = parseInt(tm[1]); }
-
-      // Build update payload — only fill missing fields
-      const updates: Record<string, unknown> = {};
-      if ((!recipe.image) && heroImage) updates.image = heroImage;
-      if (!recipe.description && (hfData.headline || hfData.description))
-        updates.description = stripHtml(hfData.headline || hfData.description || "");
-      if (!recipe.prepTime && totalTime) updates.prepTime = Math.round(totalTime * 0.4);
-      if (!recipe.cookTime && totalTime) updates.cookTime = Math.round(totalTime * 0.6);
-
-      let currentSteps: { text: string; image?: string | null }[] = [];
-      try { currentSteps = JSON.parse(recipe.steps); } catch { currentSteps = []; }
-      const hasStepImages = currentSteps.some((s) => typeof s === "object" && s.image);
-      if (steps.length > 0 && (currentSteps.length === 0 || !hasStepImages)) {
-        updates.steps = steps;
-      }
-      if (recipe.ingredients.length === 0 && ingredients.length > 0) {
-        updates.ingredients = ingredients;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        const patchRes = await fetch(`/api/recipes/${recipe.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updates),
-        });
-        if (!patchRes.ok) throw new Error("Erreur lors de la mise a jour");
-      }
-
-      setEnrichResult({
-        image: !!updates.image,
-        description: !!updates.description,
-        steps: !!updates.steps,
-        stepsCount: steps.length,
-        stepImages: steps.filter((s: { image: string | null }) => s.image).length,
-        ingredients: updates.ingredients ? ingredients.length : 0,
-        prepTime: !!updates.prepTime,
-        cookTime: !!updates.cookTime,
-      });
-      onEnriched();
-    } catch (e) {
-      setEnrichError(e instanceof Error ? e.message : "Erreur inconnue");
-    } finally {
-      setEnriching(false);
-    }
-  };
-
-  if (editing) {
-    return (
-      <div className="recipe-card">
-        {/* Edit image */}
-        <div>
-          {pendingEditImage ? (
-            <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={URL.createObjectURL(pendingEditImage)} alt="Aperçu" className="w-full h-44 object-cover" />
-              <button aria-label="Retirer la photo"
-                onClick={() => { setPendingEditImage(null); if (editImageRef.current) editImageRef.current.value = ""; }}
-                className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white hover:bg-black/70"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : recipe.image ? (
-            <div className="relative group/img">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={recipe.image} alt={recipe.title} className="w-full h-44 object-cover" />
-              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover/img:opacity-100 touch:opacity-100 touch:items-end touch:justify-end touch:p-2">
-                <button aria-label="Changer la photo"
-                  onClick={() => editImageRef.current?.click()}
-                  className="p-2 bg-card/90 rounded-full text-foreground hover:bg-card"
-                >
-                  <Camera className="h-4 w-4" />
-                </button>
-                <button aria-label="Supprimer la photo"
-                  onClick={() => onRemoveImage(recipe.id)}
-                  className="p-2 bg-card/90 rounded-full text-destructive hover:bg-card"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => editImageRef.current?.click()}
-              className="w-full h-16 flex items-center justify-center gap-2 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors border-b border-border"
-            >
-              <Camera className="h-4 w-4" />
-              <span className="text-xs font-medium">Ajouter une photo</span>
-            </button>
-          )}
-          <input ref={editImageRef} type="file" accept="image/*" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) setPendingEditImage(f); }}
-          />
-        </div>
-
-        <div className="p-5 space-y-4">
-          <div className="flex gap-3 items-end">
-            <div className="flex-1">
-              <Label className="text-xs text-muted-foreground">Titre</Label>
-              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="handwritten text-xl h-10 mt-1" />
-            </div>
-            <div className="w-20">
-              <Label className="text-xs text-muted-foreground">Pers.</Label>
-              <Input type="number" value={editServings} onChange={(e) => setEditServings(e.target.value)} className="h-10 mt-1" />
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <Label className="text-xs text-muted-foreground">Prep (min)</Label>
-              <Input type="number" value={editPrepTime} onChange={(e) => setEditPrepTime(e.target.value)} className="mt-1" />
-            </div>
-            <div className="flex-1">
-              <Label className="text-xs text-muted-foreground">Cuisson (min)</Label>
-              <Input type="number" value={editCookTime} onChange={(e) => setEditCookTime(e.target.value)} className="mt-1" />
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-xs text-muted-foreground">Description</Label>
-            <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={2} className="mt-1" />
-          </div>
-
-          <div>
-            <Label className="text-xs text-muted-foreground">Ingrédients</Label>
-            <div className="space-y-1.5 mt-2">
-              {editIngredients.map((ing, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <Input value={ing.name} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], name: e.target.value }; setEditIngredients(u); }} placeholder="Nom" className="flex-1 h-8 text-sm" />
-                  <Input value={ing.quantity} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], quantity: e.target.value }; setEditIngredients(u); }} placeholder="Qté" className="w-16 h-8 text-sm" />
-                  <Input value={ing.unit} onChange={(e) => { const u = [...editIngredients]; u[i] = { ...u[i], unit: e.target.value }; setEditIngredients(u); }} placeholder="Unité" className="w-16 h-8 text-sm" />
-                  <button aria-label="Retirer l'ingrédient" onClick={() => setEditIngredients(editIngredients.filter((_, j) => j !== i))} className="p-1.5 rounded-md hover:bg-destructive/10">
-                    <X className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                </div>
-              ))}
-              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditIngredients([...editIngredients, { name: "", quantity: "", unit: "" }])}>
-                <Plus className="h-3 w-3 mr-1" />Ingrédient
-              </Button>
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-xs text-muted-foreground">Étapes</Label>
-            <div className="space-y-1.5 mt-2">
-              {editSteps.map((step, i) => (
-                <div key={i} className="flex gap-2 items-start">
-                  <span className="text-xs text-muted-foreground mt-2 w-5 shrink-0">{i + 1}.</span>
-                  <Textarea value={step} onChange={(e) => { const u = [...editSteps]; u[i] = e.target.value; setEditSteps(u); }} rows={2} className="flex-1 text-sm" />
-                  <button aria-label="Retirer l'étape" onClick={() => setEditSteps(editSteps.filter((_, j) => j !== i))} className="p-1.5 rounded-md hover:bg-destructive/10 mt-1">
-                    <X className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                </div>
-              ))}
-              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditSteps([...editSteps, ""])}>
-                <Plus className="h-3 w-3 mr-1" />Étape
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex gap-2 pt-1">
-            <Button size="sm" className="flex-1" onClick={saveEdits}>
-              <Check className="h-4 w-4 mr-1.5" />Enregistrer
-            </Button>
-            <Button size="sm" variant="outline" onClick={cancelEdits}>Annuler</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── View mode ──
-  return (
-    <div className="recipe-card group/card">
-      {/* Recipe image or placeholder */}
-      <div className="relative group/img cursor-pointer" onClick={onOpenDetail}>
-        {recipe.image ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={thumbnailUrl(recipe.image, 800)}
-              loading="lazy"
-              decoding="async"
-              alt={recipe.title}
-              className="w-full h-44 object-cover"
-            />
-          </>
-        ) : (
-          <div className="recipe-thumbnail-placeholder">
-            <UtensilsCrossed className="h-10 w-10 text-orange-300 dark:text-orange-400/60 relative z-10" />
-          </div>
-        )}
-        {activeTab === "prevues" && recipe.inCatalog && (
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-card/90 backdrop-blur-sm text-foreground text-xs font-medium px-2.5 py-1 rounded-full z-10">
-            <BookMarked className="h-3 w-3" />
-            Catalogue
-          </div>
-        )}
-        <button
-          onClick={(e) => { e.stopPropagation(); cardImageRef.current?.click(); }}
-          className="absolute bottom-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full text-white opacity-0 group-hover/card:opacity-100 touch:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/50 z-10"
-          title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
-        >
-          <Camera className="h-3.5 w-3.5" />
-        </button>
-        <FavoriteButton
-          favorite={recipe.favorite}
-          onClick={onToggleFavorite}
-          className={`absolute top-2 right-2 p-1.5 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-opacity z-10 ${
-            recipe.favorite ? "" : "opacity-0 group-hover/card:opacity-100 touch:opacity-100"
-          }`}
-          iconClassName="h-3.5 w-3.5"
-        />
-      </div>
-      {/* Hors de la zone cliquable : le clic programmatique sur l'input remonterait
-          jusqu'à onOpenDetail et quitterait la page avant la sélection du fichier. */}
-      <input ref={cardImageRef} type="file" accept="image/*" className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onUploadImage(recipe.id, f); e.target.value = ""; }}
-      />
-
-      {/* Header */}
-      <div className="p-5 pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 cursor-pointer min-w-0" onClick={onOpenDetail}>
-            <h2 className="handwritten text-2xl font-semibold leading-tight">
-              {recipe.title}
-            </h2>
-            {(recipe.prepTime || recipe.cookTime) && (
-              <div className="flex gap-3 mt-1.5">
-                {recipe.prepTime && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />{recipe.prepTime} min prep
-                  </span>
-                )}
-                {recipe.cookTime && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />{recipe.cookTime} min cuisson
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Users className="h-3 w-3" />{recipe.servings}
-            </span>
-            <Dialog open={enrichOpen} onOpenChange={(open) => { setEnrichOpen(open); if (!open) { setEnrichUrl(""); setEnrichError(""); setEnrichResult(null); } }}>
-              <DialogTrigger asChild>
-                <button
-                  className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 touch:opacity-100 transition-opacity"
-                  title="Enrichir depuis HelloFresh"
-                >
-                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Enrichir depuis HelloFresh</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Importe les donnees manquantes (image, etapes, ingredients) depuis une recette HelloFresh.
-                  </p>
-                  <a
-                    href={`https://www.hellofresh.fr/search?q=${encodeURIComponent(recipe.title)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-primary hover:underline"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Chercher &quot;{recipe.title}&quot; sur HelloFresh
-                  </a>
-                  <Input
-                    placeholder="https://www.hellofresh.fr/recipes/..."
-                    value={enrichUrl}
-                    onChange={(e) => setEnrichUrl(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !enriching) enrichFromHelloFresh(); }}
-                    disabled={enriching}
-                  />
-                  {enrichError && (
-                    <p className="text-sm text-destructive">{enrichError}</p>
-                  )}
-                  {enrichResult && (
-                    <div className="text-sm text-green-600 dark:text-green-400 space-y-1">
-                      <p className="font-medium">Recette enrichie !</p>
-                      <ul className="text-xs space-y-0.5 text-muted-foreground">
-                        {enrichResult.image && <li>Image ajoutée</li>}
-                        {enrichResult.steps && <li>{enrichResult.stepsCount} etapes importees ({enrichResult.stepImages} avec photo)</li>}
-                        {enrichResult.ingredients && enrichResult.ingredients > 0 && <li>{enrichResult.ingredients} ingredients ajoutes</li>}
-                        {enrichResult.description && <li>Description ajoutée</li>}
-                        {enrichResult.prepTime && <li>Temps de préparation ajouté</li>}
-                        {enrichResult.cookTime && <li>Temps de cuisson ajouté</li>}
-                      </ul>
-                    </div>
-                  )}
-                  <Button className="w-full" onClick={enrichFromHelloFresh} disabled={enriching || !enrichUrl.trim()}>
-                    {enriching ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Enrichissement en cours...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-2" />
-                        Enrichir la recette
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-            <button aria-label="Modifier la recette"
-              onClick={startEditing}
-              className="p-1.5 rounded-lg hover:bg-secondary opacity-0 group-hover/card:opacity-100 touch:opacity-100 transition-opacity"
-            >
-              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-            <button aria-label="Supprimer la recette"
-              onClick={() => onDelete(recipe.id)}
-              className="p-1.5 rounded-lg hover:bg-destructive/10 opacity-0 group-hover/card:opacity-100 touch:opacity-100 transition-opacity"
-            >
-              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Ingredients */}
-      <div className="px-5 pb-3">
-        <div className="space-y-0.5">
-          {recipe.ingredients.map((ing, i) => (
-            <div key={i} className="flex items-baseline justify-between py-0.5">
-              <span className="handwritten text-lg">{ing.name}</span>
-              <span className="handwritten text-base text-muted-foreground ml-4 shrink-0 tabular-nums">
-                {ing.quantity}{ing.unit ? ` ${ing.unit}` : ""}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Quick add ingredient */}
-        {addingIngredient ? (
-          <div className="flex gap-2 items-center mt-2">
-            <Input placeholder="Nom" value={newIng.name} onChange={(e) => setNewIng({ ...newIng, name: e.target.value })}
-              onKeyDown={(e) => { if (e.key === "Enter") quickAddIngredient(); }}
-              className="flex-1 h-8 text-sm" autoFocus
-            />
-            <Input placeholder="Qté" value={newIng.quantity} onChange={(e) => setNewIng({ ...newIng, quantity: e.target.value })} className="w-16 h-8 text-sm" />
-            <Input placeholder="Unité" value={newIng.unit} onChange={(e) => setNewIng({ ...newIng, unit: e.target.value })} className="w-16 h-8 text-sm" />
-            <button aria-label="Ajouter l'ingrédient" onClick={quickAddIngredient} className="p-1.5 rounded-md hover:bg-secondary">
-              <Check className="h-4 w-4 text-primary" />
-            </button>
-            <button aria-label="Annuler" onClick={() => { setAddingIngredient(false); setNewIng({ name: "", quantity: "", unit: "" }); }} className="p-1.5 rounded-md hover:bg-secondary">
-              <X className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setAddingIngredient(true)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2 opacity-0 group-hover/card:opacity-100 touch:opacity-100"
-          >
-            <Plus className="h-3 w-3" />Ajouter un ingrédient
-          </button>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div className="mx-5 border-t border-border" />
-
-      {/* Actions bar */}
-      <div className="px-5 py-3 flex items-center gap-2">
-        {activeTab === "prevues" ? (
-          <>
-            <button
-              onClick={() => onDelete(recipe.id)}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-            >
-              <CalendarX2 className="h-3.5 w-3.5" />
-              Retirer
-            </button>
-            {!recipe.inCatalog && (
-              <button
-                onClick={() => onUpdate(recipe.id, { inCatalog: true })}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <BookMarked className="h-3.5 w-3.5" />
-                Garder au catalogue
-              </button>
-            )}
-          </>
-        ) : (
-          <button
-            onClick={togglePlanned}
-            className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-              recipe.planned
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <CalendarCheck className="h-3.5 w-3.5" />
-            {recipe.planned ? "Prévue" : "Planifier"}
-          </button>
-        )}
-
-        <Dialog>
-          <DialogTrigger asChild>
-            <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors">
-              <ShoppingCart className="h-3.5 w-3.5" />
-              Courses
-            </button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Ajouter les ingrédients aux courses</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <DialogClose asChild>
-                <Button className="w-full" onClick={() => onAddToList(recipe.id)}>
-                  <Plus className="h-4 w-4 mr-2" />Créer une nouvelle liste
-                </Button>
-              </DialogClose>
-              {lists.filter((l) => l.type === "GROCERY").map((list) => (
-                <DialogClose key={list.id} asChild>
-                  <Button variant="outline" className="w-full" onClick={() => onAddToList(recipe.id, list.id)}>
-                    Ajouter à &quot;{list.name}&quot;
-                  </Button>
-                </DialogClose>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <div className="flex-1" />
-
-        {steps.length > 0 && (
-          <button
-            onClick={onOpenDetail}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-          >
-            <UtensilsCrossed className="h-3.5 w-3.5" />
-            Cuisiner
-          </button>
-        )}
-      </div>
-
-      {/* Description */}
-      {recipe.description && (
-        <div className="px-5 pb-4 border-t border-border pt-3">
-          <p className="text-sm text-muted-foreground italic leading-relaxed">{recipe.description}</p>
-        </div>
-      )}
     </div>
   );
 }
