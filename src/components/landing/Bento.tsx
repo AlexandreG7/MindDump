@@ -69,7 +69,7 @@ export function Bento() {
             <Card>
               <span className="lp2-ico"><Bell className="h-5 w-5" aria-hidden="true" /></span>
               <h3>Des rappels pour tout le monde</h3>
-              <p>Par e-mail, et en notification sur Android ou sur iPhone une fois l&rsquo;app installée sur l&rsquo;écran d&rsquo;accueil : le rappel part à chaque membre du foyer.</p>
+              <p>Par e-mail, et en notification sur iPhone et Android : le rappel part à chaque membre du foyer.</p>
             </Card>
           </div>
 

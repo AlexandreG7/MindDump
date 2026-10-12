@@ -68,7 +68,7 @@ const SCENES: Scene[] = [
     points: [
       "Écran mural pour tablette, avec veille de nuit",
       "Mode enfant : semainier humeur, sieste, activités",
-      "Rappels sur Android, et sur iPhone une fois installée sur l'écran d'accueil",
+      "Rappels sur iPhone et Android",
       "Installable sur l'écran d'accueil",
     ],
     tint: "var(--sky)",

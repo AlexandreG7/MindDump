@@ -30,7 +30,7 @@ export function Header() {
   return (
     <header className="lp2-header" data-scrolled="false" data-lp-header>
       <div className="lp2-shell flex h-16 items-center justify-between gap-2 sm:gap-4 md:gap-3 lg:gap-4 !px-4 sm:!px-5 md:!px-6 lg:!px-10">
-        <Link href="/" data-menu-inert className="flex items-center gap-2 font-extrabold text-[1.05rem] sm:text-[1.15rem] tracking-tight" aria-label="MindDump, accueil">
+        <Link href="/" data-menu-inert data-lp-top className="flex items-center gap-2 font-extrabold text-[1.05rem] sm:text-[1.15rem] tracking-tight" aria-label="MindDump, accueil">
           <LogoMark size={28} />
           MindDump
         </Link>

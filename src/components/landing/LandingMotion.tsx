@@ -83,6 +83,18 @@ export function LandingMotion() {
     anchors.forEach((a) => a.addEventListener("click", onAnchorClick));
     cleanups.push(() => anchors.forEach((a) => a.removeEventListener("click", onAnchorClick)));
 
+    // Logo de l'en-tête : remonte tout en haut au lieu de recharger la page.
+    const tops = Array.from(root.querySelectorAll<HTMLAnchorElement>("[data-lp-top]"));
+    const onTopClick = (e: Event) => {
+      e.preventDefault();
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (lenisRef) lenisRef.scrollTo(0, { immediate: reduced });
+      else root.scrollTo({ top: 0, behavior: reduced ? "instant" : "smooth" });
+      if (location.hash) history.pushState(null, "", location.pathname + location.search);
+    };
+    tops.forEach((a) => a.addEventListener("click", onTopClick));
+    cleanups.push(() => tops.forEach((a) => a.removeEventListener("click", onTopClick)));
+
     // Menu mobile (MobileMenu) : même logique d'ancre, et gel de Lenis tant que
     // le panneau est ouvert.
     const onGoto = (e: Event) => navigateTo(String((e as CustomEvent).detail || ""));
