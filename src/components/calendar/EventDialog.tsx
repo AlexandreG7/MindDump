@@ -10,59 +10,34 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EVENT_COLORS, RECURRENCE_OPTIONS } from "@/lib/recurrence";
 import { ReminderField } from "@/components/reminders/ReminderField";
-import { joinDue } from "@/lib/todoDue";
 import { DEFAULT_REMINDER, NO_REMINDER, settleReminder } from "@/lib/reminderOptions";
+import { startOf, type EventDraft } from "./eventDraft";
 import { AssigneePicker } from "@/components/profiles/Assignees";
 import { textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
 
-export interface EventDraft {
-  title: string;
-  description: string;
-  date: string; // yyyy-MM-dd
-  time: string; // HH:mm, vide = journée entière
-  /** Dernier jour (yyyy-MM-dd), facultatif : vide = événement d'un seul jour. */
-  endDate: string;
-  endTime: string; // HH:mm, facultatif
-  recurrence: string;
-  color: string;
-  /** Valeur du menu de rappel (voir reminderOptions) : « none », « 0 », « 15 »… */
-  notifyBefore: string;
-  assigneeIds: string[];
-}
-
-export const emptyDraft = (date = "", time = ""): EventDraft => ({
-  title: "",
-  description: "",
-  date,
-  time,
-  endDate: "",
-  endTime: "",
-  recurrence: "",
-  color: "",
-  notifyBefore: NO_REMINDER,
-  assigneeIds: [],
-});
-
-/** Instant de début (ISO) d'un brouillon, null pour une journée entière. */
-const startOf = (date: string, time: string) => {
-  if (!date || !time) return null;
-  return joinDue(date, time);
-};
-
-/** Création d'un événement, éventuellement pré-rempli (clic sur un créneau). */
+/**
+ * Création d'un événement, éventuellement pré-rempli (clic sur un créneau), ou
+ * modification d'un événement existant (`mode="edit"`). `lockDates` fige les
+ * dates d'une occurrence d'une série : elles se changent depuis le premier événement.
+ */
 export function EventDialog({
   open,
   onOpenChange,
   initial,
   profiles,
   onSubmit,
+  mode = "create",
+  lockDates = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initial: EventDraft;
   profiles: FamilyProfile[];
   onSubmit: (draft: EventDraft) => Promise<void>;
+  mode?: "create" | "edit";
+  lockDates?: boolean;
 }) {
+  const editing = mode === "edit";
   const [draft, setDraft] = useState<EventDraft>(initial);
   // Rappel voulu avant un ajustement automatique (voir settleReminder).
   const [wanted, setWanted] = useState(NO_REMINDER);
@@ -71,12 +46,14 @@ export function EventDialog({
     if (!open) return;
     // À la création, 15 min avant si l'événement a une heure (et si ce n'est
     // pas déjà passé : un créneau cliqué dans le passé donne « Pas de rappel »).
-    const want = initial.time && initial.notifyBefore === NO_REMINDER ? DEFAULT_REMINDER : initial.notifyBefore;
+    // À la modification, on respecte le rappel enregistré, y compris « aucun ».
+    const want = !editing && initial.time && initial.notifyBefore === NO_REMINDER ? DEFAULT_REMINDER : initial.notifyBefore;
     setWanted(want);
     setDraft({
       ...initial,
       notifyBefore: settleReminder(startOf(initial.date, initial.time), want, Date.now()),
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial]);
 
   // Le rappel suit le début : sans heure (journée entière) il n'y a rien à
@@ -113,7 +90,7 @@ export function EventDialog({
       {/* Défile si l'écran est bas (téléphone, tablette en paysage) et laisse la place de l'encoche et de la barre d'accueil. */}
       <DialogContent className="max-h-[calc(100dvh_-_1rem_-_2*max(env(safe-area-inset-top),env(safe-area-inset-bottom)))] overflow-y-auto overscroll-contain">
         <DialogHeader>
-          <DialogTitle>Ajouter un événement</DialogTitle>
+          <DialogTitle>{editing ? "Modifier l'événement" : "Ajouter un événement"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
@@ -132,12 +109,13 @@ export function EventDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="eventdialog-date">Date</Label>
-              <Input id="eventdialog-date" type="date" value={draft.date} onChange={(e) => setStart(e.target.value, draft.time)} />
+              <Input id="eventdialog-date" type="date" disabled={lockDates} value={draft.date} onChange={(e) => setStart(e.target.value, draft.time)} />
             </div>
             <div>
               <Label htmlFor="eventdialog-debut">Début</Label>
               <Input id="eventdialog-debut"
                 type="time"
+                disabled={lockDates}
                 value={draft.time}
                 onChange={(e) => setStart(draft.date, e.target.value)}
               />
@@ -148,6 +126,7 @@ export function EventDialog({
                 type="date"
                 value={draft.endDate}
                 min={draft.date || undefined}
+                disabled={lockDates}
                 onChange={(e) => setDraft({ ...draft, endDate: e.target.value })}
               />
             </div>
@@ -156,13 +135,15 @@ export function EventDialog({
               <Input id="eventdialog-fin"
                 type="time"
                 value={draft.endTime}
-                disabled={!draft.time}
+                disabled={!draft.time || lockDates}
                 onChange={(e) => setDraft({ ...draft, endTime: e.target.value })}
               />
             </div>
           </div>
           <p className={`text-xs -mt-2 ${endInvalid ? "text-destructive" : "text-muted-foreground"}`}>
-            {endDateInvalid
+            {lockDates
+              ? "Cette occurrence fait partie d'une série : ses dates se changent depuis le premier événement."
+              : endDateInvalid
               ? "Le dernier jour ne peut pas précéder la date."
               : endInvalid
                 ? "L'heure de fin doit suivre l'heure de début."
@@ -250,7 +231,7 @@ export function EventDialog({
             recurring={!!draft.recurrence && draft.recurrence !== "none"}
           />
           <Button className="w-full" onClick={submit} disabled={!draft.title.trim() || !draft.date || endInvalid}>
-            Ajouter
+            {editing ? "Enregistrer" : "Ajouter"}
           </Button>
         </div>
       </DialogContent>

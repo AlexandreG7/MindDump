@@ -127,23 +127,28 @@ export function occursOn(e: Timed, day: Date): boolean {
 }
 
 /**
- * Place d'un jour dans un événement qui en couvre plusieurs : rang (1 pour le
- * premier jour), nombre de jours, dernier jour. null pour un événement d'un jour.
- * Journée entière : jours calendaires (fin exclusive) ; horaire : jours locaux.
+ * Premier et dernier jour d'un événement (yyyy-MM-dd). Journée entière : jours
+ * calendaires (fin exclusive) ; horaire : jours locaux.
  */
-export function daySpan(e: Timed, day: Date): { index: number; total: number; lastDay: Date } | null {
-  const toUtc = (k: string) => Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
-  let first: string;
-  let last: string;
+export function eventDays(e: Timed): { first: string; last: string } {
   if (e.allDay) {
     const start = eventStart(e);
     const end = e.endDate ? new Date(e.endDate) : null;
-    first = utcDayKey(start);
-    last = utcDayKey(end && end > start ? new Date(end.getTime() - 1) : start);
-  } else {
-    first = localDayKey(eventStart(e));
-    last = localDayKey(new Date(eventEnd(e).getTime() - 1));
+    return { first: utcDayKey(start), last: utcDayKey(end && end > start ? new Date(end.getTime() - 1) : start) };
   }
+  return { first: localDayKey(eventStart(e)), last: localDayKey(new Date(eventEnd(e).getTime() - 1)) };
+}
+
+/** Clé yyyy-MM-dd d'un jour local (celle qu'attend `eventDays`). */
+export const dayKey = localDayKey;
+
+/**
+ * Place d'un jour dans un événement qui en couvre plusieurs : rang (1 pour le
+ * premier jour), nombre de jours, dernier jour. null pour un événement d'un jour.
+ */
+export function daySpan(e: Timed, day: Date): { index: number; total: number; lastDay: Date } | null {
+  const toUtc = (k: string) => Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
+  const { first, last } = eventDays(e);
   const total = Math.round((toUtc(last) - toUtc(first)) / 86400000) + 1;
   if (total < 2) return null;
   const index = Math.round((toUtc(localDayKey(day)) - toUtc(first)) / 86400000) + 1;
@@ -221,4 +226,33 @@ export function eventStyle(e: CalendarEvent, solid = false): React.CSSProperties
 /** Sans couleur propre ni personne : couleur par défaut du thème. */
 export function hasColor(e: CalendarEvent): boolean {
   return !!(e.displayColor ?? e.color);
+}
+
+/** Jour calendaire (minuit local) d'une clé yyyy-MM-dd. */
+export function keyToDate(k: string): Date {
+  return new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
+}
+
+/** Période d'un événement en toutes lettres : « lundi 12 octobre » ou « du jeudi 15 au dimanche 18 octobre ». */
+export function formatEventRange(e: Timed): string {
+  const { first, last } = eventDays(e);
+  const a = keyToDate(first);
+  if (first === last) return format(a, "EEEE d MMMM", { locale: fr });
+  const b = keyToDate(last);
+  return a.getMonth() === b.getMonth()
+    ? `du ${format(a, "EEEE d", { locale: fr })} au ${format(b, "EEEE d MMMM", { locale: fr })}`
+    : `du ${format(a, "EEE d MMM", { locale: fr })} au ${format(b, "EEE d MMM", { locale: fr })}`;
+}
+
+/** Nombre de jours couverts (1 pour un événement d'un jour). */
+export function daysCovered(e: Timed): number {
+  const { first, last } = eventDays(e);
+  const a = keyToDate(first);
+  const b = keyToDate(last);
+  return Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000) + 1;
+}
+
+/** Vrai si l'événement est un horaire déjà terminé (pour atténuer la ligne du jour). */
+export function isFinished(e: Timed, now: Date): boolean {
+  return !e.allDay && eventEnd(e) <= now;
 }

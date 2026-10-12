@@ -19,12 +19,14 @@ export function TimeGrid({
   selectedDate,
   onSelectDay,
   onCreateAt,
+  onOpen,
 }: {
   days: Date[];
   events: CalendarEvent[];
   selectedDate: Date | null;
   onSelectDay: (day: Date) => void;
   onCreateAt: (day: Date, hour: number) => void;
+  onOpen: (event: CalendarEvent) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => new Date());
@@ -44,7 +46,7 @@ export function TimeGrid({
   const minWidth = single ? undefined : "40rem";
 
   return (
-    <div className="border border-border rounded-lg overflow-x-auto">
+    <div className="overflow-x-auto rounded-3xl border border-border/70 bg-card">
       <div style={{ minWidth }}>
         {/* En-têtes et journées entières */}
         <div className="grid border-b border-border bg-muted/40" style={cols}>
@@ -63,7 +65,7 @@ export function TimeGrid({
                   </span>
                   <span
                     className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full ${
-                      isToday(day) ? "bg-primary text-primary-foreground" : ""
+                      isToday(day) ? "bg-tone-agenda text-on-tone" : ""
                     }`}
                   >
                     {format(day, "d")}
@@ -73,8 +75,8 @@ export function TimeGrid({
                   {allDay.map((e) => (
                     <button
                       key={e.id}
-                      onClick={() => onSelectDay(day)}
-                      className={`block w-full text-left text-xs rounded px-1.5 py-0.5 truncate ${hasColor(e) ? "" : "bg-primary/10 text-primary"}`}
+                      onClick={() => onOpen(e)}
+                      className={`block w-full text-left text-xs rounded px-1.5 py-0.5 truncate ${hasColor(e) ? "" : "bg-tone-agenda-soft text-tone-agenda-ink"}`}
                       style={eventStyle(e)}
                       title={e.title}
                     >
@@ -115,10 +117,10 @@ export function TimeGrid({
                   {positioned.map(({ event, top, height, column, columns }) => (
                     <button
                       key={event.id}
-                      onClick={() => onSelectDay(day)}
+                      onClick={() => onOpen(event)}
                       title={`${format(new Date(event.date), "HH:mm")} ${event.title}`}
                       className={`absolute rounded-md px-1.5 py-0.5 text-left text-xs overflow-hidden border border-background ${
-                        hasColor(event) ? "" : "bg-primary text-primary-foreground"
+                        hasColor(event) ? "" : "bg-tone-agenda text-on-tone"
                       }`}
                       style={{
                         top: top * (HOUR_PX / 60),

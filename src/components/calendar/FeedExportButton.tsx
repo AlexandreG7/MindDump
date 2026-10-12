@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, Link2Off, RefreshCw, Rss } from "lucide-react";
 
 /** Flux .ics personnel à ajouter dans Apple Calendar, Google Agenda ou Outlook. */
-export function FeedExportButton() {
+export function FeedExportButton({ placement = "down", className = "" }: { placement?: "down" | "up"; className?: string }) {
   const [feedToken, setFeedToken] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedCopied, setFeedCopied] = useState(false);
@@ -46,7 +46,8 @@ export function FeedExportButton() {
       <button
         onClick={() => (feedToken ? setMenuOpen((v) => !v) : generateFeedToken())}
         disabled={feedLoading}
-        className={`p-2 rounded-lg transition-colors ${
+        aria-label="Exporter vers Apple Calendar"
+        className={`${className} p-2 rounded-lg transition-colors ${
           feedToken ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-secondary"
         }`}
         title="Exporter vers Apple Calendar"
@@ -56,7 +57,7 @@ export function FeedExportButton() {
       {menuOpen && feedToken && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 z-50 w-72 bg-popover border border-border rounded-xl shadow-lg p-4 space-y-3">
+          <div className={`absolute right-0 ${placement === "up" ? "bottom-full mb-2" : "top-full mt-2"} z-50 w-72 bg-popover border border-border rounded-xl shadow-lg p-4 space-y-3`}>
             <p className="text-sm font-medium">Exporter le calendrier</p>
             <p className="text-xs text-muted-foreground">
               Exporte tes événements MindDump vers Apple Calendar, Google Calendar ou Outlook.
