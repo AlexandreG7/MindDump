@@ -10,7 +10,8 @@ import { oauthCookies, oauthProviders } from "./authProviders";
 import { useSecureCookies } from "./secureCookies";
 import { isMobileDeviceActive } from "./mobileAuth";
 import { allowedSignupEmails, isSignupAllowed } from "./signupAllowlist";
-import { findUserByEmail, parseEmail } from "./email";
+import { findUserByEmail, normalizeEmail, parseEmail } from "./email";
+import { clientIp, rateLimitAllows, rateLimitClear, rateLimitFail } from "./rateLimit";
 import {
   INVITE_EMAIL_MISMATCH_URL,
   createUserWithGrant,
@@ -40,6 +41,12 @@ const providerEmailVerified = (profile: unknown) => {
  * création de compte. Le module exporte `authOptions` (sans invitation) et
  * `authOptionsWithInvite` pour le callback OAuth qui en porte une.
  */
+/** Échecs de connexion par fenêtre, par IP et par adresse (src/lib/rateLimit.ts). */
+const LOGIN_MAX = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+/** Code d'erreur NextAuth (?error=) rendu par authorize quand la limite est atteinte. */
+export const LOGIN_RATE_LIMITED = "TooManyAttempts";
+
 export function authOptionsWithInvite(inviteToken?: string): NextAuthOptions {
   const adapter: Adapter = {
     ...prismaAdapter,
@@ -85,18 +92,36 @@ export function authOptionsWithInvite(inviteToken?: string): NextAuthOptions {
           email: { label: "Email", type: "email" },
           password: { label: "Mot de passe", type: "password" },
         },
-        async authorize(credentials) {
+        async authorize(credentials, req) {
           if (!credentials?.email || !credentials?.password) return null;
+
+          // Limite de débit sur les ÉCHECS, par IP et par e-mail normalisé : freine l'essai de
+          // mots de passe. Vérifiée avant toute lecture en base, et message identique que le
+          // compte existe ou non. Un succès remet le compteur de l'adresse à zéro : un compte
+          // existant se connecte toujours avec le bon mot de passe tant que la limite n'est pas
+          // atteinte (ADR 0001). Limite assumée : quelqu'un peut saturer volontairement le
+          // compteur d'une adresse et gêner son titulaire jusqu'à 15 minutes.
+          const ipKey = `login-ip:${clientIp(req?.headers ?? {})}`;
+          const emailKey = `login-email:${normalizeEmail(credentials.email)}`;
+          if (!rateLimitAllows(ipKey, LOGIN_MAX) || !rateLimitAllows(emailKey, LOGIN_MAX)) {
+            throw new Error(LOGIN_RATE_LIMITED);
+          }
+          const failed = () => {
+            rateLimitFail(ipKey, LOGIN_WINDOW_MS);
+            rateLimitFail(emailKey, LOGIN_WINDOW_MS);
+            return null;
+          };
 
           // Correspondance exacte d'abord, puis sans tenir compte de la casse si elle
           // est unique : les comptes antérieurs à casse mixte se connectent toujours
           // (ADR 0001), et un compte en minuscules se retrouve quelle que soit la saisie.
           const user = await findUserByEmail(credentials.email);
 
-          if (!user || !user.password) return null;
+          if (!user || !user.password) return failed();
 
           const isValid = verifyPassword(credentials.password, user.password);
-          if (!isValid) return null;
+          if (!isValid) return failed();
+          rateLimitClear(emailKey);
 
           return {
             id: user.id,

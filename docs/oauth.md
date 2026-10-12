@@ -100,7 +100,18 @@ callback `signIn`, `getUserByEmail` de l'adaptateur et le mot de passe oublié f
 ### Limite de débit
 
 `src/lib/rateLimit.ts`, **en mémoire** : 10 essais / 15 min / IP sur `/api/auth/register`, 5 demandes /
-heure / IP sur `/api/beta-requests`, 30 essais / 15 min / IP sur `/api/signup-invite`. Une seule
+heure / IP **et 60 / heure toutes IP confondues** sur `/api/beta-requests` (plafond de 1 000 demandes en
+attente : au-delà, réponse « ok » sans stockage, avertissement dans les journaux sans l'adresse,
+corps refusé au-delà de 8 Ko : 413), 30 essais / 15 min / IP sur `/api/signup-invite` (JSON exigé,
+415 sinon). **Connexion par mot de passe** (`authorize`) : 10 ÉCHECS / 15 min par IP et 10 par e-mail
+normalisé, message « Trop de tentatives » identique que le compte existe ou non ; un succès remet
+le compteur de l'adresse à zéro, donc un compte existant se connecte toujours. Limite assumée :
+saturer volontairement le compteur d'une adresse gêne son titulaire jusqu'à 15 minutes. Les IPv6 sont
+regroupées par préfixe /64 ; table pleine (10 000 clés), les plus anciennes entrées sont évincées
+(jamais de remise à zéro générale). Les POST sensibles (`/api/beta-requests`, `/api/signup-invite`,
+`/api/admin/*` de la bêta) refusent en 403 un en-tête `Origin` présent et différent du site
+(`assertSameOrigin`, `src/lib/sameOrigin.ts`, origine de `NEXTAUTH_URL`). `/register?invite=` est servi
+en `Cache-Control: no-store` et `/register` est exclu du cache du service worker. Une seule
 instance (Coolify) : exact, mais remis à zéro à chaque déploiement, non partagé entre instances, et
 sans effet contre un attaquant qui change d'IP. L'IP est la **dernière** entrée de `X-Forwarded-For`
 (celle que le proxy ajoute ; les précédentes sont inventées par le client). Si plusieurs proxys sont

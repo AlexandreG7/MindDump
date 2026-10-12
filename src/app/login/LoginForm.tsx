@@ -40,7 +40,9 @@ export function LoginForm() {
 
     setLoading(false);
 
-    if (result?.error) {
+    if (result?.error === "TooManyAttempts") {
+      setError("Trop de tentatives. Réessaie dans quelques minutes.");
+    } else if (result?.error) {
       setError("Adresse e-mail ou mot de passe incorrect.");
     } else {
       // Retour à la page demandée (ex. lien de partage), chemins internes uniquement.

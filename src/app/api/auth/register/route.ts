@@ -51,7 +51,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: SIGNUP_CLOSED_MESSAGE }, { status: 403 });
     }
   }
-  if (!cleanEmail) return NextResponse.json({ error: SIGNUP_CLOSED_MESSAGE }, { status: 403 });
+  // Ici `cleanEmail` n'est jamais null (TypeScript ne peut pas le déduire) : soit l'adresse
+  // est dans la liste blanche, et isSignupAllowed(null) vaut false ; soit une invitation
+  // valide a été trouvée et son adresse, toujours valide, est égale à `cleanEmail`.
+  const signupEmail = cleanEmail as string;
 
   // RGPD : le consentement doit être explicite, y compris pour un POST direct.
   if (consent !== true) {
@@ -80,7 +83,7 @@ export async function POST(req: NextRequest) {
   // Une transaction : verrou sur l'adresse, doublon sans tenir compte de la casse,
   // consommation de l'invitation, création (adresse stockée en minuscules).
   const result = await createUserWithGrant(
-    cleanEmail,
+    signupEmail,
     {
       name: typeof name === "string" && name.trim() ? name.trim() : null,
       password: hashPassword(password),

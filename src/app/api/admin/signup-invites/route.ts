@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
+import { assertSameOrigin } from "@/lib/sameOrigin";
 import { parseEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { issueInvite } from "@/lib/signupInvite";
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
 // que l'acceptation d'une demande (14 jours, usage unique, remplace les liens précédents
 // de cette adresse).
 export async function POST(req: NextRequest) {
+  const denied = assertSameOrigin(req);
+  if (denied) return denied;
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
 

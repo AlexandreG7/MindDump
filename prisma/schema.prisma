@@ -645,16 +645,16 @@ model BetaAccessRequest {
 // jeton est stockée (comme passwordReset.ts) : le lien n'est montré qu'à sa création.
 // Consommé de façon atomique à la création du compte (src/lib/signupInvite.ts).
 model SignupInvite {
-  id          String    @id @default(cuid())
-  tokenHash   String    @unique
+  id          String             @id @default(cuid())
+  tokenHash   String             @unique
   email       String
   expiresAt   DateTime
   usedAt      DateTime?
   // Invalidé par la génération d'un nouveau lien ou par un refus.
   revokedAt   DateTime?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime           @default(now())
   createdById String?
-  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
   requestId   String?
   request     BetaAccessRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
 

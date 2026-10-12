@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { INVITE_COOKIE, INVITE_INVALID_MESSAGE, findValidInvite } from "@/lib/signupInvite";
 import { clientIp, rateLimit } from "@/lib/rateLimit";
+import { assertSameOrigin } from "@/lib/sameOrigin";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,13 @@ export const dynamic = "force-dynamic";
  * ici : il l'est à la création du compte (src/lib/signupInvite.ts).
  */
 export async function POST(req: NextRequest) {
+  // Pose un cookie : jamais depuis un autre site, et pas via un formulaire HTML
+  // (text/plain, x-www-form-urlencoded) qu'un site tiers peut soumettre sans préalable CORS.
+  const denied = assertSameOrigin(req);
+  if (denied) return denied;
+  if (!req.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+    return NextResponse.json({ error: "Requête refusée." }, { status: 415 });
+  }
   if (!rateLimit(`signup-invite:${clientIp(req.headers)}`, 30, 15 * 60 * 1000)) {
     return NextResponse.json({ error: "Trop de tentatives. Réessaie dans quelques minutes." }, { status: 429 });
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Users,
   UsersRound,
@@ -15,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AdminOverview, AdminStorage, AdminUsersPage } from "@/lib/adminStats";
 import { DailyBarChart } from "./DailyBarChart";
-import type { AdminBetaRequest } from "@/lib/betaAccess";
+import type { AdminBetaRequestsPage } from "@/lib/betaAccess";
 import { UsersTable } from "./UsersTable";
 import { BetaRequestsPanel } from "./BetaRequestsPanel";
 import { formatBytes, formatDate, formatNumber, formatPercent } from "./format";
@@ -79,10 +80,12 @@ export function AdminDashboard({
   overview: AdminOverview;
   storage: AdminStorage;
   initialUsers: AdminUsersPage;
-  betaRequests: AdminBetaRequest[];
+  betaRequests: AdminBetaRequestsPage;
 }) {
   const { totals, ai } = overview;
   const tableMax = Math.max(1, ...storage.database.tables.map((t) => t.bytes));
+  // Compteur de l'onglet « Demandes d'accès » : mis à jour par le panneau à chaque rechargement.
+  const [betaPending, setBetaPending] = useState(betaRequests.pending);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -99,8 +102,7 @@ export function AdminDashboard({
           <TabsTrigger value="users">Utilisateurs</TabsTrigger>
           <TabsTrigger value="beta">
             Demandes d&apos;accès
-            {betaRequests.some((r) => r.status === "pending") &&
-              ` (${betaRequests.filter((r) => r.status === "pending").length})`}
+            {betaPending > 0 && ` (${betaPending})`}
           </TabsTrigger>
           <TabsTrigger value="storage">Stockage</TabsTrigger>
         </TabsList>
@@ -162,8 +164,10 @@ export function AdminDashboard({
         </TabsContent>
 
         {/* ── Demandes d'accès à la bêta ─────────────────────── */}
-        <TabsContent value="beta">
-          <BetaRequestsPanel initial={betaRequests} />
+        {/* forceMount : l'onglet reste monté (masqué), sinon la liste, les liens affichés et le
+            lien direct seraient perdus à chaque changement d'onglet. */}
+        <TabsContent value="beta" forceMount className="data-[state=inactive]:hidden">
+          <BetaRequestsPanel initial={betaRequests} onPendingChange={setBetaPending} />
         </TabsContent>
 
         {/* ── Stockage ───────────────────────────────────────── */}

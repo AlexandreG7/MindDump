@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
+import { assertSameOrigin } from "@/lib/sameOrigin";
 import { prisma } from "@/lib/prisma";
 import { issueInvite } from "@/lib/signupInvite";
 
@@ -8,7 +9,9 @@ export const dynamic = "force-dynamic";
 // POST /api/admin/beta-requests/:id/invite : « Accepter » ET « Régénérer le lien ».
 // Crée un lien d'inscription à usage unique (14 jours) lié à l'e-mail de la demande,
 // invalide les précédents, et renvoie le lien EN CLAIR, une seule fois.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const denied = assertSameOrigin(req);
+  if (denied) return denied;
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
 

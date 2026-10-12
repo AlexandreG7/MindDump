@@ -5,7 +5,8 @@ import { Check, Copy, Link2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { AdminBetaRequest, RequestStatus } from "@/lib/betaAccess";
+import { useFeedback } from "@/components/ui/feedback";
+import type { AdminBetaRequest, AdminBetaRequestsPage, RequestStatus } from "@/lib/betaAccess";
 import { formatDate } from "./format";
 
 const STATUS_LABEL: Record<RequestStatus, string> = {
@@ -41,26 +42,78 @@ function LinkBox({ issued }: { issued: Issued }) {
         À usage unique, valable jusqu&apos;au {formatDate(issued.expiresAt, true)}. Il ne sera plus affiché : transmets-le
         toi-même à cette personne (ou régénère-le).
       </p>
+      <p className="text-xs font-medium text-foreground">Envoie ce lien uniquement à l&apos;adresse ci-dessus.</p>
     </div>
   );
 }
 
-export function BetaRequestsPanel({ initial }: { initial: AdminBetaRequest[] }) {
-  const [requests, setRequests] = useState(initial);
+const PAGE_SIZE = 50;
+const RELOAD_MAX = 500;
+
+/**
+ * Onglet « Demandes d'accès ». Reste monté quand on change d'onglet (AdminDashboard :
+ * `forceMount`) : liste, liens affichés et lien direct survivent à la navigation entre
+ * onglets. `onPendingChange` tient à jour le compteur de l'onglet.
+ */
+export function BetaRequestsPanel({
+  initial,
+  onPendingChange,
+}: {
+  initial: AdminBetaRequestsPage;
+  onPendingChange: (pending: number) => void;
+}) {
+  const { confirm } = useFeedback();
+  const [requests, setRequests] = useState(initial.requests);
+  const [pending, setPending] = useState(initial.pending);
+  const [hasMore, setHasMore] = useState(initial.hasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [issued, setIssued] = useState<Record<string, Issued>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [directError, setDirectError] = useState("");
   const [directEmail, setDirectEmail] = useState("");
   const [direct, setDirect] = useState<(Issued & { email: string }) | null>(null);
 
-  const reload = async () => {
-    const res = await fetch("/api/admin/beta-requests");
-    if (res.ok) setRequests((await res.json()).requests);
+  const apply = (page: AdminBetaRequestsPage, append: boolean) => {
+    setRequests((prev) => {
+      if (!append) return page.requests;
+      const known = new Set(prev.map((r) => r.id));
+      return [...prev, ...page.requests.filter((r) => !known.has(r.id))];
+    });
+    setPending(page.pending);
+    setHasMore(page.hasMore);
+    onPendingChange(page.pending);
   };
 
-  const call = async (key: string, url: string, body?: unknown) => {
-    setBusy(key);
+  /** Recharge ce qui est affiché (au moins la première page), ou la suite si `more`. */
+  const load = async (more: boolean) => {
+    try {
+      const query = more
+        ? `offset=${requests.length}&limit=${PAGE_SIZE}`
+        : `offset=0&limit=${Math.min(RELOAD_MAX, Math.max(PAGE_SIZE, requests.length))}`;
+      const res = await fetch(`/api/admin/beta-requests?${query}`);
+      if (!res.ok) {
+        setError("Impossible d'actualiser la liste. Recharge la page si cela continue.");
+        return;
+      }
+      apply(await res.json(), more);
+    } catch {
+      setError("Impossible d'actualiser la liste (erreur réseau).");
+    }
+  };
+
+  const reload = () => load(false);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
     setError("");
+    await load(true);
+    setLoadingMore(false);
+  };
+
+  const call = async (key: string, url: string, body?: unknown, report: (message: string) => void = setError) => {
+    setBusy(key);
+    report("");
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -68,12 +121,12 @@ export function BetaRequestsPanel({ initial }: { initial: AdminBetaRequest[] }) 
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || "Une erreur est survenue.");
+        report(data.error || "Une erreur est survenue.");
         return null;
       }
       return data;
     } catch {
-      setError("Une erreur réseau est survenue.");
+      report("Une erreur réseau est survenue.");
       return null;
     } finally {
       setBusy(null);
@@ -81,6 +134,18 @@ export function BetaRequestsPanel({ initial }: { initial: AdminBetaRequest[] }) 
   };
 
   const invite = async (r: AdminBetaRequest) => {
+    // Régénérer un lien déjà envoyé le rend inutilisable : confirmation. Accepter une demande
+    // en attente (ou refusée) ne remplace aucun lien.
+    if (
+      r.status === "invited" &&
+      !(await confirm({
+        title: "Régénérer le lien ?",
+        description: `L'ancien lien de ${r.email} ne marchera plus. Un nouveau lien va être créé.`,
+        confirmLabel: "Régénérer",
+      }))
+    ) {
+      return;
+    }
     const data = await call(r.id, `/api/admin/beta-requests/${r.id}/invite`);
     if (data) {
       setIssued((prev) => ({ ...prev, [r.id]: data }));
@@ -89,7 +154,13 @@ export function BetaRequestsPanel({ initial }: { initial: AdminBetaRequest[] }) 
   };
 
   const refuse = async (r: AdminBetaRequest) => {
-    if (!window.confirm(`Refuser la demande de ${r.email} ? Ses liens en cours seront invalidés.`)) return;
+    const ok = await confirm({
+      title: "Refuser cette demande ?",
+      description: `La demande de ${r.email} sera refusée et ses liens en cours seront invalidés.`,
+      confirmLabel: "Refuser",
+      destructive: true,
+    });
+    if (!ok) return;
     if (await call(r.id, `/api/admin/beta-requests/${r.id}/refuse`)) {
       setIssued(({ [r.id]: _dropped, ...rest }) => rest);
       await reload();
@@ -98,7 +169,7 @@ export function BetaRequestsPanel({ initial }: { initial: AdminBetaRequest[] }) 
 
   const createDirect = async (e: React.FormEvent) => {
     e.preventDefault();
-    const data = await call("direct", "/api/admin/signup-invites", { email: directEmail });
+    const data = await call("direct", "/api/admin/signup-invites", { email: directEmail }, setDirectError);
     if (data) {
       setDirect(data);
       setDirectEmail("");
@@ -129,6 +200,11 @@ export function BetaRequestsPanel({ initial }: { initial: AdminBetaRequest[] }) 
             Créer le lien
           </Button>
         </form>
+        {directError && (
+          <p role="alert" className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
+            {directError}
+          </p>
+        )}
         {direct && (
           <div>
             <p className="text-sm">
@@ -143,7 +219,7 @@ export function BetaRequestsPanel({ initial }: { initial: AdminBetaRequest[] }) 
         <h2 className="text-base font-semibold">
           Demandes d&apos;accès{" "}
           <span className="text-sm font-normal text-muted-foreground">
-            ({requests.filter((r) => r.status === "pending").length} en attente)
+            ({pending} en attente)
           </span>
         </h2>
         {error && (
@@ -201,6 +277,13 @@ export function BetaRequestsPanel({ initial }: { initial: AdminBetaRequest[] }) 
               </li>
             ))}
           </ul>
+        )}
+        {hasMore && (
+          <div className="flex justify-center pt-1">
+            <Button type="button" size="sm" variant="outline" disabled={loadingMore} onClick={loadMore}>
+              Voir plus
+            </Button>
+          </div>
         )}
         <p className="text-xs text-muted-foreground">
           Les demandes sont supprimées automatiquement après 6 mois. Les liens ne sont jamais stockés en clair.

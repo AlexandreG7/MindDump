@@ -128,6 +128,7 @@ export function oauthErrorMessage(code: string | null): string {
     return "Un compte existe déjà avec cet email. Connecte-toi avec ton mot de passe, puis lie ce fournisseur depuis ton profil (section « Connexion »).";
   }
   if (code === "CredentialsSignin") return "";
+  if (code === "TooManyAttempts") return "Trop de tentatives. Réessaie dans quelques minutes.";
   if (code === "SignupClosed") return "Les inscriptions sont fermées pour le moment.";
   if (code === "InviteEmailMismatch") return "Utilise l'adresse à laquelle tu as été invité.";
   if (code === "LinkExpired") return "La liaison a expiré : relance-la depuis l'app.";

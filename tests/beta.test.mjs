@@ -28,10 +28,12 @@ process.env.NEXTAUTH_URL = BASE_URL;
 const unwrap = (mod) => ({ ...mod.default, ...mod });
 const { authOptions, authOptionsWithInvite, SIGNUP_CLOSED_URL } = unwrap(await import("../src/lib/auth.ts"));
 const { hashPassword } = unwrap(await import("../src/lib/password.ts"));
-const { INVITE_EMAIL_MISMATCH_URL, INVITE_INVALID_MESSAGE, INVITE_EMAIL_MISMATCH_MESSAGE, INVITE_COOKIE, issueInvite } = unwrap(
+const { INVITE_EMAIL_MISMATCH_URL, INVITE_INVALID_MESSAGE, INVITE_EMAIL_MISMATCH_MESSAGE, INVITE_COOKIE, issueInvite, createUserWithGrant } = unwrap(
   await import("../src/lib/signupInvite.ts")
 );
-const { purgeOldBetaData } = unwrap(await import("../src/lib/betaAccess.ts"));
+const { purgeOldBetaData, purgeOldBetaDataThrottled, listBetaRequests, refuseBetaRequest, submitAccessRequest } = unwrap(
+  await import("../src/lib/betaAccess.ts")
+);
 const { rateLimit } = unwrap(await import("../src/lib/rateLimit.ts"));
 const { deleteUserAccount } = unwrap(await import("../src/lib/account.ts"));
 const { oauthErrorMessage } = unwrap(await import("../src/components/OAuthButtons.tsx"));
@@ -78,10 +80,11 @@ async function login(email, password) {
   const session = res.headers.getSetCookie().map((c) => c.split(";")[0]).find((c) => c.includes("next-auth.session-token="));
   return session ? [csrfCookie, session].join("; ") : null;
 }
-const api = (method, path, cookie, body) =>
+const EVIL = "https://evil.example";
+const api = (method, path, cookie, body, extraHeaders = {}) =>
   fetch(`${BASE_URL}${path}`, {
     method,
-    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}), ...extraHeaders },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
@@ -109,6 +112,23 @@ async function main() {
   const adminCookie = await login(email("admin"), adminPassword);
   const userCookie = await login(email("simple"), plainPassword);
   check(!!adminCookie && !!userCookie, "sessions de test (administrateur, utilisateur simple)");
+
+  console.log("RGPD : la route publique ne purge plus, l'admin purge au plus une fois par heure");
+  {
+    const old = new Date();
+    old.setMonth(old.getMonth() - 7);
+    await prisma.betaAccessRequest.create({ data: { email: email("perimee-1"), name: "Périmée", consentVersion: "x", createdAt: old, updatedAt: old } });
+    const pub = await requestAccess({ email: email("depot-public") });
+    check(pub.status === 200 && !!(await prisma.betaAccessRequest.findUnique({ where: { email: email("perimee-1") } })), "un dépôt public ne supprime rien (plus de purge sur la route publique)");
+    const first = await api("GET", "/api/admin/beta-requests", adminCookie);
+    check(first.status === 200 && !(await prisma.betaAccessRequest.findUnique({ where: { email: email("perimee-1") } })), "la première ouverture de la liste admin purge");
+    await prisma.betaAccessRequest.create({ data: { email: email("perimee-2"), name: "Périmée 2", consentVersion: "x", createdAt: old, updatedAt: old } });
+    await api("GET", "/api/admin/beta-requests", adminCookie);
+    check(!!(await prisma.betaAccessRequest.findUnique({ where: { email: email("perimee-2") } })), "…mais pas une seconde fois dans l'heure");
+    await prisma.betaAccessRequest.delete({ where: { email: email("perimee-2") } });
+    const T = 4_000_000_000_000;
+    check((await purgeOldBetaDataThrottled(T)) === true && (await purgeOldBetaDataThrottled(T + 59 * 60_000)) === false && (await purgeOldBetaDataThrottled(T + 61 * 60_000)) === true, "purge limitée à une par heure (horodatage au niveau du module)");
+  }
 
   console.log("Demande d'accès : réponse uniforme, fusion, validation");
   let firstRequestId;
@@ -381,14 +401,21 @@ async function main() {
   {
     const old = new Date();
     old.setMonth(old.getMonth() - 7);
-    await prisma.betaAccessRequest.create({ data: { email: email("ancienne"), name: "Vieille", consentVersion: "x", updatedAt: old } });
+    await prisma.betaAccessRequest.create({ data: { email: email("ancienne"), name: "Vieille", consentVersion: "x", createdAt: old } });
     await prisma.betaAccessRequest.update({ where: { email: email("ancienne") }, data: { updatedAt: old } });
     await prisma.signupInvite.create({ data: { tokenHash: sha("vieux"), email: email("ancienne"), expiresAt: old, createdAt: old } });
     const recent = await prisma.betaAccessRequest.create({ data: { email: email("recente"), name: "Récente", consentVersion: "x" } });
+    // Redéposée récemment (updatedAt récent) mais créée il y a 7 mois : la durée court depuis la création.
+    await prisma.betaAccessRequest.create({ data: { email: email("redeposee"), name: "Redéposée", consentVersion: "x", createdAt: old, updatedAt: new Date() } });
+    // Créée récemment, mise à jour il y a longtemps : conservée (la durée ne dépend plus d'updatedAt).
+    await prisma.betaAccessRequest.create({ data: { email: email("maj-ancienne"), name: "Maj", consentVersion: "x" } });
+    await prisma.betaAccessRequest.update({ where: { email: email("maj-ancienne") }, data: { updatedAt: old } });
     await purgeOldBetaData();
     check(!(await prisma.betaAccessRequest.findUnique({ where: { email: email("ancienne") } })), "demande de plus de 6 mois supprimée");
     check((await prisma.signupInvite.count({ where: { tokenHash: sha("vieux") } })) === 0, "invitation de plus de 6 mois supprimée");
+    check(!(await prisma.betaAccessRequest.findUnique({ where: { email: email("redeposee") } })), "demande redéposée mais créée il y a 7 mois : supprimée (purge sur createdAt)");
     check(!!(await prisma.betaAccessRequest.findUnique({ where: { id: recent.id } })), "demande récente conservée");
+    check(!!(await prisma.betaAccessRequest.findUnique({ where: { email: email("maj-ancienne") } })), "demande créée récemment conservée, quel que soit updatedAt");
 
     const leaving = await prisma.user.create({ data: { name: "Partante", email: email("partante"), password: hashPassword("mdp-partante"), consentedAt: new Date() } });
     await prisma.betaAccessRequest.create({ data: { email: email("partante"), name: "Partante", consentVersion: "x", status: "registered" } });
@@ -401,6 +428,170 @@ async function main() {
     await deleteUserAccount(creator.id, { keepShared: true });
     const orphan = await prisma.signupInvite.findFirst({ where: { email: email("orpheline") } });
     check(!!orphan && orphan.createdById === null, "supprimer l'admin créateur ne supprime pas l'invitation (createdById à null)");
+  }
+
+  console.log("F5 / F3 : POST d'une autre origine refusés");
+  {
+    const id = (await prisma.betaAccessRequest.create({ data: { email: email("origine"), name: "Origine", consentVersion: "x" } })).id;
+    const stored = (e) => prisma.betaAccessRequest.count({ where: { email: email(e) } });
+    const evil = await post("/api/beta-requests", { name: "Zoé", consent: true, email: email("evil-origin") }, {});
+    // `post` n'ajoute pas d'Origin : refaire la demande avec.
+    const evilRes = await fetch(`${BASE_URL}/api/beta-requests`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: EVIL, "x-forwarded-for": freshIp() },
+      body: JSON.stringify({ name: "Zoé", consent: true, email: email("evil-origin-2") }),
+    });
+    check(evil.status === 200 && evilRes.status === 403 && (await stored("evil-origin-2")) === 0, "/api/beta-requests : Origin étranger 403, rien stocké (sans Origin : accepté)");
+    const nullRes = await fetch(`${BASE_URL}/api/beta-requests`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "null", "x-forwarded-for": freshIp() },
+      body: JSON.stringify({ name: "Zoé", consent: true, email: email("evil-origin-3") }),
+    });
+    check(nullRes.status === 403, "…« Origin: null » (iframe sandboxée) : 403");
+    const sameRes = await fetch(`${BASE_URL}/api/beta-requests`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: BASE_URL, "x-forwarded-for": freshIp() },
+      body: JSON.stringify({ name: "Zoé", consent: true, email: email("same-origin") }),
+    });
+    check(sameRes.status === 200 && (await stored("same-origin")) === 1, "…Origin du site : accepté");
+
+    const before = await prisma.signupInvite.count();
+    const invite = await api("POST", `/api/admin/beta-requests/${id}/invite`, adminCookie, undefined, { origin: EVIL });
+    const refuse = await api("POST", `/api/admin/beta-requests/${id}/refuse`, adminCookie, undefined, { origin: EVIL });
+    const direct = await api("POST", "/api/admin/signup-invites", adminCookie, { email: email("evil-direct") }, { origin: EVIL });
+    check(invite.status === 403 && refuse.status === 403 && direct.status === 403, "POST admin (inviter, refuser, lien direct) : Origin étranger 403 même avec la session admin");
+    check((await prisma.signupInvite.count()) === before && (await prisma.betaAccessRequest.findUnique({ where: { id } }))?.status === "pending", "…aucun effet (pas de lien créé, demande intacte)");
+    const ok = await api("POST", `/api/admin/beta-requests/${id}/invite`, adminCookie, undefined, { origin: BASE_URL });
+    check(ok.status === 200, "POST admin avec l'Origin du site : accepté");
+    const mobileLike = await api("POST", "/api/admin/signup-invites", adminCookie, { email: email("evil-direct") }, { origin: "null" });
+    check(mobileLike.status === 403, "POST admin avec « Origin: null » : 403");
+
+    const inv = await issueInvite({ email: email("f3"), createdById: admin.id });
+    const plain = await fetch(`${BASE_URL}/api/signup-invite`, {
+      method: "POST",
+      headers: { "content-type": "text/plain", "x-forwarded-for": freshIp() },
+      body: JSON.stringify({ invite: inv.token }),
+    });
+    check(plain.status === 415 && plain.headers.getSetCookie().length === 0, "/api/signup-invite : text/plain refusé (415), aucun cookie");
+    const form = await fetch(`${BASE_URL}/api/signup-invite`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "x-forwarded-for": freshIp() },
+      body: `invite=${inv.token}`,
+    });
+    check(form.status === 415 && form.headers.getSetCookie().length === 0, "…formulaire HTML refusé aussi");
+    const noType = await fetch(`${BASE_URL}/api/signup-invite`, { method: "POST", headers: { "x-forwarded-for": freshIp() }, body: JSON.stringify({ invite: inv.token }) });
+    check(noType.status === 415, "…sans Content-Type : refusé");
+    const evilInvite = await fetch(`${BASE_URL}/api/signup-invite`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: EVIL, "x-forwarded-for": freshIp() },
+      body: JSON.stringify({ invite: inv.token }),
+    });
+    check(evilInvite.status === 403 && evilInvite.headers.getSetCookie().length === 0, "…Origin étranger : 403, aucun cookie");
+    const good = await fetch(`${BASE_URL}/api/signup-invite`, {
+      method: "POST",
+      headers: { "content-type": "application/json; charset=utf-8", origin: BASE_URL, "x-forwarded-for": freshIp() },
+      body: JSON.stringify({ invite: inv.token }),
+    });
+    check(good.status === 200 && good.headers.getSetCookie().some((c) => c.startsWith(INVITE_COOKIE.name)), "…JSON depuis l'origine du site : cookie posé");
+  }
+
+  console.log("F8 : corps trop gros refusé avant lecture");
+  {
+    const big = JSON.stringify({ name: "Zoé", consent: true, email: email("gros"), message: "x".repeat(9000) });
+    const res = await fetch(`${BASE_URL}/api/beta-requests`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": freshIp() }, body: big });
+    check(res.status === 413 && !(await prisma.betaAccessRequest.findUnique({ where: { email: email("gros") } })), "Content-Length > 8 Ko : 413, rien stocké");
+    const edge = JSON.stringify({ name: "Zoé", consent: true, email: email("limite-corps"), message: "x".repeat(500) });
+    const ok = await fetch(`${BASE_URL}/api/beta-requests`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": freshIp() }, body: edge });
+    check(ok.status === 200, "un corps normal passe toujours");
+  }
+
+  console.log("F1 : plafond de demandes en attente");
+  {
+    const pendingNow = await prisma.betaAccessRequest.count({ where: { status: "pending" } });
+    const previous = process.env.BETA_PENDING_CAP;
+    process.env.BETA_PENDING_CAP = String(pendingNow + 1);
+    const warns = [];
+    const originalWarn = console.warn;
+    console.warn = (...args) => warns.push(args.join(" "));
+    const fields = (label) => ({ email: email(label), name: "Plafond", message: "", consent: true });
+    const a = await submitAccessRequest(fields("plafond-a"));
+    const b = await submitAccessRequest(fields("plafond-b"));
+    console.warn = originalWarn;
+    if (previous === undefined) delete process.env.BETA_PENDING_CAP;
+    else process.env.BETA_PENDING_CAP = previous;
+    check(a.ok === true && b.ok === true && JSON.stringify(a) === JSON.stringify(b), "au-delà du plafond : même réponse { ok: true }");
+    check(!!(await prisma.betaAccessRequest.findUnique({ where: { email: email("plafond-a") } })) && !(await prisma.betaAccessRequest.findUnique({ where: { email: email("plafond-b") } })), "…la dernière n'est pas stockée, la précédente l'est");
+    check(warns.length === 1 && warns[0].includes("plafond") && !warns[0].includes(email("plafond-b")) && !warns[0].includes("@"), "…un avertissement journalisé, sans l'adresse");
+    const after = await submitAccessRequest(fields("plafond-c"));
+    check(after.ok === true && !!(await prisma.betaAccessRequest.findUnique({ where: { email: email("plafond-c") } })), "plafond par défaut (1000) : une demande normale est de nouveau stockée");
+  }
+
+  console.log("Liste admin : en attente d'abord, puis par date, paginée");
+  {
+    const base = new Date();
+    const mk = (label, status, minutes) =>
+      prisma.betaAccessRequest.create({ data: { email: email(label), name: label, consentVersion: "x", status, createdAt: new Date(base.getTime() - minutes * 60_000) } });
+    await mk("liste-refusee-recente", "refused", 1);
+    await mk("liste-attente-ancienne", "pending", 600);
+    await mk("liste-invitee", "invited", 2);
+    await mk("liste-attente-recente", "pending", 30);
+    const all = await listBetaRequests({ limit: 500 });
+    const firstNonPending = all.requests.findIndex((r) => r.status !== "pending");
+    check(firstNonPending > 0 && all.requests.slice(firstNonPending).every((r) => r.status !== "pending"), "toutes les demandes en attente viennent avant les autres");
+    const desc = (rows) => rows.every((r, i) => i === 0 || new Date(rows[i - 1].createdAt) >= new Date(r.createdAt));
+    check(desc(all.requests.slice(0, firstNonPending)) && desc(all.requests.slice(firstNonPending)), "…puis par date décroissante dans chaque groupe");
+    check(all.total === all.requests.length && all.pending === firstNonPending && all.hasMore === false, `total ${all.total}, ${all.pending} en attente, pas de suite`);
+    const p1 = await listBetaRequests({ offset: 0, limit: 4 });
+    const p2 = await listBetaRequests({ offset: 4, limit: 4 });
+    check(p1.requests.length === 4 && p1.hasMore && JSON.stringify([...p1.requests, ...p2.requests]) === JSON.stringify(all.requests.slice(0, 8)), "pagination : deux pages consécutives = le début de la liste complète");
+    const last = await listBetaRequests({ offset: all.total - 1, limit: 4 });
+    check(last.requests.length === 1 && last.hasMore === false, "dernière page : une ligne, plus de suite");
+    const crossing = await listBetaRequests({ offset: all.pending - 1, limit: 2 });
+    check(crossing.requests[0].status === "pending" && crossing.requests[1].status !== "pending", "une page à cheval sur « en attente » / autres reste ordonnée");
+    const viaApi = await (await api("GET", "/api/admin/beta-requests?offset=0&limit=3", adminCookie)).json();
+    check(viaApi.requests.length === 3 && viaApi.total === all.total && viaApi.pending === all.pending && viaApi.hasMore === true, "API : offset, limit, total, pending, hasMore");
+  }
+
+  console.log("F7 : refuser ne touche jamais une demande inscrite");
+  {
+    const reg = await prisma.betaAccessRequest.create({ data: { email: email("f7-inscrite"), name: "Inscrite", consentVersion: "x", status: "registered" } });
+    const open = await issueInvite({ email: email("f7-inscrite"), createdById: admin.id, requestId: reg.id });
+    check((await refuseBetaRequest(reg.id)) === "registered", "demande inscrite : « registered »");
+    const kept = await prisma.betaAccessRequest.findUnique({ where: { id: reg.id } });
+    check(kept?.status === "registered", "…statut intact");
+    check((await prisma.signupInvite.count({ where: { tokenHash: sha(open.token), revokedAt: null } })) === 1, "…et rien n'est révoqué");
+    check((await refuseBetaRequest("inconnu")) === "not-found", "demande inconnue : not-found");
+    // Course : le refus et la création du compte en même temps. Quel que soit l'ordre, si le
+    // compte existe, la demande est « inscrite » (jamais « refusée »).
+    let consistent = true;
+    let accounts = 0;
+    for (let i = 0; i < 8; i++) {
+      const address = email(`f7-course-${i}`);
+      const request = await prisma.betaAccessRequest.create({ data: { email: address, name: "Course", consentVersion: "x" } });
+      const link = await issueInvite({ email: address, createdById: admin.id, requestId: request.id });
+      await Promise.all([refuseBetaRequest(request.id), createUserWithGrant(address, { name: "Course" }, link.token)]);
+      const user = await prisma.user.findUnique({ where: { email: address } });
+      const status = (await prisma.betaAccessRequest.findUnique({ where: { id: request.id } }))?.status;
+      if (user) accounts++;
+      if (user ? status !== "registered" : status !== "refused") consistent = false;
+    }
+    check(consistent, `8 courses refus / inscription : le statut suit toujours l'existence du compte (${accounts} comptes créés)`);
+  }
+
+  console.log("F1 : limite globale toutes IP confondues");
+  {
+    const statuses = [];
+    let retryAfter = null;
+    for (let i = 0; i < 70; i++) {
+      const r = await requestAccess({ email: email(`global-${i}`) });
+      statuses.push(r.status);
+      if (r.status === 429 && !retryAfter) retryAfter = r.res.headers.get("retry-after");
+    }
+    const firstLimited = statuses.indexOf(429);
+    check(firstLimited > 0 && statuses.slice(firstLimited).every((st) => st === 429), `60 par heure, toutes IP : 429 dès la ${firstLimited + 1}e demande de la série puis jusqu'à la fin`);
+    check(retryAfter === "3600", "…avec Retry-After");
+    check((await requestAccess({ email: email("global-autre-ip") })).status === 429, "…même depuis une IP jamais vue");
+    check((await prisma.betaAccessRequest.count({ where: { email: { startsWith: "global-" } } })) === firstLimited, "…et les demandes limitées ne sont pas stockées");
   }
 
   console.log("Invariants");

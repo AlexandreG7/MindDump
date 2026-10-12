@@ -30,9 +30,14 @@
   du consentement est `createdAt`), statut. **Finalité** : répondre à la demande et décider d'inviter
   la personne. **Base légale** : consentement (case obligatoire, vérifiée côté serveur). Les
   invitations ne stockent que l'empreinte SHA-256 du jeton, l'adresse invitée et les dates (14 jours,
-  usage unique). **Conservation : 6 mois** après la dernière mise à jour, quel que soit le statut ;
-  la purge s'exécute à chaque dépôt de demande et à chaque ouverture de l'onglet admin
-  (`purgeOldBetaData`). La suppression d'un compte efface la demande et les invitations de son
+  usage unique). **Conservation : 6 mois** après la **création** de la demande ou de l'invitation (`createdAt`), quel que
+  soit le statut : redéposer sa demande ne prolonge pas la durée. La purge (`purgeOldBetaData`) s'exécute à
+  l'ouverture de l'onglet admin et de `/api/admin/beta-requests`, **au plus une fois par heure** et par
+  processus ; elle ne tourne plus sur la route publique de dépôt (écriture de masse déclenchable par
+  n'importe quel visiteur). Tant qu'aucun administrateur n'ouvre l'onglet, des demandes de plus de
+  6 mois peuvent rester stockées : la durée est donc bornée à 6 mois plus l'intervalle entre deux
+  ouvertures, d'où l'ouverture régulière de l'onglet. File d'attente plafonnée à 1 000 demandes en
+  attente. La suppression d'un compte efface la demande et les invitations de son
   adresse (`src/lib/account.ts`). Visibles des seuls administrateurs. Non incluses dans l'export du
   compte : elles concernent des personnes sans compte, et celles d'un compte sont supprimées avec lui.
   **À faire dans `/confidentialite`** : une courte section pour les visiteurs sans compte (qui est

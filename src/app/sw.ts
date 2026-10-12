@@ -32,7 +32,9 @@ const skipRedirected: SerwistPlugin = {
     response.status === 200 && !response.redirected ? response : null,
 };
 
-const isPage = (pathname: string) => !pathname.startsWith("/api/");
+// /register est exclu : /register?invite=… porte un jeton d'inscription qui ne doit jamais
+// se retrouver dans le cache de l'appareil (ni navigation, ni charge RSC réchauffée).
+const isPage = (pathname: string) => !pathname.startsWith("/api/") && !pathname.startsWith("/register");
 
 // Une navigation dans l'app (onglets, liens) ne charge pas la page HTML mais
 // une charge RSC, dont l'URL porte un paramètre `_rsc` qui change à chaque

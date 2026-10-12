@@ -32,7 +32,8 @@ process.env.NODE_ENV = "development";
 process.env.OAUTH_TEST_ISSUER = "http://localhost:4010";
 
 const unwrap = (mod) => ({ ...mod.default, ...mod });
-const { isSignupAllowed, isSignupOpen, parseAllowlist, allowedSignupEmails } = unwrap(await import("../src/lib/signupAllowlist.ts"));
+const { isSignupAllowed, parseAllowlist, allowedSignupEmails } = unwrap(await import("../src/lib/signupAllowlist.ts"));
+const { rateLimit, rateLimitAllows, rateLimitFail, ipKey, clientIp, MAX_KEYS } = unwrap(await import("../src/lib/rateLimit.ts"));
 const { authOptions, SIGNUP_CLOSED_URL } = unwrap(await import("../src/lib/auth.ts"));
 const { linkAuthOptions } = unwrap(await import("../src/lib/accountLinking.ts"));
 const { hashPassword } = unwrap(await import("../src/lib/password.ts"));
@@ -88,6 +89,30 @@ async function credentialsLogin(base, email, password) {
   return (await me.json())?.user ?? null;
 }
 
+/** Tentative de connexion brute : `session` (cookie) si elle réussit, sinon l'URL d'erreur de NextAuth. */
+async function loginAttempt(base, email, password, ip) {
+  const csrfRes = await fetch(`${base}/api/auth/csrf`);
+  const csrfCookie = csrfRes.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  const { csrfToken } = await csrfRes.json();
+  const res = await fetch(`${base}/api/auth/callback/credentials`, {
+    method: "POST",
+    redirect: "manual",
+    headers: { "content-type": "application/x-www-form-urlencoded", cookie: csrfCookie, ...(ip ? { "x-forwarded-for": ip } : {}) },
+    body: new URLSearchParams({ csrfToken, email, password, json: "true" }).toString(),
+  });
+  const session = res.headers.getSetCookie().map((c) => c.split(";")[0]).find((c) => c.includes("next-auth.session-token="));
+  const body = await res.json().catch(() => null);
+  return { session: session ?? null, url: body?.url ?? "", limited: String(body?.url ?? "").includes("TooManyAttempts") };
+}
+
+/** Inscription refusée (hors liste) depuis une adresse donnée : sert à compter les essais d'une IP. */
+const post6 = (ip) =>
+  fetch(`${BASE_URL}/api/auth/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forwarded-for": ip },
+    body: JSON.stringify({ name: "T", email: `v6-${run}@test.local`, password: "motdepasse-solide", consent: true }),
+  });
+
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 const oauthAccount = (providerAccountId) => ({ provider: "test-oidc", type: "oauth", providerAccountId });
 // `emailVerified` : valeur de `email_verified` du profil du fournisseur (A4).
@@ -110,11 +135,10 @@ async function main() {
     check(!isSignupAllowed(outsider), "adresse hors liste refusée");
     check(!isSignupAllowed(`alice-${run}@test.local.evil.com`) && !isSignupAllowed(`xalice-${run}@test.local`), "pas de correspondance partielle");
     check(!isSignupAllowed("") && !isSignupAllowed("   ") && !isSignupAllowed(null) && !isSignupAllowed(undefined) && !isSignupAllowed(42), "vide, blanc, null, nombre : refusés");
-    check(isSignupOpen(), "liste renseignée : inscriptions ouvertes pour la liste");
     for (const [label, value] of [["vide", ""], ["espaces", "   "], ["virgules seules", " , ,, "], ["absente", undefined]]) {
       if (value === undefined) delete process.env.ALLOWED_SIGNUP_EMAILS;
       else process.env.ALLOWED_SIGNUP_EMAILS = value;
-      check(!isSignupAllowed(`alice-${run}@test.local`) && !isSignupOpen(), `variable ${label} : aucune inscription, fermé par défaut`);
+      check(!isSignupAllowed(`alice-${run}@test.local`) && allowedSignupEmails().size === 0, `variable ${label} : aucune inscription, fermé par défaut`);
     }
     process.env.ALLOWED_SIGNUP_EMAILS = LIST;
   }
@@ -151,9 +175,9 @@ async function main() {
     check(warns.length === 1, "un seul avertissement pour une même valeur de la variable");
     check(warns[0] && !warns[0].includes("secret-nom") && !warns[0].includes("nimportequoi"), "l'avertissement n'écrit aucune adresse");
     process.env.ALLOWED_SIGNUP_EMAILS = '"pas valide", ;;';
-    check(!isSignupOpen(), "isSignupOpen : aucune entrée valide = fermé");
+    check(allowedSignupEmails().size === 0, "aucune entrée valide = liste vide, fermé");
     process.env.ALLOWED_SIGNUP_EMAILS = '"pas valide", ok@test.local';
-    check(isSignupOpen(), "isSignupOpen : une entrée valide suffit");
+    check(allowedSignupEmails().size === 1 && isSignupAllowed("ok@test.local"), "une entrée valide suffit");
     process.env.ALLOWED_SIGNUP_EMAILS = LIST;
   }
 
@@ -364,6 +388,87 @@ async function main() {
     });
     check((await resetPassword(token, "nouveau-mdp-de-dora")) === "ok", "resetPassword : jeton d'une adresse à casse mixte accepté");
     check((await credentialsLogin(BASE_URL, mixed, "nouveau-mdp-de-dora"))?.id === dora.id, "le nouveau mot de passe fonctionne");
+  }
+
+  console.log("F2 : limiteur (IPv6 /64, éviction)");
+  {
+    const a = "2001:db8:1:2:aaaa:bbbb:cccc:dddd";
+    const b = "2001:DB8:1:2:1111:2222:3333:4444";
+    check(ipKey(a) === ipKey(b) && ipKey(a) === "2001:0db8:0001:0002::/64", `IPv6 : même /64 = même clé (${ipKey(a)})`);
+    check(ipKey("2001:db8:1:3::1") !== ipKey(a), "IPv6 : un autre /64 a sa propre clé");
+    check(ipKey("2001:db8::1") === "2001:0db8:0000:0000::/64" && ipKey("::1") === "0000:0000:0000:0000::/64", "IPv6 compressée (::) développée");
+    check(ipKey("[2001:db8:1:2::9]") === ipKey(a) && ipKey("fe80::1%eth0") === ipKey("fe80::2"), "crochets et zone retirés");
+    check(ipKey("::ffff:203.0.113.5") === "203.0.113.5" && ipKey("203.0.113.5") === "203.0.113.5", "IPv4 (et IPv4 mappée) : inchangée");
+    check(ipKey("n'importe quoi") === "n'importe quoi" && ipKey("1:2:3") === "1:2:3", "valeur illisible : telle quelle");
+    check(clientIp(new Headers({ "x-forwarded-for": "9.9.9.9, 2001:db8:1:2::5" })) === clientIp(new Headers({ "x-forwarded-for": "2001:db8:1:2:ffff::6" })), "clientIp : deux adresses d'un même /64, même seau");
+    const v6 = [];
+    for (let i = 0; i < 12; i++) v6.push((await post6(`2001:db8:77:5:${i + 1}::${i + 1}`)).status);
+    check(v6.slice(0, 10).every((st) => st === 403) && v6[10] === 429 && v6[11] === 429, `inscription : les adresses d'un même /64 partagent le seau (${v6.join(",")})`);
+
+    // Éviction : table pleine, les plus anciennes disparaissent, les récentes gardent leur compteur.
+    const T = 1_000_000_000_000;
+    const W = 1_000_000_000;
+    rateLimit("ev-cold", 1, W, T);
+    check(!rateLimit("ev-cold", 1, W, T), "ev-cold : bloquée avant la saturation");
+    for (let i = 0; i < MAX_KEYS; i++) rateLimit(`ev-fill-${i}`, 1, W, T);
+    rateLimit("ev-hot", 1, W, T);
+    check(!rateLimit("ev-hot", 1, W, T), "ev-hot : bloquée, insérée table pleine");
+    for (let i = 0; i < 200; i++) rateLimit(`ev-more-${i}`, 1, W, T);
+    check(!rateLimit("ev-hot", 1, W, T), "saturation : l'entrée récente garde son compteur (pas de clear())");
+    check(rateLimit("ev-cold", 1, W, T), "saturation : l'entrée la plus ancienne a été évincée");
+    // Compteur d'échecs de connexion.
+    for (let i = 0; i < 9; i++) rateLimitFail("lf", 1000, T);
+    const nine = rateLimitAllows("lf", 10, T);
+    rateLimitFail("lf", 1000, T);
+    check(nine && !rateLimitAllows("lf", 10, T) && rateLimitAllows("lf", 10, T + 1001), "échecs : bloqué au 10e, libéré à l'expiration de la fenêtre");
+  }
+
+  console.log("F2 : limite de débit sur la connexion par mot de passe");
+  {
+    const pw = (label) => `mdp-${label}-solide`;
+    const mk = async (label) => {
+      const address = `login-${label}-${run}@test.local`;
+      await prisma.user.create({ data: { name: label, email: address, password: hashPassword(pw(label)), consentedAt: new Date() } });
+      return address;
+    };
+
+    // Par e-mail : 10 échecs depuis 10 IP différentes bloquent la 11e tentative, même juste.
+    const victim = await mk("victime");
+    for (let i = 0; i < 10; i++) await loginAttempt(BASE_URL, victim, "mauvais", freshIp());
+    const blockedEmail = await loginAttempt(BASE_URL, victim, pw("victime"), freshIp());
+    check(!blockedEmail.session && blockedEmail.limited, "10 échecs sur une adresse : la 11e tentative est refusée (autre IP, bon mot de passe)");
+    const unknownBlocked = await loginAttempt(BASE_URL, `inconnu-${run}@test.local`, "x", freshIp());
+    check(!unknownBlocked.limited, "une adresse sans compte n'est pas bloquée tant que ses propres échecs sont peu nombreux");
+    for (let i = 0; i < 10; i++) await loginAttempt(BASE_URL, `fantome-${run}@test.local`, "x", freshIp());
+    const ghost = await loginAttempt(BASE_URL, `fantome-${run}@test.local`, "x", freshIp());
+    check(ghost.limited, "adresse inexistante après 10 échecs : même refus que pour un compte (pas d'énumération)")
+    check(ghost.url.split("error=")[1] === blockedEmail.url.split("error=")[1], "…avec exactement le même code d'erreur");
+
+    // Par IP : 10 échecs sur 10 adresses différentes bloquent cette IP.
+    const bystander = await mk("passant");
+    const ip = "203.0.113.50";
+    for (let i = 0; i < 10; i++) await loginAttempt(BASE_URL, `devine-${i}-${run}@test.local`, "x", ip);
+    const blockedIp = await loginAttempt(BASE_URL, bystander, pw("passant"), ip);
+    check(!blockedIp.session && blockedIp.limited, "10 échecs depuis une IP : elle est bloquée, même avec un bon mot de passe");
+    const otherIp = await loginAttempt(BASE_URL, bystander, pw("passant"), freshIp());
+    check(!!otherIp.session, "une autre IP n'est pas touchée");
+
+    // Non-régression : les connexions réussies ne comptent pas.
+    const regular = await mk("habituee");
+    const results = [];
+    for (let i = 0; i < 13; i++) results.push((await loginAttempt(BASE_URL, regular, pw("habituee"), "203.0.113.60")).session !== null);
+    check(results.every(Boolean), "un compte existant se connecte toujours : 13 connexions réussies d'affilée depuis la même IP");
+    await loginAttempt(BASE_URL, regular, "faute-de-frappe", "203.0.113.60");
+    check((await loginAttempt(BASE_URL, regular, pw("habituee"), "203.0.113.60")).session !== null, "une faute de frappe puis le bon mot de passe : connexion");
+    check((await loginAttempt(BASE_URL, existingOutsider, carolPassword, freshIp())).session !== null, "carol (hors liste) se connecte toujours");
+  }
+
+  console.log("F4 : /register?invite= jamais mis en cache");
+  {
+    const withInvite = await fetch(`${BASE_URL}/register?invite=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`);
+    check((withInvite.headers.get("cache-control") || "").includes("no-store"), `/register?invite= : Cache-Control no-store (${withInvite.headers.get("cache-control")})`);
+    const sw = (await import("node:fs")).readFileSync(new URL("../src/app/sw.ts", import.meta.url), "utf8");
+    check(/const isPage = [^\n]*startsWith\("\/register"\)/.test(sw), "service worker : /register exclu du cache de navigation");
   }
 
   console.log("Invariants");

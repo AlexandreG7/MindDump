@@ -53,11 +53,6 @@ export function allowedSignupEmails(): Set<string> {
   return emails;
 }
 
-/** Y a-t-il au moins une adresse valide dans la liste ? */
-export function isSignupOpen(): boolean {
-  return allowedSignupEmails().size > 0;
-}
-
 /** Cette adresse est-elle dans la liste blanche (création d'un NOUVEAU compte) ? */
 export function isSignupAllowed(email: unknown): boolean {
   const wanted = parseEmail(email);

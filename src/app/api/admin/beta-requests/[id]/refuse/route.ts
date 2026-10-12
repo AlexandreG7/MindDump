@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
+import { assertSameOrigin } from "@/lib/sameOrigin";
 import { refuseBetaRequest } from "@/lib/betaAccess";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/admin/beta-requests/:id/refuse : refuse et invalide les liens en cours.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const denied = assertSameOrigin(req);
+  if (denied) return denied;
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
   const result = await refuseBetaRequest(params.id);
