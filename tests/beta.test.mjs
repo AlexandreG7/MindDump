@@ -298,7 +298,7 @@ async function main() {
     const reuseOther = await register({ email: email("zoe2"), invite: zoeToken });
     check(reuseOther.status === 403 && !(await prisma.user.findUnique({ where: { email: email("zoe2") } })), "lien utilisé pour une autre adresse : refusé");
     const usedPage = await (await fetch(`${BASE_URL}/register?invite=${zoeToken}`)).text();
-    check(usedPage.includes("Lien d&#x27;invitation invalide") || usedPage.includes("invitation invalide"), "page d'un lien déjà utilisé : message clair");
+    check(usedPage.includes("Ce lien ne fonctionne plus"), "page d'un lien déjà utilisé : message clair");
     check(usedPage.includes('href="/register"') && usedPage.includes("Demander un accès"), "…avec un lien vers la demande d'accès");
     check((await api("POST", `/api/admin/beta-requests/${id}/invite`, adminCookie)).status === 409, "accepter une demande déjà inscrite : 409");
     check((await api("POST", `/api/admin/beta-requests/${id}/refuse`, adminCookie)).status === 409, "refuser une demande déjà inscrite : 409");
@@ -313,7 +313,7 @@ async function main() {
     const r = await register({ email: email("expire"), invite: expired.token });
     check(r.status === 403 && r.body?.error === INVITE_INVALID_MESSAGE && !(await prisma.user.findUnique({ where: { email: email("expire") } })), "lien expiré : refusé, rien créé");
     const expiredPage = await (await fetch(`${BASE_URL}/register?invite=${expired.token}`)).text();
-    check(expiredPage.includes("invitation invalide") && !expiredPage.includes("Créer mon compte"), "page d'un lien expiré : message clair, pas de formulaire");
+    check(expiredPage.includes("Ce lien ne fonctionne plus") && !expiredPage.includes("<form"), "page d'un lien expiré : message clair, pas de formulaire");
     const unknown = await register({ email: email("inconnu"), invite: randomBytes(32).toString("base64url") });
     check(unknown.status === 403 && !(await prisma.user.findUnique({ where: { email: email("inconnu") } })), "jeton inconnu : refusé");
     const junk = await register({ email: email("inconnu"), invite: "x'; DROP TABLE \"User\"; --" });
