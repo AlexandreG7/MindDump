@@ -1,3 +1,4 @@
+import { safeCallbackPath } from "./safeCallback";
 import { nativePlatform } from "./native";
 
 /**
@@ -119,7 +120,7 @@ export async function nativeSignIn(provider: string, callbackUrl = "/"): Promise
   if (!res.ok) throw new Error("La connexion a expiré, réessaie");
 
   // Seulement un chemin du site (jamais « //autre-site »).
-  return callbackUrl.startsWith("/") && !callbackUrl.startsWith("//") ? callbackUrl : "/";
+  return safeCallbackPath(callbackUrl);
 }
 
 export type LinkOutcome = { result: "linked" | "taken" | "error"; provider: string };

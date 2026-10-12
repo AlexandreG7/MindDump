@@ -31,6 +31,12 @@ interface GroupContextValue {
   /** Le groupe courant est connu : les pages peuvent charger leurs données. */
   ready: boolean;
   refresh: () => void;
+  /**
+   * Passe sur un groupe qu'on vient de rejoindre : le mémorise (par utilisateur, comme un choix
+   * manuel) puis relit la liste des groupes, pour que le foyer rejoint soit le groupe actif tout
+   * de suite, sur le web comme dans l'app.
+   */
+  activateGroup: (id: string) => Promise<void>;
 }
 
 const GroupContext = createContext<GroupContextValue>({
@@ -41,6 +47,7 @@ const GroupContext = createContext<GroupContextValue>({
   loading: false,
   ready: false,
   refresh: () => {},
+  activateGroup: async () => {},
 });
 
 // `currentGroupId` servait de clé brute, partagée par appareil, avant
@@ -214,11 +221,19 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const activateGroup = async (id: string) => {
+    // La première lecture est tranchée : une réponse plus ancienne que l'adhésion ne doit pas
+    // ramener au groupe par défaut.
+    firstLoad.current = false;
+    setCurrentGroupId(id);
+    await fetchGroups();
+  };
+
   const currentGroup = groups.find((g) => g.id === currentGroupId) ?? null;
 
   return (
     <GroupContext.Provider
-      value={{ groups, currentGroupId, currentGroup, setCurrentGroupId, loading, ready, refresh: fetchGroups }}
+      value={{ groups, currentGroupId, currentGroup, setCurrentGroupId, loading, ready, refresh: fetchGroups, activateGroup }}
     >
       {children}
     </GroupContext.Provider>

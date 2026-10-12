@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { sendNotificationEmail } from "@/lib/mail";
 import { siteUrl } from "@/lib/site";
+import { findUserByEmail } from "@/lib/email";
 
 /**
  * Mot de passe oublié.
@@ -34,10 +35,8 @@ export async function requestPasswordReset(rawEmail: string): Promise<void> {
   const email = rawEmail.trim();
   if (!email) return;
 
-  const user = await prisma.user.findFirst({
-    where: { email: { equals: email, mode: "insensitive" } },
-    select: { email: true, name: true },
-  });
+  // Même recherche que la connexion (src/lib/email.ts) : exacte, puis sans casse.
+  const user = await findUserByEmail(email);
   if (!user?.email) return;
 
   const recent = await prisma.verificationToken.findFirst({
@@ -92,7 +91,10 @@ export async function resetPassword(token: string, newPassword: string): Promise
     return "invalid";
   }
 
-  const user = await prisma.user.findUnique({ where: { email: stored.identifier }, select: { id: true } });
+  // `identifier` est l'adresse du compte telle qu'enregistrée : même recherche que
+  // l'envoi du lien (exacte, puis sans casse), pas un findUnique exact qui échouerait
+  // si la casse de l'adresse a été normalisée entre-temps.
+  const user = await findUserByEmail(stored.identifier);
   if (!user) {
     await prisma.verificationToken.deleteMany({ where: { identifier: stored.identifier } });
     return "invalid";

@@ -254,6 +254,13 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
 
     if (user.email) {
       await tx.verificationToken.deleteMany({ where: { identifier: user.email } });
+      // Bêta privée : demande d'accès et invitations de cette adresse (sans relation
+      // vers User, comme les jetons ci-dessus), quelle que soit la casse enregistrée.
+      const betaEmail = { equals: user.email, mode: "insensitive" as const };
+      await tx.signupInvite.deleteMany({ where: { email: betaEmail } });
+      await tx.betaAccessRequest.deleteMany({ where: { email: betaEmail } });
+      // Adresse autorisée à s'inscrire sans lien (gérée dans /admin) : retirée avec le compte.
+      await tx.allowedSignupEmail.deleteMany({ where: { email: betaEmail } });
     }
     // Sans relation vers User (voir schema.prisma) : à effacer explicitement.
     await tx.mobileDevice.deleteMany({ where: { userId } });

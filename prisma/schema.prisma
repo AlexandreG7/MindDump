@@ -94,6 +94,8 @@ model User {
   wallDevices           WallDevice[]
   mealPlanEntries       MealPlanEntry[]
   aiImports             AiImport[]
+  signupInvitesCreated  SignupInvite[]
+  allowedSignupEmailsAdded AllowedSignupEmail[]
   pushSubscriptions     PushSubscription[]
 
   @@index([createdAt])
@@ -279,6 +281,9 @@ model GroupInvite {
   token     String    @unique @default(cuid())
   expiresAt DateTime
   usedAt    DateTime?
+  // Posé quand ce lien a servi à créer UN compte (inscription par invitation de foyer,
+  // src/lib/groupInviteSignup.ts). N'affecte pas l'adhésion : `usedAt` reste celui du join.
+  signupClaimedAt DateTime?
 
   groupId String
   group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -617,4 +622,64 @@ model AiImport {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+// Bêta privée : demande d'accès déposée depuis /register (sans compte). Une seule
+// demande par adresse normalisée (src/lib/email.ts). Statuts : pending, invited,
+// registered, refused. Conservée pendant la bêta, effacée sur demande (src/lib/betaAccess.ts, docs/rgpd.md).
+model BetaAccessRequest {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String
+  message        String?
+  status         String    @default("pending")
+  // Preuve du consentement RGPD à la demande (la date est createdAt).
+  consentVersion String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  decidedAt      DateTime?
+
+  invites SignupInvite[]
+
+  @@index([status, createdAt])
+  @@index([updatedAt])
+}
+
+// Lien d'inscription à usage unique, lié à une adresse. Seule l'empreinte SHA-256 du
+// jeton est stockée (comme passwordReset.ts) : le lien n'est montré qu'à sa création.
+// Consommé de façon atomique à la création du compte (src/lib/signupInvite.ts).
+model SignupInvite {
+  id          String             @id @default(cuid())
+  tokenHash   String             @unique
+  email       String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  // Invalidé par la génération d'un nouveau lien ou par un refus.
+  revokedAt   DateTime?
+  createdAt   DateTime           @default(now())
+  createdById String?
+  createdBy   User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  requestId   String?
+  request     BetaAccessRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([requestId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+// Adresses qui peuvent créer leur compte directement sur /register?direct=1, sans lien
+// (bêta privée, gérées dans /admin ; src/lib/signupAllowlist.ts). Table vide au départ :
+// aucune adresse dans le code. `email` : forme normalisée (parseEmail), unique. Retirer une
+// adresse ne touche jamais à un compte existant (ADR 0001) ; supprimer un compte retire
+// son adresse (src/lib/account.ts).
+model AllowedSignupEmail {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  note        String?
+  createdAt   DateTime @default(now())
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
 }

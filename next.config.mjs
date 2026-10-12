@@ -65,6 +65,12 @@ const nextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // Page d'inscription par lien : le jeton est dans l'URL, la réponse ne se met en cache nulle part.
+      {
+        source: "/register",
+        has: [{ type: "query", key: "invite" }],
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
       // Page de confirmation de liaison (ticket dans l'URL) : aucun Referer vers un autre site.
       // « same-origin » et non « no-referrer » : avec ce dernier, le navigateur envoie
       // « Origin: null » sur le POST du formulaire, que la route refuse (vérifié sur iOS).

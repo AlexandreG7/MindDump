@@ -1,7 +1,9 @@
 import NextAuth from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { CHALLENGE_COOKIE } from "@/lib/mobileAuth";
-import { authOptions } from "@/lib/auth";
+import { authOptions, authOptionsWithInvite } from "@/lib/auth";
+import { INVITE_COOKIE, clearInviteCookieHeader } from "@/lib/signupInvite";
+import { GROUP_INVITE_COOKIE, clearGroupInviteCookieHeader } from "@/lib/groupInviteSignup";
 import {
   LINK_COOKIE,
   callbackMatchesIntent,
@@ -70,10 +72,21 @@ async function handler(req: NextRequest, context: Context) {
   // normalement, et le cookie est effacé en fin de callback (plus bas).
   const mobileIntent = !!intent?.ticketId;
 
+  // Invitation d'inscription (posée avant Google/Apple depuis /register?invite=) :
+  // seulement lue sur le callback d'un fournisseur ; elle ne permet de créer un compte
+  // que pour l'adresse invitée (src/lib/signupInvite.ts).
+  const inviteToken = req.cookies.get(INVITE_COOKIE.name)?.value;
+  // Idem pour un lien de foyer (/groups/join/…), cookie posé depuis /register?groupInvite=.
+  const groupInviteToken = req.cookies.get(GROUP_INVITE_COOKIE.name)?.value;
+  const baseOptions =
+    action === "callback" && (inviteToken || groupInviteToken)
+      ? authOptionsWithInvite(inviteToken, groupInviteToken)
+      : authOptions;
+
   let response: Response = await NextAuth(
     req,
     context,
-    intentMatches && intent ? linkAuthOptions(authOptions, intent) : authOptions
+    intentMatches && intent ? linkAuthOptions(baseOptions, intent) : baseOptions
   );
 
   if (mobileIntent && intentMatches) {
@@ -89,6 +102,13 @@ async function handler(req: NextRequest, context: Context) {
   // servi ou non, et ne survit pas à une déconnexion.
   if (hasIntentCookie && (action === "callback" || action === "signout")) {
     response.headers.append("Set-Cookie", clearLinkCookieHeader);
+  }
+  // L'invitation ne sert qu'à une tentative : effacée au retour du fournisseur.
+  if (inviteToken && (action === "callback" || action === "signout")) {
+    response.headers.append("Set-Cookie", clearInviteCookieHeader);
+  }
+  if (groupInviteToken && (action === "callback" || action === "signout")) {
+    response.headers.append("Set-Cookie", clearGroupInviteCookieHeader);
   }
   return response;
 }

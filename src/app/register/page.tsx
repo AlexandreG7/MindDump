@@ -1,196 +1,73 @@
-"use client";
-
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { OAuthButtons } from "@/components/OAuthButtons";
-import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { INVITE_INVALID_MESSAGE, findValidInvite } from "@/lib/signupInvite";
+import { GROUP_INVITE_INVALID_MESSAGE, findSignupGroupInvite, isSignupGroupInviteToken } from "@/lib/groupInviteSignup";
+import { Link as LinkIcon } from "lucide-react";
+import { BetaShell } from "./BetaShell";
+import { RegisterForm } from "./RegisterForm";
+import { RequestAccessForm } from "./RequestAccessForm";
 
-export default function RegisterPage() {
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [consent, setConsent] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+// Le jeton d'invitation est vérifié à chaque affichage : pas de rendu figé au build.
+export const dynamic = "force-dynamic";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: { invite?: string | string[]; groupInvite?: string | string[]; direct?: string | string[] };
+}) {
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const token = first(searchParams.invite);
+  const groupToken = first(searchParams.groupInvite);
 
-    if (password !== confirm) {
-      setError("Les mots de passe ne correspondent pas.");
-      return;
+  // Lien d'invitation de foyer (/groups/join/…) : il ouvre aussi l'inscription, puis ramène au groupe.
+  if (token === undefined && groupToken !== undefined) {
+    const group = await findSignupGroupInvite(groupToken);
+    if (group && isSignupGroupInviteToken(groupToken)) {
+      return <RegisterForm groupInviteToken={groupToken} groupName={group.groupName} inviteEmail={group.email} />;
     }
-    if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères.");
-      return;
-    }
-    if (!consent) {
-      setError("Tu dois accepter la politique de confidentialité pour créer un compte.");
-      return;
-    }
+    return <InvalidLink message={GROUP_INVITE_INVALID_MESSAGE} />;
+  }
 
-    setLoading(true);
+  // Sans jeton : inscription directe pour une adresse autorisée par l'administrateur
+  // (?direct=1, sans rien révéler sur la liste : le serveur tranche à l'envoi), sinon demande d'accès.
+  if (token === undefined) {
+    if (first(searchParams.direct) === "1") return <RegisterForm inviteEmail={null} direct />;
+    return <RequestAccessForm />;
+  }
 
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, consent }),
-    });
+  // Avec jeton : inscription, e-mail verrouillé sur l'adresse invitée.
+  const invite = await findValidInvite(token);
+  if (invite) return <RegisterForm inviteToken={token} inviteEmail={invite.email} />;
 
-    const data = await res.json();
+  return <InvalidLink message={INVITE_INVALID_MESSAGE} />;
+}
 
-    if (!res.ok) {
-      setError(data.error || "Une erreur est survenue.");
-      setLoading(false);
-      return;
-    }
-
-    // Connexion automatique après inscription
-    await signIn("credentials", { email, password, redirect: false });
-    router.push("/");
-    router.refresh();
-  };
-
+function InvalidLink({ message }: { message: string }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-8">
-        {/* Logo */}
-        <div className="text-center space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">MindDump</h1>
-          <p className="text-muted-foreground text-sm">Vide ta charge mentale</p>
-        </div>
-
-        {/* Card */}
-        <div className="bg-card rounded-2xl border border-border shadow-sm p-8 space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold">Créer un compte</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Déjà un compte ?{" "}
-              <Link href="/login" className="text-primary font-medium hover:underline">
-                Se connecter
-              </Link>
-            </p>
-          </div>
-
-          {/* Un compte créé via Google ou Apple passe ensuite par /consentement. */}
-          <OAuthButtons callbackUrl="/" label="S'inscrire avec" />
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Prénom</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Alex"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoComplete="given-name"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="prenom@exemple.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Mot de passe</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="8 caractères minimum"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                  className="pr-10"
-                />
-                <button aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="confirm">Confirmer le mot de passe</Label>
-              <Input
-                id="confirm"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
-            </div>
-
-            <div className="flex items-start gap-2.5 pt-1">
-              <Checkbox
-                id="consent"
-                checked={consent}
-                onCheckedChange={(v) => setConsent(v === true)}
-                className="mt-0.5"
-                aria-required="true"
-              />
-              <Label htmlFor="consent" className="text-sm font-normal leading-snug text-muted-foreground">
-                J&apos;accepte la{" "}
-                <Link
-                  href="/confidentialite"
-                  target="_blank"
-                  className="text-primary font-medium hover:underline"
-                >
-                  politique de confidentialité
-                </Link>{" "}
-                et le traitement de mes données pour le fonctionnement de MindDump.
-              </Label>
-            </div>
-
-            {error && (
-              <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
-                {error}
-              </p>
-            )}
-
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Création…
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <UserPlus className="h-4 w-4" />
-                  Créer mon compte
-                </span>
-              )}
-            </Button>
-          </form>
+    <BetaShell className="max-w-lg">
+      <div
+        className="beta-rise rounded-3xl border border-border bg-card p-6 text-center shadow-[0_1px_2px_hsl(var(--foreground)/0.04),0_12px_32px_-12px_hsl(var(--foreground)/0.18)] sm:p-9"
+        role="alert"
+      >
+        <span className="beta-pop mx-auto grid h-14 w-14 place-items-center rounded-full bg-muted text-muted-foreground">
+          <LinkIcon className="h-6 w-6" aria-hidden="true" />
+        </span>
+        <h1 className="mt-5 text-2xl font-extrabold tracking-tight">Ce lien ne fonctionne plus</h1>
+        <p className="mx-auto mt-2 max-w-xs text-pretty text-sm text-muted-foreground">{message}</p>
+        <div className="mt-6 flex flex-col gap-2">
+          <Link
+            href="/register"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            Demander un nouvel accès
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg px-5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Déjà un compte ? Se connecter
+          </Link>
         </div>
       </div>
-    </div>
+    </BetaShell>
   );
 }

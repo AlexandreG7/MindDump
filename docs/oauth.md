@@ -18,6 +18,181 @@ section « Connexion » du profil, n'affichent que les fournisseurs actifs.
   fournisseur). À la déliaison et à la suppression du compte, les jetons Apple sont révoqués.
 - Clés API : elles ne peuvent ni lister, ni lier, ni délier les moyens de connexion.
 
+## Bêta privée : inscriptions sur invitation
+
+MindDump est en bêta privée. **Fermé par défaut** : un compte ne peut être créé que si l'adresse est
+dans la table `AllowedSignupEmail` (gérée dans `/admin`), **ou** si une invitation bêta valide la vise,
+**ou** si une invitation de foyer valide l'autorise. Les trois voies passent par
+`createUserWithGrant` (`src/lib/signupInvite.ts`), seul chemin de création d'un utilisateur.
+
+### Parcours
+
+1. `/register` (sans jeton) : « Demander un accès à la bêta » (e-mail, prénom, message de 500
+   caractères au plus, consentement). `POST /api/beta-requests` répond **toujours** « Merci, on revient
+   vers toi » : adresse déjà inscrite, déjà demandée, déjà invitée ou nouvelle (aucune énumération des
+   comptes). Les doublons sont fusionnés (une demande par adresse normalisée). Seules la saisie
+   invalide (400) et la limite de débit (429) se distinguent.
+2. `/admin`, onglet « Demandes d'accès » (`src/app/admin/BetaRequestsPanel.tsx`) : liste (e-mail, prénom,
+   message, date, statut : en attente, invitée, inscrite, refusée), « Accepter », « Régénérer le
+   lien », « Refuser », et « Créer un lien pour un e-mail » (sans demande préalable). Routes
+   `/api/admin/beta-requests`, `/api/admin/signup-invites` : `requireAdmin()` (401 / 403).
+3. « Accepter » crée un **lien à usage unique**, lié à l'adresse, valable **14 jours**, affiché une
+   seule fois avec « Copier ». Alexandre le transmet lui-même. Il n'y a pas d'envoi d'e-mail.
+   En stock : seule l'empreinte SHA-256 du jeton (32 octets aléatoires, base64url), comme
+   `passwordReset.ts`. Générer un nouveau lien pour la même adresse, ou refuser, **invalide** les
+   précédents.
+4. `/register?invite=<jeton>` : jeton valide = formulaire d'inscription, e-mail pré-rempli et
+   verrouillé ; invalide, expiré, utilisé ou remplacé = message clair et lien vers la demande d'accès.
+5. Le jeton est **consommé dans la transaction de création du compte** (`updateMany` conditionnel sur
+   jeton + adresse + non utilisé + non révoqué + non expiré, et verrou `pg_advisory_xact_lock` sur
+   l'adresse) : deux inscriptions simultanées, un seul compte.
+
+### Google / Apple avec un lien
+
+Avant de lancer le fournisseur, `POST /api/signup-invite` valide le jeton et le pose dans un cookie
+**httpOnly** de 15 minutes (`minddump.signup-invite`, limité à `/api/auth`, `SameSite=None; Secure` en
+HTTPS comme `oauthCookies` pour survivre au `form_post` d'Apple). Sur le callback, la route
+`[...nextauth]` construit les options avec `authOptionsWithInvite(jeton)` et efface le cookie. Le
+callback `signIn` autorise une **création** seulement si :
+
+- l'e-mail du fournisseur est **vérifié** (`email_verified === true` ou `"true"`, sinon refus) ;
+- ET il est dans la table `AllowedSignupEmail` (lecture en base), OU il correspond (normalisé) à l'invitation du cookie.
+
+E-mail du fournisseur différent de l'invitation : `/login?error=InviteEmailMismatch`, « Utilise
+l'adresse à laquelle tu as été invité ». Sans cookie : `/login?error=SignupClosed`. Un compte
+existant (même adresse sans tenir compte de la casse) n'est jamais concerné : connexion habituelle
+ou refus « compte existant ». Le filet `createUser` de l'adaptateur refuse tout ce que le callback
+n'a pas autorisé et consomme l'invitation.
+
+### Invitation de foyer : le lien de groupe ouvre aussi l'inscription
+
+Un lien `/groups/join/<jeton>` (`GroupInvite`, valable 7 jours, créé par un admin ou le propriétaire
+du groupe) sert à rejoindre le foyer ; **nominatif** (avec l'e-mail de la personne), il donne aussi le
+droit de créer UN compte, puis ramène au groupe (`src/lib/groupInviteSignup.ts`).
+
+- **Seul un lien nominatif permet de s'inscrire**, et seulement pour son adresse (normalisée, sans
+  tenir compte de la casse). Un lien **ouvert** (`email` vide) ne sert qu'à rejoindre le foyer avec un
+  compte existant : il ne donne aucun droit d'inscription (`findSignupGroupInvite` et le `updateMany`
+  de `createUserWithGrant` exigent `email`). Un lien qui fuite ne peut donc pas ouvrir la bêta à un
+  inconnu : c'est l'invitant qui fixe l'adresse.
+- Jetons : l'inscription n'accepte que les jetons de **32 caractères** (`randomBytes(24)`,
+  `isSignupGroupInviteToken`). Les anciens (cuid, 25 caractères) restent valables pour **rejoindre**
+  seulement (`isGroupInviteToken`).
+- Création (`POST /api/groups/[id]/invite`) : même origine exigée, `email` facultatif validé par
+  `parseEmail`, **5 liens en attente au plus par groupe** (non utilisés, non expirés ; 409 au-delà,
+  plafond tenu sous un verrou consultatif par groupe), 20 créations par heure et par utilisateur.
+  Révocation : `DELETE /api/groups/[id]/invite/[inviteId]` (libère une place). Le `GET` ne renvoie
+  `token` et `joinUrl` qu'au propriétaire ou à un admin.
+- Règle d'inscription : lien non expiré, pas encore utilisé pour rejoindre, **une seule inscription par
+  lien** (`GroupInvite.signupClaimedAt`, posé par un `updateMany` conditionnel dans la transaction de
+  `createUserWithGrant`, sous le même verrou consultatif par adresse).
+  Limites de débit : `/api/auth/register` (10 essais / 15 min / IP), `/api/signup-invite` (30), et
+  `GET /api/groups/join/[token]` (60).
+- Rejoindre (`POST /api/groups/join/[token]`) : un lien nominatif n'est pris que par le compte de son
+  adresse ; sinon 403 « Cette invitation est destinée à une autre adresse », sans consommer le lien.
+  Après un join réussi, le client rend le foyer actif (`GroupContext.activateGroup`).
+- Parcours : lien sans session → la page du groupe propose « Se connecter » (`/login?callbackUrl=`)
+  et, **si le lien est nominatif**, « Créer mon compte » (`/register?groupInvite=<jeton>`) ; un lien
+  ouvert renvoie vers une demande d'accès. Après l'inscription (mot de passe : connexion automatique ;
+  Google/Apple : `callbackUrl` du fournisseur), retour sur `/groups/join/<jeton>` et adhésion par le
+  bouton habituel.
+- **Risque résiduel (B4)** : l'adresse n'est pas prouvée par un e-mail de vérification (compte créé
+  avec `emailVerified` posé à l'inscription, comme pour les autres voies par mot de passe). Le lien
+  nominatif le réduit, puisque l'adresse est choisie par l'invitant et non par l'inscrit ; il reste
+  qu'une personne qui intercepte le lien peut créer le compte de cette adresse avant son titulaire,
+  et qu'un invitant peut saisir l'adresse d'un tiers. `emailVerified` n'est volontairement pas
+  modifié ici.
+- Google/Apple : même mécanique que le lien bêta, avec son propre cookie httpOnly de 15 minutes
+  (`minddump.signup-group-invite`, posé par `POST /api/signup-invite` avec `{ groupInvite }`, lu
+  uniquement sur le callback). Comme pour le lien bêta, dans l'app native : mot de passe seulement.
+- `callbackUrl` : chemin interne uniquement (`src/lib/safeCallback.ts` : refuse `//`, `\`, tabulation
+  ou retour à la ligne, et toute URL qui change d'origine).
+- ADR 0001 : l'inscription ne touche à aucun élément existant ; l'adhésion suit le flux existant
+  (mêmes règles de rôle et de visibilité). Test : `tests/group-invite.test.mjs` (dans `test:signup`)
+  et la section 10 de `tests/ownership.test.mjs`.
+
+### Circuit mobile
+
+`/api/mobile-auth/*` ne crée aucun utilisateur : il passe par NextAuth, dans le **navigateur
+système**, dont les cookies ne sont pas ceux de la WebView de l'app. Le cookie d'invitation posé
+depuis la WebView n'y serait pas, et faire transiter le jeton par l'URL de `start` l'exposerait
+davantage. Choix : **pas d'inscription Google/Apple depuis l'app avec un lien**. Dans l'app, sur
+`/register?invite=`, les boutons Google/Apple sont remplacés par une explication ; l'inscription par
+mot de passe fonctionne dans l'app. Parcours conseillé pour Google/Apple : ouvrir le lien dans le
+navigateur du téléphone, créer le compte, puis se connecter dans l'app (connexion d'un compte
+existant : inchangée).
+
+### Adresses autorisées (`AllowedSignupEmail`, gérées dans `/admin`)
+
+Table `AllowedSignupEmail` (`email` normalisé et unique, `createdAt`, `createdById` en `SET NULL`,
+note facultative), **à un seul endroit** : la variable d'environnement `ALLOWED_SIGNUP_EMAILS` n'existe
+plus et n'est plus lue. La table démarre **vide** (aucune adresse dans le code) : l'administrateur
+ajoute les adresses depuis `/admin`, onglet « Demandes d'accès », section « Adresses autorisées »
+(`GET/POST /api/admin/allowed-emails`, `DELETE /api/admin/allowed-emails/:id` ; `requireAdmin()` et
+contrôle d'origine ; 400 adresse invalide, 409 déjà présente). Normalisation `parseEmail` (casse et
+espaces ignorés, ASCII strict : le signe Kelvin est refusé à l'ajout). Logique :
+`src/lib/signupAllowlist.ts`, e-mails : `src/lib/email.ts`.
+
+- **Inscription directe** : `/register` (sans jeton) reste la demande d'accès ; le lien « Tu es déjà
+  autorisé·e ? Crée ton compte » mène à `/register?direct=1` (formulaire d'inscription sans jeton, avec
+  Google/Apple). La page ne dit rien de la liste : c'est l'envoi qui tranche. Toute adresse non
+  autorisée reçoit le **même 403 générique** que sans la liste (`Les inscriptions sont fermées…`), compte
+  existant ou non ; seule une adresse autorisée dont le compte existe déjà reçoit le 409.
+- **Contrôle** : la route d'inscription et le callback `signIn` lisent la table ; `createUserWithGrant`
+  la relit **sous le verrou d'adresse**, dans la même transaction que la création (un retrait simultané
+  est tranché avant ou après, jamais entre les deux). L'ajout et le retrait prennent le même verrou.
+- **ADR 0001** : retirer une adresse ne touche jamais à un compte existant (connexion, éléments, groupes
+  inchangés). À la suppression d'un compte, son adresse est retirée de la table (RGPD, `src/lib/account.ts`).
+- **Déploiement** : la migration ne remplit rien. Après le déploiement, ajouter les adresses voulues
+  dans `/admin` ; tant qu'elles n'y sont pas, seules les invitations ouvrent l'inscription, et
+  l'ancienne variable d'environnement (Coolify) peut être supprimée : elle est ignorée.
+
+**Risque restant** : sans jeton, l'inscription par **mot de passe** d'une adresse autorisée ne
+prouve pas que l'on possède cette boîte mail (`emailVerified` est posé sans envoi de message). Qui
+connaît une adresse de la liste peut créer le compte avant son titulaire. Atténuation : liste
+courte et secrète, limite de débit sur `/api/auth/register`. Pour tout autre invité, c'est le lien qui
+prouve que la personne a été choisie. Google/Apple exigent, eux, un e-mail vérifié.
+
+### Adresses e-mail
+
+Une seule normalisation (`trim`, NFKC, minuscules), adresses ASCII strictes seulement (le signe
+Kelvin « K », que NFKC replierait sur « K », est refusé). Les **nouveaux** comptes sont stockés en
+minuscules. Les comptes existants à casse mixte ne sont pas réécrits : `authorize` cherche l'adresse
+exacte, puis sans tenir compte de la casse si le résultat est unique (deux comptes qui ne diffèrent
+que par la casse et aucune correspondance exacte : refus, on ne devine pas). L'inscription, le
+callback `signIn`, `getUserByEmail` de l'adaptateur et le mot de passe oublié font la même recherche.
+
+### Limite de débit
+
+`src/lib/rateLimit.ts`, **en mémoire** : 10 essais / 15 min / IP sur `/api/auth/register`, 5 demandes /
+heure / IP **et 60 / heure toutes IP confondues** sur `/api/beta-requests` (plafond de 1 000 demandes en
+attente : au-delà, réponse « ok » sans stockage, avertissement dans les journaux sans l'adresse,
+corps refusé au-delà de 8 Ko : 413), 30 essais / 15 min / IP sur `/api/signup-invite` (JSON exigé,
+415 sinon). **Connexion par mot de passe** (`authorize`) : 10 ÉCHECS / 15 min par IP et 10 par e-mail
+normalisé, message « Trop de tentatives » identique que le compte existe ou non ; un succès remet
+le compteur de l'adresse à zéro, donc un compte existant se connecte toujours. Limite assumée :
+saturer volontairement le compteur d'une adresse gêne son titulaire jusqu'à 15 minutes. Les IPv6 sont
+regroupées par préfixe /64 ; table pleine (10 000 clés), les plus anciennes entrées sont évincées
+(jamais de remise à zéro générale). Les POST sensibles (`/api/beta-requests`, `/api/signup-invite`,
+`/api/admin/*` de la bêta) refusent en 403 un en-tête `Origin` présent et différent du site
+(`assertSameOrigin`, `src/lib/sameOrigin.ts`, origine de `NEXTAUTH_URL`). `/register?invite=` est servi
+en `Cache-Control: no-store` et `/register` est exclu du cache du service worker. Une seule
+instance (Coolify) : exact, mais remis à zéro à chaque déploiement, non partagé entre instances, et
+sans effet contre un attaquant qui change d'IP. L'IP est la **dernière** entrée de `X-Forwarded-For`
+(celle que le proxy ajoute ; les précédentes sont inventées par le client). Si plusieurs proxys sont
+chaînés devant l'app, tous les visiteurs partageraient un seau : à revoir.
+
+Correction d'une affirmation erronée de la version précédente (« pas d'énumération ») : contrôler la
+liste avant de lire la base ne protège que les adresses **hors** liste ; pour une adresse de la liste
+ou invitée, le 409 « Un compte existe déjà » révèle qu'elle est inscrite, et la liste elle-même
+peut être sondée par essais. C'est la limite de débit qui freine l'essai en masse.
+
+Hors périmètre, volontairement : la connexion d'un compte existant (mot de passe, OAuth déjà lié),
+la liaison d'un fournisseur depuis le profil ou l'app (`linkAuthOptions` ne crée personne), les
+adhésion à un groupe (compte connecté ; l'inscription par lien de foyer est décrite plus haut) et les profils du foyer (sans compte).
+Test : `npm run test:signup` (enchaîne `tests/signup.test.mjs`, `tests/beta.test.mjs` et `tests/group-invite.test.mjs`, bloquant au
+déploiement).
+
 ## Pourquoi un « cookie d'intention » pour lier
 
 Apple revient sur le callback par un **POST cross-site** (`response_mode=form_post`). Le cookie de

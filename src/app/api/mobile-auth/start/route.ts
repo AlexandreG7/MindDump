@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OAUTH_PROVIDER_NAMES, enabledOAuthProviderIds } from "@/lib/authProviders";
 import { CHALLENGE_COOKIE, MOBILE_REDIRECT, isChallenge } from "@/lib/mobileAuth";
+import { siteOrigin } from "@/lib/sameOrigin";
 import { cancelLinkTicket, peekLinkTicket, startLinkFlow } from "@/lib/mobileLink";
 import {
   CONFIRM_COOKIE,
@@ -23,15 +24,6 @@ import {
  */
 const plainError = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const EXPIRED = "Lien expiré ou déjà utilisé : relance la liaison depuis l'app.";
-
-/** Origine attendue d'un POST : celle du site (NEXTAUTH_URL), pas celle déduite de la requête. */
-const siteOrigin = (req: NextRequest) => {
-  try {
-    return new URL(process.env.NEXTAUTH_URL || req.nextUrl.origin).origin;
-  } catch {
-    return req.nextUrl.origin;
-  }
-};
 
 /**
  * Ouvert par l'app dans le navigateur système (voir src/lib/mobileAuth.ts) :

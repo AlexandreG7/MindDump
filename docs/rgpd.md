@@ -24,6 +24,48 @@
   pour rester lisible hors ligne ; il est effacé quand le lien est révoqué.
 - **Disposition de l'accueil** (`User.dashboardLayout`, `src/lib/dashboardLayout.ts`) : modules affichés,
   ordre et largeur. Simple préférence d'interface, incluse dans l'export, supprimée avec le compte.
+- **Demandes d'accès à la bêta** (`BetaAccessRequest`, `SignupInvite`, `src/lib/betaAccess.ts`,
+  `src/lib/signupInvite.ts`) : formulaire public de `/register`. Données : e-mail (normalisé),
+  prénom, message facultatif de 500 caractères, version du texte de confidentialité acceptée (la date
+  du consentement est `createdAt`), statut. **Finalité** : répondre à la demande et décider d'inviter
+  la personne. **Base légale** : mesures précontractuelles prises à la demande de la personne (art. 6.1.b) ; la case à cocher du formulaire (obligatoire, vérifiée côté serveur) atteste qu'elle a pris connaissance de la politique de confidentialité. Les
+  invitations ne stockent que l'empreinte SHA-256 du jeton, l'adresse invitée et les dates (14 jours,
+  usage unique). **Conservation : la durée de la bêta, au plus tard jusqu'au 31/12/2027** (date butoir publiée dans `/confidentialite`, décidée par Alexandre le 12/10/2026).
+  Aucune suppression automatique : décision de l'éditeur, qui ne veut effacer aucune donnée sans
+  demande. À la fin de la bêta, l'administrateur décide et efface à la main les demandes et liens restants
+  (corbeille de `/admin`, demande par demande). *Point
+  RGPD (art. 5.1.e)* : une durée de conservation doit être définie ; « la durée de la bêta » est la
+  durée retenue par Alexandre. Elle suppose une fin annoncée : si la bêta se prolongeait sans terme,
+  fixer une date butoir et la publier dans `/confidentialite`. Les demandes ne sont plus purgées à
+  l'ouverture de l'onglet admin (l'ancienne purge à 6 mois est supprimée). File d'attente plafonnée à
+  1 000 demandes en attente. La suppression d'un compte efface la demande et les invitations de son
+  adresse (`src/lib/account.ts`). Visibles des seuls administrateurs. Non incluses dans l'export du
+  compte : elles concernent des personnes sans compte, et celles d'un compte sont supprimées avec lui.
+  Les invitations de foyer (`GroupInvite`, lien de groupe qui ouvre aussi l'inscription, voir
+  `docs/oauth.md`) ne stockent qu'une adresse facultative, un jeton et des dates ; elles suivent le
+  groupe (supprimées avec lui) et `signupClaimedAt` ne contient aucune donnée personnelle.
+  **Effacement sur demande** : suppression dans un délai d'**1 mois**. Procédure : *demande reçue à
+  l'adresse de contact → bouton « Supprimer » (corbeille) sur la demande dans `/admin`, onglet
+  « Demandes d'accès » → répondre à la personne*. Le bouton (`DELETE /api/admin/beta-requests/:id`,
+  `deleteBetaRequest`) efface, dans une transaction, la demande (quel que soit son statut) et ses
+  invitations (par demande et par adresse) ; il ne touche jamais à un compte existant. Pour une
+  personne qui n'a eu qu'un lien direct (« Créer un lien pour un e-mail », sans demande) : corbeille
+  dans « Liens directs » du même onglet (`DELETE /api/admin/signup-invites/:id`, efface tous les liens
+  directs de l'adresse). La section « Si tu demandes un accès à la bêta, sans compte » de
+  `/confidentialite` informe ces personnes ; elle ne change rien pour les comptes existants
+  (`CONSENT_VERSION` inchangée, sinon tout le monde repasserait par `/consentement`).
+- **Adresses autorisées à s'inscrire sans lien** (`AllowedSignupEmail`, `src/lib/signupAllowlist.ts`,
+  `/admin` section « Adresses autorisées »). Données : e-mail (normalisé), note facultative de
+  120 caractères, date d'ajout et administrateur qui l'a ajoutée (`createdById`, mis à `NULL` si ce compte
+  est supprimé). Ajoutées **à la main par l'administrateur** pour des personnes qu'il connaît ; la
+  personne ne saisit rien. **Finalité** : lui permettre de créer son compte sans lien d'invitation.
+  **Base légale** : intérêt légitime de l'éditeur à gérer l'accès à une bêta privée (art. 6.1.f) ; la
+  personne est informée quand elle crée son compte (case de consentement à la politique de
+  confidentialité). **Conservation : la durée de la bêta, au plus tard jusqu'au 31/12/2027**, comme les demandes d'accès. La suppression
+  d'un compte retire son adresse de la table (`src/lib/account.ts`). **Effacement sur demande** : corbeille
+  de la ligne dans `/admin` (`DELETE /api/admin/allowed-emails/:id`), qui ne touche jamais à un compte.
+  Visible des seuls administrateurs ; non incluse dans l'export du compte (c'est l'adresse du compte
+  lui-même, déjà exportée).
 - **Mot de passe oublié** (`src/lib/passwordReset.ts`) : table `VerificationToken` de NextAuth,
   `identifier` = adresse du compte, `token` = empreinte SHA-256 du jeton envoyé par e-mail (jamais le
   jeton lui-même). Valable une heure, à usage unique, un seul lien actif, un envoi au plus toutes les

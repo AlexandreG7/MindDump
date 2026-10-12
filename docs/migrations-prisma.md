@@ -83,3 +83,23 @@ dans un déploiement ultérieur.
 DATABASE_URL="postgresql://minddump:minddump@localhost:5432/minddump?schema=public" \
   npx prisma migrate dev --name <nom>
 ```
+
+## Adresses e-mail et casse : index unique sur `lower(email)` (à faire plus tard)
+
+`User.email` est unique **sensible à la casse**. Les nouveaux comptes sont stockés en minuscules et
+la création est sérialisée par un verrou (`pg_advisory_xact_lock`, `src/lib/signupInvite.ts`), mais
+la base n'interdit pas deux adresses qui ne diffèrent que par la casse. Un index unique sur
+`lower(email)` n'est **pas** ajouté par la migration `20261011120000_beta_access` : il échouerait
+(et empêcherait l'app de démarrer) s'il existe déjà un doublon, et Prisma ne sait pas exprimer un
+index fonctionnel (il apparaîtrait comme un écart au prochain `migrate diff`). Marche à suivre :
+
+```sql
+-- 1. Détecter les doublons (à lancer sur la base de production, lecture seule)
+SELECT lower(email) AS email, count(*), array_agg(id) AS ids
+FROM "User" WHERE email IS NOT NULL
+GROUP BY lower(email) HAVING count(*) > 1;
+-- 2. S'il n'y en a aucun : migration SQL manuelle (--create-only)
+CREATE UNIQUE INDEX "User_email_lower_key" ON "User" (lower(email));
+```
+
+S'il y en a, les fusionner à la main d'abord (ADR 0001 : ne supprimer aucun élément de personne).

@@ -1,0 +1,80 @@
+/* Pages d'accès à la bêta (/register) : fond doux et entrées légères.
+   Tout est en transform/opacity, coupé sous prefers-reduced-motion. */
+.beta-page { isolation: isolate; }
+.beta-mesh {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.beta-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  will-change: transform;
+}
+.beta-blob-a {
+  width: 28rem;
+  height: 28rem;
+  top: -9rem;
+  left: -8rem;
+  background: hsl(var(--primary) / 0.28);
+  animation: beta-drift 22s ease-in-out infinite alternate;
+}
+.beta-blob-b {
+  width: 24rem;
+  height: 24rem;
+  bottom: -10rem;
+  right: -6rem;
+  background: hsl(var(--primary) / 0.16);
+  animation: beta-drift 28s ease-in-out infinite alternate-reverse;
+}
+.dark .beta-blob-a { background: hsl(var(--primary) / 0.16); }
+.dark .beta-blob-b { background: hsl(var(--primary) / 0.1); }
+@keyframes beta-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(3rem, 2rem, 0) scale(1.08); }
+}
+
+/* Surlignage « marqueur » sous le mot fort du titre (pas de texte orange : contraste). */
+.beta-mark {
+  background-image: linear-gradient(transparent 62%, hsl(var(--primary) / 0.5) 62%, hsl(var(--primary) / 0.5) 92%, transparent 92%);
+  background-repeat: no-repeat;
+  background-size: 0% 100%;
+  animation: beta-mark 0.7s 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  padding: 0 0.1em;
+  margin: 0 -0.1em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+@keyframes beta-mark { to { background-size: 100% 100%; } }
+
+.beta-rise {
+  animation: beta-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes beta-rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+.beta-pop {
+  animation: beta-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes beta-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+.beta-tick path {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: beta-tick 0.45s 0.3s ease-out forwards;
+}
+@keyframes beta-tick { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .beta-blob, .beta-rise, .beta-pop { animation: none; }
+  .beta-mark { animation: none; background-size: 100% 100%; }
+  .beta-tick path { animation: none; stroke-dashoffset: 0; }
+}

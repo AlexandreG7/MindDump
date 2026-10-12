@@ -9,6 +9,8 @@ import {
   getAdminUsers,
   parseUsersQuery,
 } from "@/lib/adminStats";
+import { listBetaRequests } from "@/lib/betaAccess";
+import { listAllowedEmails } from "@/lib/signupAllowlist";
 import { AdminDashboard } from "./AdminDashboard";
 
 export const dynamic = "force-dynamic";
@@ -34,11 +36,13 @@ export default async function AdminPage() {
   if (!admin) notFound();
 
   // Requêtes lancées en parallèle, agrégats en cache 60 s.
-  const [overview, storage, users] = await Promise.all([
+  const [overview, storage, users, betaRequests, allowedEmails] = await Promise.all([
     getAdminOverview(),
     getAdminStorage(),
     getAdminUsers(parseUsersQuery({})),
+    listBetaRequests(),
+    listAllowedEmails(),
   ]);
 
-  return <AdminDashboard overview={overview} storage={storage} initialUsers={users} />;
+  return <AdminDashboard overview={overview} storage={storage} initialUsers={users} betaRequests={betaRequests} allowedEmails={allowedEmails} />;
 }

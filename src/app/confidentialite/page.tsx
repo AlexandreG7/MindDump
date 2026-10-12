@@ -28,7 +28,7 @@ function Contact({ email }: { email: string }) {
 
 // Texte de départ à relire. Toute modification substantielle doit
 // s'accompagner d'une nouvelle CONSENT_VERSION (src/lib/consent.ts).
-const UPDATED_AT = "30 septembre 2026";
+const UPDATED_AT = "12 octobre 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -293,6 +293,34 @@ export default function PrivacyPolicyPage() {
           </table>
         </div>
         <p>Les polices de caractères sont servies par MindDump, sans appel à un service tiers.</p>
+      </Section>
+
+      <Section title="Si tu demandes un accès à la bêta, sans compte">
+        <p>Cette section concerne les personnes qui remplissent le formulaire de demande d&apos;accès, sans avoir de compte.</p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <strong className="text-foreground">Données</strong> : ton adresse e-mail, ton prénom, le
+            message que tu choisis d&apos;ajouter, et les liens d&apos;invitation créés pour toi (seule
+            leur empreinte chiffrée est conservée, avec leurs dates).
+          </li>
+          <li>
+            <strong className="text-foreground">Pourquoi</strong> : traiter ta demande et, si elle est
+            acceptée, t&apos;envoyer un lien pour créer ton compte. Base légale : mesures
+            précontractuelles prises à ta demande (article 6.1.b du RGPD). Seuls l&apos;administrateur
+            de MindDump et l&apos;éditeur y ont accès.
+          </li>
+          <li>
+            <strong className="text-foreground">Combien de temps</strong> : pendant la durée de la bêta, et au plus
+            tard jusqu&apos;au 31 décembre 2027 ;
+            suppression sur simple demande, traitée dans un délai d&apos;un mois. Si tu crées ton
+            compte, la demande et ses liens sont effacés avec lui lorsque tu le supprimes.
+          </li>
+          <li>
+            <strong className="text-foreground">Tes droits</strong> : tu peux demander la suppression
+            de ta demande et de tes liens à tout moment, sur simple demande à{" "}
+            <Contact email={contactEmail} />. Nous la traitons dans un délai d&apos;un mois.
+          </li>
+        </ul>
       </Section>
 
       <Section title="Tes droits">

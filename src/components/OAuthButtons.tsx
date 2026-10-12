@@ -28,7 +28,19 @@ export function ProviderIcon({ id, className = "h-4 w-4" }: { id: string; classN
   return null;
 }
 
-export function OAuthButtons({ callbackUrl, label = "Continuer avec" }: { callbackUrl: string; label?: string }) {
+export function OAuthButtons({
+  callbackUrl,
+  label = "Continuer avec",
+  beforeStart,
+  webOnlyHint,
+}: {
+  callbackUrl: string;
+  label?: string;
+  /** Appelé avant de lancer le fournisseur (ex. poser le cookie d'invitation) ; s'il échoue, rien ne démarre. */
+  beforeStart?: () => Promise<void>;
+  /** Dans l'app native, remplace les boutons par ce message (parcours réservé au web). */
+  webOnlyHint?: string;
+}) {
   const [providers, setProviders] = useState<ClientSafeProvider[]>([]);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -42,6 +54,18 @@ export function OAuthButtons({ callbackUrl, label = "Continuer avec" }: { callba
   // Dans l'app, Google refuse l'OAuth dans la WebView : connexion par le
   // navigateur système (src/lib/mobileSignIn.ts). Sur le web, NextAuth direct.
   const connect = async (id: string) => {
+    if (beforeStart) {
+      setPending(id);
+      setError("");
+      try {
+        await beforeStart();
+      } catch (e) {
+        setPending(null);
+        setError((e as Error).message);
+        return;
+      }
+      setPending(null);
+    }
     if (!isNativeApp()) {
       signIn(id, { callbackUrl });
       return;
@@ -57,6 +81,19 @@ export function OAuthButtons({ callbackUrl, label = "Continuer avec" }: { callba
   };
 
   if (providers.length === 0) return null;
+
+  if (webOnlyHint && isNativeApp()) {
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">{webOnlyHint}</p>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          ou
+          <span className="h-px flex-1 bg-border" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -91,6 +128,9 @@ export function oauthErrorMessage(code: string | null): string {
     return "Un compte existe déjà avec cet email. Connecte-toi avec ton mot de passe, puis lie ce fournisseur depuis ton profil (section « Connexion »).";
   }
   if (code === "CredentialsSignin") return "";
+  if (code === "TooManyAttempts") return "Trop de tentatives. Réessaie dans quelques minutes.";
+  if (code === "SignupClosed") return "Les inscriptions sont fermées pour le moment.";
+  if (code === "InviteEmailMismatch") return "Utilise l'adresse à laquelle tu as été invité.";
   if (code === "LinkExpired") return "La liaison a expiré : relance-la depuis l'app.";
   return "La connexion avec ce fournisseur a échoué. Réessaie, ou utilise ton email et ton mot de passe.";
 }

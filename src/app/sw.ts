@@ -9,6 +9,7 @@ import {
   StaleWhileRevalidate,
 } from "serwist";
 import { OFFLINE_CACHES } from "@/lib/offlineCache";
+import { safeCallbackPath } from "@/lib/safeCallback";
 
 // Service worker de la PWA, compilé en public/sw.js par @serwist/next
 // (next.config.mjs). Voir docs/app-mobile.md, étape 1.2.
@@ -32,7 +33,9 @@ const skipRedirected: SerwistPlugin = {
     response.status === 200 && !response.redirected ? response : null,
 };
 
-const isPage = (pathname: string) => !pathname.startsWith("/api/");
+// /register est exclu : /register?invite=… porte un jeton d'inscription qui ne doit jamais
+// se retrouver dans le cache de l'appareil (ni navigation, ni charge RSC réchauffée).
+const isPage = (pathname: string) => !pathname.startsWith("/api/") && !pathname.startsWith("/register");
 
 // Une navigation dans l'app (onglets, liens) ne charge pas la page HTML mais
 // une charge RSC, dont l'URL porte un paramètre `_rsc` qui change à chaque
@@ -175,9 +178,8 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const path = (event.notification.data as { url?: string } | null)?.url ?? "/";
-  // Seulement un chemin de l'app, jamais une URL externe (« //site » en est une).
-  const isAppPath = path.startsWith("/") && !path.startsWith("//");
-  const target = new URL(isAppPath ? path : "/", self.location.origin).href;
+  // Seulement un chemin de l'app, jamais une URL externe (« //site », « /\t/site » en sont).
+  const target = new URL(safeCallbackPath(path), self.location.origin).href;
 
   event.waitUntil(
     (async () => {

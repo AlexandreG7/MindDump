@@ -48,6 +48,22 @@ node prisma/promote-admin.js alice@exemple.fr --revoke
 L'accès à `/admin` est immédiat. Le lien « bouclier » dans la barre latérale n'apparaît qu'après une
 reconnexion (il lit le rôle dans le jeton de session).
 
+## Demandes d'accès à la bêta
+
+Onglet « Demandes d'accès » : liste des demandes de `/register`, « Accepter » (crée un lien
+d'inscription à usage unique de 14 jours, affiché une fois avec « Copier »), « Régénérer le lien »
+(l'ancien est invalidé), « Refuser », et « Créer un lien pour un e-mail » sans demande préalable.
+Routes sous `/api/admin/beta-requests` et `/api/admin/signup-invites`, toutes derrière
+`requireAdmin()`. Le lien n'est jamais relisible (seule son empreinte est stockée) : le perdre =
+le régénérer. Détails : `docs/oauth.md`, conservation : `docs/rgpd.md`.
+
+**Adresses autorisées** (même onglet, en haut) : liste des e-mails qui peuvent créer leur compte
+directement sur `/register`, sans lien. Champ « Ajouter un e-mail » (note facultative), corbeille
+discrète avec confirmation pour retirer. Routes `GET/POST /api/admin/allowed-emails` et
+`DELETE /api/admin/allowed-emails/:id` (`requireAdmin()` et contrôle d'origine ; 409 si déjà présente,
+400 si invalide). Retirer une adresse ne touche jamais à un compte existant. Remplace l'ancienne variable
+d'environnement `ALLOWED_SIGNUP_EMAILS`, supprimée. Détails : `docs/oauth.md`.
+
 ## Statistiques
 
 - Agrégats en SQL (`count`, `generate_series`, `pg_total_relation_size`) dans `src/lib/adminStats.ts`,

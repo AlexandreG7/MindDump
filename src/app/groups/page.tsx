@@ -19,7 +19,6 @@ import {
   Crown,
   Trash2,
   UserMinus,
-  Link as LinkIcon,
   Check,
   Pencil,
   X,
@@ -29,6 +28,7 @@ import {
 } from "lucide-react";
 import { FamilyProfiles } from "@/components/profiles/FamilyProfiles";
 import { WallDevices } from "@/components/profiles/WallDevices";
+import { GroupInvites } from "@/components/groups/GroupInvites";
 import { useFeedback } from "@/components/ui/feedback";
 
 interface Member {
@@ -58,8 +58,6 @@ export default function GroupsPage() {
   const [memberGroups, setMemberGroups] = useState<Group[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-  const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
@@ -177,25 +175,6 @@ export default function GroupsPage() {
     });
     setEditingId(null);
     fetchGroups();
-  };
-
-  const generateInvite = async (groupId: string) => {
-    const res = await fetch(`/api/groups/${groupId}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    const data = await res.json();
-    setInviteLinks((prev) => ({ ...prev, [groupId]: data.joinUrl }));
-  };
-
-  const copyLink = (groupId: string) => {
-    const link = inviteLinks[groupId];
-    if (link) {
-      navigator.clipboard.writeText(link);
-      setCopiedId(groupId);
-      setTimeout(() => setCopiedId(null), 2000);
-    }
   };
 
   if (!isReady) return null;
@@ -444,42 +423,7 @@ export default function GroupsPage() {
 
             {/* Invite section (owner / admin) */}
             {(group.isOwner || group.members.find((m) => m.user.id === currentUserId)?.role === "admin") && (
-              <div className="border-t border-border p-4 bg-secondary/20">
-                {inviteLinks[group.id] ? (
-                  <div className="flex gap-2">
-                    <Input
-                      value={inviteLinks[group.id]}
-                      readOnly
-                      className="text-xs h-8 bg-card"
-                    />
-                    <Button
-                      size="sm"
-                      variant={copiedId === group.id ? "default" : "outline"}
-                      onClick={() => copyLink(group.id)}
-                      className="shrink-0"
-                    >
-                      {copiedId === group.id ? (
-                        <><Check className="h-3.5 w-3.5 mr-1" />Copié !</>
-                      ) : (
-                        <><LinkIcon className="h-3.5 w-3.5 mr-1" />Copier</>
-                      )}
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => generateInvite(group.id)}
-                  >
-                    <LinkIcon className="h-3.5 w-3.5 mr-2" />
-                    Générer un lien d&apos;invitation
-                  </Button>
-                )}
-                <p className="text-xs text-muted-foreground mt-2">
-                  Le lien est valide 7 jours. Quiconque possède ce lien peut rejoindre le groupe.
-                </p>
-              </div>
+              <GroupInvites groupId={group.id} />
             )}
           </div>
         ))}
