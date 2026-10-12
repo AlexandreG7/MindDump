@@ -1,19 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect, type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Users,
-  UtensilsCrossed,
-  Check,
-  X,
-  Maximize,
-  Minimize,
-} from "lucide-react";
+import { useState, useEffect, type ReactNode } from "react";
+import dynamic from "next/dynamic";
+import { ArrowLeft, Check, ChefHat, Clock, RotateCcw, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { thumbnailUrl } from "@/lib/image";
+import { formatMinutes, parseSteps, scaleQuantity, totalMinutes } from "./meta";
 
 // Vue lecture d'une recette, partagée entre la page propriétaire
 // (/recipes/[id]) et la page publique d'un lien de partage (/shared/recipes/[token]).
@@ -36,205 +28,20 @@ export interface RecipeViewData {
   ingredients: RecipeViewIngredient[];
 }
 
-interface Step {
-  text: string;
-  image: string | null;
-}
+// Le mode cuisine pèse (minuteurs, plein écran, portail) : il ne se charge qu'à
+// l'ouverture, et se précharge quand le navigateur est au repos.
+const loadCookingMode = () => import("./CookingMode");
+const CookingMode = dynamic(loadCookingMode, { ssr: false });
 
-function parseSteps(raw: string): Step[] {
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((s: string | { text: string; image?: string }) =>
-      typeof s === "string"
-        ? { text: s, image: null }
-        : { text: s.text, image: s.image || null }
-    );
-  } catch {
-    return [];
-  }
-}
-
-function CookingMode({
-  recipe,
-  steps,
-  onClose,
-}: {
-  recipe: RecipeViewData;
-  steps: Step[];
-  onClose: () => void;
-}) {
-  const [step, setStep] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-
-  // Wake Lock to keep screen on
-  useEffect(() => {
-    let wakeLock: WakeLockSentinel | null = null;
-    const acquire = async () => {
-      try {
-        if ("wakeLock" in navigator) {
-          wakeLock = await navigator.wakeLock.request("screen");
-        }
-      } catch {}
-    };
-    acquire();
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") acquire();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      wakeLock?.release();
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, []);
-
-  // Track fullscreen state
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
-  }, []);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight" || e.key === " ") {
-        e.preventDefault();
-        setStep((s) => Math.min(s + 1, steps.length - 1));
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        setStep((s) => Math.max(s - 1, 0));
-      } else if (e.key === "Escape") {
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-        } else {
-          onClose();
-        }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [steps.length, onClose]);
-
-  const toggleFullscreen = async () => {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else {
-      await containerRef.current?.requestFullscreen();
-    }
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0 && step < steps.length - 1) setStep(step + 1);
-      if (dx > 0 && step > 0) setStep(step - 1);
-    }
-  };
-
-  const current = steps[step];
-  const isLast = step === steps.length - 1;
-
-  return (
-    <div
-      ref={containerRef}
-      className="cooking-mode"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Top bar */}
-      <div className="cooking-topbar">
-        <button aria-label="Fermer le mode cuisine" onClick={onClose} className="cooking-btn">
-          <X className="h-5 w-5" />
-        </button>
-        <span className="cooking-title">{recipe.title}</span>
-        <button aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"} onClick={toggleFullscreen} className="cooking-btn">
-          {isFullscreen ? (
-            <Minimize className="h-5 w-5" />
-          ) : (
-            <Maximize className="h-5 w-5" />
-          )}
-        </button>
-      </div>
-
-      {/* Progress bar */}
-      <div className="cooking-progress">
-        {steps.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setStep(i)}
-            className={`cooking-progress-dot ${i <= step ? "active" : ""}`}
-          />
-        ))}
-      </div>
-
-      {/* Step content */}
-      <div className="cooking-content">
-        {current.image && (
-          <div className="cooking-image-wrap">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={current.image}
-              alt={`Étape ${step + 1}`}
-              className="cooking-image"
-            />
-          </div>
-        )}
-
-        <div className="cooking-step-info">
-          <span className="cooking-step-badge">{step + 1}</span>
-          <span className="cooking-step-label">
-            Étape {step + 1} / {steps.length}
-          </span>
-        </div>
-
-        <div className="cooking-text">{current.text}</div>
-      </div>
-
-      {/* Navigation */}
-      <div className="cooking-nav">
-        <button
-          onClick={() => setStep(Math.max(0, step - 1))}
-          disabled={step === 0}
-          className="cooking-nav-btn prev"
-        >
-          <ChevronLeft className="h-6 w-6" />
-          <span>Précédent</span>
-        </button>
-
-        {isLast ? (
-          <button onClick={onClose} className="cooking-nav-btn done">
-            <Check className="h-6 w-6" />
-            <span>Terminé</span>
-          </button>
-        ) : (
-          <button
-            onClick={() => setStep(step + 1)}
-            className="cooking-nav-btn next"
-          >
-            <span>Suivant</span>
-            <ChevronRight className="h-6 w-6" />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
+const PORTION_STEPS = [0.5, 1, 2, 3];
 
 export function RecipeView({
   recipe,
   onBack,
   heroActions,
   heroOverlay,
+  actions,
+  autoCook,
 }: {
   recipe: RecipeViewData;
   onBack?: () => void;
@@ -242,14 +49,32 @@ export function RecipeView({
   heroActions?: ReactNode;
   /** Éléments supplémentaires positionnés dans la zone photo (groupe `group/hero`). */
   heroOverlay?: ReactNode;
+  /** Rangée d'actions sous le titre (planifier, courses…). */
+  actions?: ReactNode;
+  /** Ouvre le mode cuisine dès l'affichage (lien « Cuisiner » du catalogue). */
+  autoCook?: boolean;
 }) {
-  const [cookingMode, setCookingMode] = useState(false);
+  const [cooking, setCooking] = useState(false);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
   const [servingMultiplier, setServingMultiplier] = useState(1);
 
   const steps = parseSteps(recipe.steps);
+  const ingredients = recipe.ingredients ?? [];
+  const total = totalMinutes(recipe);
 
-  const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
+  useEffect(() => {
+    const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    const id = idle ? idle(() => void loadCookingMode()) : window.setTimeout(() => void loadCookingMode(), 1500);
+    return () => {
+      if (!idle) window.clearTimeout(id);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (autoCook && steps.length > 0) setCooking(true);
+    // Une seule fois : l'ouverture automatique ne doit pas se rejouer après la fermeture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCook]);
 
   const toggleIngredient = (id: string) => {
     setCheckedIngredients((prev) => {
@@ -260,241 +85,226 @@ export function RecipeView({
     });
   };
 
-  const multiplyQuantity = (qty: string): string => {
-    if (servingMultiplier === 1) return qty;
-    const num = parseFloat(qty.replace(",", "."));
-    if (isNaN(num)) return qty;
-    const result = num * servingMultiplier;
-    return result % 1 === 0 ? String(result) : result.toFixed(1).replace(".", ",");
-  };
+  const amount = (ing: RecipeViewIngredient) =>
+    `${scaleQuantity(ing.quantity, servingMultiplier)}${ing.unit ? ` ${ing.unit}` : ""}`;
 
-  const closeCookingMode = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
+  const closeCooking = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    setCooking(false);
+    // Le lien « Cuisiner » du catalogue ajoute ?cook=1 : on le retire pour qu'un rechargement ouvre la fiche.
+    if (new URLSearchParams(window.location.search).has("cook")) {
+      window.history.replaceState(null, "", window.location.pathname);
     }
-    setCookingMode(false);
   };
 
-  if (cookingMode && steps.length > 0) {
-    return <CookingMode recipe={recipe} steps={steps} onClose={closeCookingMode} />;
-  }
+  const cookButton = steps.length > 0 && (
+    <button
+      type="button"
+      onClick={() => setCooking(true)}
+      className="group/cook flex h-14 w-full items-center justify-center gap-3 rounded-full bg-tone-meal px-8 text-xl font-extrabold text-on-tone shadow-surface transition-[transform,filter] duration-150 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:w-auto"
+    >
+      <ChefHat className="h-6 w-6" strokeWidth={2.5} />
+      Cuisiner
+      <span className="rounded-full bg-on-tone/[0.12] px-2.5 py-0.5 text-sm font-bold tabular-nums">
+        {steps.length} étape{steps.length > 1 ? "s" : ""}
+      </span>
+    </button>
+  );
 
-  // ── Overview mode ──
   return (
-    <div className="recipe-detail-page">
-      {/* Hero */}
-      <div className="relative group/hero">
+    <article className="mx-auto w-full max-w-5xl space-y-5 md:space-y-6">
+      {/* Photo (ou aplat safran sans photo) */}
+      <div className="group/hero relative isolate overflow-hidden rounded-[1.75rem] md:rounded-[2rem]">
         {recipe.image ? (
-          <div className="recipe-hero">
+          <div className="aspect-[4/3] w-full bg-tone-meal-soft sm:aspect-[16/9] md:aspect-[21/9]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={recipe.image}
+              src={thumbnailUrl(recipe.image, 1400)}
               alt={recipe.title}
-              className="w-full h-full object-cover"
+              fetchPriority="high"
+              decoding="async"
+              className="h-full w-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            <div aria-hidden className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/35 to-transparent" />
           </div>
         ) : (
-          <div className="recipe-hero bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-950/40 dark:to-orange-900/30 flex items-center justify-center">
-            <UtensilsCrossed className="h-20 w-20 text-orange-300 dark:text-orange-400/60" />
+          <div className="relative flex h-44 w-full items-center justify-center bg-tone-meal text-on-tone md:h-56">
+            <svg aria-hidden viewBox="0 0 320 220" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
+              <g fill="none" stroke="currentColor" strokeWidth="14">
+                <circle cx="250" cy="96" r="82" opacity=".09" />
+                <circle cx="250" cy="96" r="52" opacity=".11" />
+                <circle cx="250" cy="96" r="22" opacity=".14" />
+              </g>
+            </svg>
+            <ChefHat aria-hidden className="relative h-16 w-16 opacity-80" strokeWidth={1.75} />
           </div>
         )}
 
         {heroOverlay}
 
         {onBack && (
-          <button aria-label="Retour"
+          <button
+            type="button"
+            aria-label="Retour"
             onClick={onBack}
-            className="absolute top-4 left-4 z-10 p-2.5 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-colors"
+            className="absolute left-3 top-3 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-card/90 text-foreground shadow-surface backdrop-blur-sm transition-[transform,background-color] duration-150 hover:bg-card active:scale-90 md:left-4 md:top-4"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
         )}
+        {heroActions && <div className="absolute right-3 top-3 z-10 flex items-center gap-2 md:right-4 md:top-4">{heroActions}</div>}
+      </div>
 
-        {heroActions && (
-          <div className="absolute top-4 right-4 z-10 flex gap-2">{heroActions}</div>
-        )}
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-10">
-          <h1
-            className={`handwritten font-bold leading-tight ${
-              recipe.image ? "text-white text-4xl md:text-5xl" : "text-foreground text-3xl md:text-4xl"
-            }`}
-          >
-            {recipe.title}
-          </h1>
-          {recipe.description && (
-            <p
-              className={`mt-2 text-sm md:text-base leading-relaxed max-w-2xl ${
-                recipe.image ? "text-white/80" : "text-muted-foreground"
-              }`}
-            >
-              {recipe.description}
-            </p>
+      {/* Titre, repères, Cuisiner */}
+      <header className="space-y-3 px-1">
+        <h1 className="font-display text-balance text-[2.25rem] leading-[1.02] md:text-[3.25rem]">{recipe.title}</h1>
+        {recipe.description && <p className="max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">{recipe.description}</p>}
+        <ul className="flex flex-wrap gap-2 pt-1">
+          {total > 0 && (
+            <li className="inline-flex h-9 items-center gap-1.5 rounded-full bg-tone-meal-soft px-3.5 text-sm font-bold tabular-nums text-tone-meal-ink">
+              <Clock className="h-4 w-4" aria-hidden />
+              {formatMinutes(total)}
+            </li>
           )}
+          {recipe.prepTime ? (
+            <li className="inline-flex h-9 items-center rounded-full bg-secondary px-3.5 text-sm font-semibold tabular-nums text-secondary-foreground">
+              Préparation {recipe.prepTime} min
+            </li>
+          ) : null}
+          {recipe.cookTime ? (
+            <li className="inline-flex h-9 items-center rounded-full bg-secondary px-3.5 text-sm font-semibold tabular-nums text-secondary-foreground">
+              Cuisson {recipe.cookTime} min
+            </li>
+          ) : null}
+          <li className="inline-flex h-9 items-center gap-1.5 rounded-full bg-secondary px-3.5 text-sm font-semibold tabular-nums text-secondary-foreground">
+            <Users className="h-4 w-4" aria-hidden />
+            {recipe.servings} pers.
+          </li>
+        </ul>
+        <div className="flex flex-col gap-3 pt-2 md:flex-row md:flex-wrap md:items-center">
+          {cookButton}
+          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </div>
-      </div>
+      </header>
 
-      {/* Info bar */}
-      <div className="recipe-info-bar">
-        {totalTime > 0 && (
-          <div className="recipe-info-chip">
-            <Clock className="h-4 w-4" />
-            <span>{totalTime} min</span>
-          </div>
-        )}
-        {recipe.prepTime && (
-          <div className="recipe-info-chip">
-            <span className="text-xs text-muted-foreground">Prep</span>
-            <span>{recipe.prepTime} min</span>
-          </div>
-        )}
-        {recipe.cookTime && (
-          <div className="recipe-info-chip">
-            <span className="text-xs text-muted-foreground">Cuisson</span>
-            <span>{recipe.cookTime} min</span>
-          </div>
-        )}
-        <div className="recipe-info-chip">
-          <Users className="h-4 w-4" />
-          <span>{recipe.servings}</span>
-        </div>
-      </div>
-
-      {/* Two-column body */}
-      <div className="recipe-body">
-        {/* Sidebar: ingredients */}
-        <div className="recipe-sidebar">
-          {/* Serving adjuster */}
-          <div className="mb-6">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-muted-foreground">Portions</span>
-              <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
-                {[0.5, 1, 2, 3].map((mult) => (
-                  <button
-                    key={mult}
-                    onClick={() => setServingMultiplier(mult)}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                      servingMultiplier === mult
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {mult === 1
-                      ? recipe.servings
-                      : Math.round(recipe.servings * mult)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Ingrédients
-          </h2>
-          <div className="space-y-0.5">
-            {(recipe.ingredients ?? []).map((ing) => (
-              <button
-                key={ing.id}
-                onClick={() => toggleIngredient(ing.id)}
-                className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors text-left ${
-                  checkedIngredients.has(ing.id)
-                    ? "bg-green-50 dark:bg-green-500/10 text-muted-foreground"
-                    : "hover:bg-secondary"
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                    checkedIngredients.has(ing.id)
-                      ? "bg-green-500 border-green-500"
-                      : "border-border"
-                  }`}
-                >
-                  {checkedIngredients.has(ing.id) && (
-                    <Check className="h-3 w-3 text-white" />
-                  )}
-                </div>
-                <span
-                  className={`flex-1 text-sm ${
-                    checkedIngredients.has(ing.id) ? "line-through" : ""
-                  }`}
-                >
-                  {ing.name}
-                </span>
-                <span
-                  className={`text-sm tabular-nums shrink-0 ${
-                    checkedIngredients.has(ing.id)
-                      ? "text-muted-foreground/50 line-through"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {multiplyQuantity(ing.quantity)}
-                  {ing.unit ? ` ${ing.unit}` : ""}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Main: steps */}
-        <div className="recipe-main">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Préparation — {steps.length} étape{steps.length > 1 ? "s" : ""}
+      <div className="grid gap-5 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] md:items-start md:gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+        {/* Ingrédients */}
+        <section aria-labelledby="ingredients-title" className="rounded-[1.5rem] bg-card p-4 shadow-surface sm:p-5 md:sticky md:top-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="ingredients-title" className="font-display text-[1.75rem] leading-none">
+              Ingrédients
             </h2>
-            {steps.length > 0 && (
-              <Button
-                size="sm"
-                className="rounded-xl"
-                onClick={() => setCookingMode(true)}
+            {checkedIngredients.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setCheckedIngredients(new Set())}
+                aria-label="Tout décocher"
+                title="Tout décocher"
+                className="-m-1 flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
-                <UtensilsCrossed className="h-4 w-4 mr-1.5" />
-                Cuisiner
-              </Button>
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
 
-          <div className="space-y-4">
-            {steps.map((step, i) => (
-              <div
-                key={i}
-                className="w-full flex gap-4 p-4 rounded-xl bg-secondary/50 text-left"
-              >
-                {step.image ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={step.image}
-                    alt={`Étape ${i + 1}`}
-                    className="flex-shrink-0 w-20 h-14 rounded-lg object-cover"
-                  />
-                ) : (
-                  <span className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center">
-                    {i + 1}
-                  </span>
-                )}
-                <div className="flex-1 min-w-0 pt-0.5">
-                  <span className="text-xs font-semibold text-primary">Étape {i + 1}</span>
-                  <p className="text-sm leading-relaxed text-foreground line-clamp-2 mt-0.5">
-                    {step.text}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div role="group" aria-label="Nombre de portions" className="mb-3 flex items-center gap-2">
+            <span className="text-sm font-semibold text-muted-foreground">Pour</span>
+            <div className="flex flex-1 gap-1 rounded-full bg-secondary p-1">
+              {PORTION_STEPS.map((mult) => {
+                const n = mult === 1 ? recipe.servings : Math.round(recipe.servings * mult);
+                const on = servingMultiplier === mult;
+                return (
+                  <button
+                    key={mult}
+                    type="button"
+                    aria-pressed={on}
+                    aria-label={`${n} personnes`}
+                    onClick={() => setServingMultiplier(mult)}
+                    className={cn(
+                      "h-11 flex-1 rounded-full text-base font-bold tabular-nums transition-[background-color,color] duration-150",
+                      on ? "bg-ink text-ink-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-sm font-semibold text-muted-foreground">pers.</span>
           </div>
 
-          {/* Mobile-only CTA */}
-          {steps.length > 0 && (
-            <div className="mt-8 md:hidden">
-              <Button
-                className="w-full h-14 text-base font-semibold rounded-2xl shadow-lg"
-                onClick={() => setCookingMode(true)}
-              >
-                <UtensilsCrossed className="h-5 w-5 mr-2" />
-                Cuisiner
-              </Button>
-            </div>
+          <ul className="space-y-0.5">
+            {ingredients.map((ing) => {
+              const on = checkedIngredients.has(ing.id);
+              return (
+                <li key={ing.id}>
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={on}
+                    onClick={() => toggleIngredient(ing.id)}
+                    className="flex min-h-14 w-full items-center gap-3.5 rounded-2xl px-2 text-left transition-[background-color,transform] duration-150 hover:bg-secondary/70 active:scale-[0.99]"
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150",
+                        on ? "border-tone-meal bg-tone-meal text-on-tone" : "border-foreground/25"
+                      )}
+                    >
+                      {on && <Check className="h-4 w-4" strokeWidth={3.5} />}
+                    </span>
+                    <span className={cn("flex-1 text-base font-semibold leading-snug", on && "text-muted-foreground line-through")}>{ing.name}</span>
+                    <span className={cn("shrink-0 text-base font-bold tabular-nums", on ? "text-muted-foreground/70 line-through" : "text-foreground")}>
+                      {amount(ing)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+            {ingredients.length === 0 && <li className="py-3 text-sm text-muted-foreground">Aucun ingrédient renseigné.</li>}
+          </ul>
+        </section>
+
+        {/* Préparation */}
+        <section aria-labelledby="steps-title" className="px-1 md:px-0">
+          <h2 id="steps-title" className="mb-4 font-display text-[1.75rem] leading-none">
+            Préparation
+          </h2>
+          {steps.length === 0 ? (
+            <p className="text-base text-muted-foreground">Aucune étape renseignée pour cette recette.</p>
+          ) : (
+            <ol className="space-y-5">
+              {steps.map((step, i) => (
+                <li key={i} className="flex gap-4">
+                  <span className="font-display flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-tone-meal-soft text-xl text-tone-meal-ink tabular-nums">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-3 pt-1.5">
+                    <p className="max-w-[65ch] text-pretty text-[1.0625rem] leading-relaxed text-foreground">{step.text}</p>
+                    {step.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={step.image} alt={`Étape ${i + 1}`} loading="lazy" decoding="async" className="aspect-[16/10] w-full max-w-md rounded-2xl object-cover" />
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
           )}
-        </div>
+        </section>
       </div>
-    </div>
+
+      {cooking && steps.length > 0 && (
+        <CookingMode
+          title={recipe.title}
+          steps={steps}
+          ingredients={ingredients.map((ing) => ({ id: ing.id, name: ing.name, amount: amount(ing) }))}
+          checked={checkedIngredients}
+          onToggleIngredient={toggleIngredient}
+          onResetIngredients={() => setCheckedIngredients(new Set())}
+          onClose={closeCooking}
+        />
+      )}
+    </article>
   );
 }

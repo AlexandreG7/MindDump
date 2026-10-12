@@ -11,6 +11,7 @@ import {
   Share2,
   Heart,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { RecipeView, type RecipeViewData } from "@/components/recipes/RecipeView";
 import { ShareRecipeDialog } from "@/components/recipes/ShareRecipeDialog";
 import { useFeedback } from "@/components/ui/feedback";
@@ -33,6 +34,11 @@ export default function RecipeDetailPage() {
   const [loadError, setLoadError] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  // « Cuisiner » depuis le catalogue arrive ici avec ?cook=1 (lu une fois, sans Suspense).
+  const [autoCook, setAutoCook] = useState(false);
+  useEffect(() => {
+    setAutoCook(new URLSearchParams(window.location.search).has("cook"));
+  }, []);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const fetchRecipe = useCallback(async () => {
@@ -101,11 +107,16 @@ export default function RecipeDetailPage() {
   };
 
   const addToShoppingList = async () => {
-    await fetch(`/api/recipes/${id}/to-list`, {
+    const res = await fetch(`/api/recipes/${id}/to-list`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ listId: null }),
     });
+    if (!res.ok) {
+      toast("Impossible d'ajouter les ingrédients aux courses", "error");
+      return;
+    }
+    toast("Ingrédients ajoutés aux courses", "success", { label: "Voir la liste", onClick: () => router.push("/lists") });
     fetchRecipe();
   };
 
@@ -126,22 +137,33 @@ export default function RecipeDetailPage() {
     fetchRecipe();
   };
 
+  const pill =
+    "inline-flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold transition-[background-color,transform] duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const pillOff = "bg-secondary text-secondary-foreground hover:bg-accent";
+  const pillOn = "bg-tone-meal-soft text-tone-meal-ink hover:brightness-95";
+  const round =
+    "flex h-12 w-12 items-center justify-center rounded-full bg-card/90 text-foreground shadow-surface backdrop-blur-sm transition-[transform,background-color] duration-150 hover:bg-card active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
   return (
     <>
       <RecipeView
         recipe={recipe}
+        autoCook={autoCook}
         onBack={() => router.back()}
         heroOverlay={
           <>
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={uploadingImage}
-              className={`absolute bottom-4 right-4 z-20 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-opacity touch:opacity-100 ${
-                uploadingImage ? "opacity-100 animate-pulse" : "opacity-0 group-hover/hero:opacity-100 touch:opacity-100"
-              }`}
-              title={recipe.image ? "Changer la photo" : "Ajouter une photo"}
+              aria-label={recipe.image ? "Changer la photo" : "Ajouter une photo"}
+              className={cn(
+                "absolute bottom-2 right-2 z-20 flex h-12 w-12 items-center justify-center rounded-full text-white transition-opacity",
+                uploadingImage ? "animate-pulse opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100 touch:opacity-100"
+              )}
             >
-              <Camera className="h-4 w-4" />
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
+                <Camera className="h-3.5 w-3.5" />
+              </span>
             </button>
             <input
               ref={imageInputRef}
@@ -160,55 +182,34 @@ export default function RecipeDetailPage() {
           <>
             <button
               onClick={toggleFavorite}
-              className={`p-2.5 rounded-full backdrop-blur-sm transition-colors ${
-                recipe.favorite
-                  ? "bg-rose-500 text-white hover:bg-rose-600"
-                  : "bg-black/30 text-white hover:bg-black/50"
-              }`}
-              title={recipe.favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+              className={cn(round, recipe.favorite && "bg-rose-500 text-white hover:bg-rose-600")}
+              aria-label={recipe.favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
               aria-pressed={recipe.favorite}
             >
-              <Heart className={`h-5 w-5 ${recipe.favorite ? "fill-current" : ""}`} />
+              <Heart className={cn("h-5 w-5", recipe.favorite && "fill-current")} />
             </button>
             <button
               onClick={() => setShareOpen(true)}
-              className={`p-2.5 rounded-full backdrop-blur-sm transition-colors ${
-                recipe.shareToken
-                  ? "bg-sky-500 text-white hover:bg-sky-600"
-                  : "bg-black/30 text-white hover:bg-black/50"
-              }`}
-              title="Partager"
+              className={cn(round, recipe.shareToken && "bg-sky-500 text-white hover:bg-sky-600")}
+              aria-label={recipe.shareToken ? "Partager (lien actif)" : "Partager"}
             >
               <Share2 className="h-5 w-5" />
             </button>
-            <button
-              onClick={toggleCatalog}
-              className={`p-2.5 rounded-full backdrop-blur-sm transition-colors ${
-                recipe.inCatalog
-                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                  : "bg-black/30 text-white hover:bg-black/50"
-              }`}
-              title={recipe.inCatalog ? "Retirer du catalogue" : "Ajouter au catalogue"}
-            >
-              <BookMarked className="h-5 w-5" />
+          </>
+        }
+        actions={
+          <>
+            <button onClick={togglePlanned} aria-pressed={recipe.planned} className={cn(pill, recipe.planned ? pillOn : pillOff)}>
+              <CalendarPlus className="h-4 w-4" />
+              {recipe.planned ? "Prévue" : "Planifier"}
             </button>
-            <button
-              onClick={togglePlanned}
-              className={`p-2.5 rounded-full backdrop-blur-sm transition-colors ${
-                recipe.planned
-                  ? "bg-orange-500 text-white hover:bg-orange-600"
-                  : "bg-black/30 text-white hover:bg-black/50"
-              }`}
-              title={recipe.planned ? "Retirer du planning" : "Planifier"}
-            >
-              <CalendarPlus className="h-5 w-5" />
+            <button onClick={addToShoppingList} className={cn(pill, pillOff)}>
+              <ShoppingCart className="h-4 w-4" />
+              Courses
             </button>
-            <button
-              onClick={addToShoppingList}
-              className="p-2.5 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-colors"
-              title="Ajouter aux courses"
-            >
-              <ShoppingCart className="h-5 w-5" />
+            <button onClick={toggleCatalog} aria-pressed={recipe.inCatalog} className={cn(pill, recipe.inCatalog ? pillOn : pillOff)}>
+              <BookMarked className="h-4 w-4" />
+              Catalogue
             </button>
           </>
         }
