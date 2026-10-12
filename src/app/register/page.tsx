@@ -1,24 +1,12 @@
 import Link from "next/link";
 import { INVITE_INVALID_MESSAGE, findValidInvite } from "@/lib/signupInvite";
+import { Link as LinkIcon } from "lucide-react";
+import { BetaShell } from "./BetaShell";
 import { RegisterForm } from "./RegisterForm";
 import { RequestAccessForm } from "./RequestAccessForm";
 
 // Le jeton d'invitation est vérifié à chaque affichage : pas de rendu figé au build.
 export const dynamic = "force-dynamic";
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-8">
-        <div className="text-center space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">MindDump</h1>
-          <p className="text-muted-foreground text-sm">Vide ta charge mentale</p>
-        </div>
-        <div className="bg-card rounded-2xl border border-border shadow-sm p-8 space-y-4">{children}</div>
-      </div>
-    </div>
-  );
-}
 
 export default async function RegisterPage({
   searchParams,
@@ -35,20 +23,31 @@ export default async function RegisterPage({
   if (invite) return <RegisterForm inviteToken={token} inviteEmail={invite.email} />;
 
   return (
-    <Shell>
-      <h2 className="text-xl font-semibold">Lien d&apos;invitation invalide</h2>
-      <p className="text-sm text-muted-foreground">{INVITE_INVALID_MESSAGE}</p>
-      <p className="text-sm">
-        <Link href="/register" className="text-primary font-medium hover:underline">
-          Demander un accès à la bêta
-        </Link>
-      </p>
-      <p className="text-sm text-muted-foreground">
-        Déjà un compte ?{" "}
-        <Link href="/login" className="text-primary font-medium hover:underline">
-          Se connecter
-        </Link>
-      </p>
-    </Shell>
+    <BetaShell className="max-w-lg">
+      <div
+        className="beta-rise rounded-3xl border border-border bg-card p-6 text-center shadow-[0_1px_2px_hsl(var(--foreground)/0.04),0_12px_32px_-12px_hsl(var(--foreground)/0.18)] sm:p-9"
+        role="alert"
+      >
+        <span className="beta-pop mx-auto grid h-14 w-14 place-items-center rounded-full bg-muted text-muted-foreground">
+          <LinkIcon className="h-6 w-6" aria-hidden="true" />
+        </span>
+        <h1 className="mt-5 text-2xl font-extrabold tracking-tight">Ce lien ne fonctionne plus</h1>
+        <p className="mx-auto mt-2 max-w-xs text-pretty text-sm text-muted-foreground">{INVITE_INVALID_MESSAGE}</p>
+        <div className="mt-6 flex flex-col gap-2">
+          <Link
+            href="/register"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            Demander un nouvel accès
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg px-5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Déjà un compte ? Se connecter
+          </Link>
+        </div>
+      </div>
+    </BetaShell>
   );
 }

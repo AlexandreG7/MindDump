@@ -59,7 +59,7 @@ function Header({ scrolled }: { scrolled: boolean }) {
             href="/register"
             className="hidden sm:block text-sm font-semibold px-4 py-2 rounded-lg whitespace-nowrap bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
           >
-            Créer un compte
+            Demander un accès
           </Link>
         </nav>
       </div>
@@ -120,7 +120,7 @@ function Hero() {
             href="/register"
             className="rounded-xl bg-primary text-primary-foreground font-semibold px-7 py-3.5 hover:opacity-90 transition-opacity"
           >
-            Créer mon espace
+            Demander un accès
           </Link>
           <Link
             href="/login"

@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { OAuthButtons } from "@/components/OAuthButtons";
-import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { Eye, EyeOff, Lock, UserPlus } from "lucide-react";
+import { BetaBadge, BetaShell } from "./BetaShell";
 
 /**
  * Inscription par lien d'invitation (/register?invite=…) : l'adresse invitée est
@@ -65,27 +66,30 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
     router.refresh();
   };
 
+  const field = "h-11 text-base sm:text-sm";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-8">
-        {/* Logo */}
-        <div className="text-center space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">MindDump</h1>
-          <p className="text-muted-foreground text-sm">Vide ta charge mentale</p>
-        </div>
+    <BetaShell className="max-w-lg">
+      <div className="text-center">
+        <BetaBadge>Invitation à la bêta privée</BetaBadge>
+        <h1
+          className="beta-rise mt-5 text-balance text-3xl font-extrabold leading-[1.08] tracking-tight sm:text-4xl"
+          style={{ ["--d" as string]: "60ms" }}
+        >
+          Tu es invité·e à rejoindre <span className="beta-mark">MindDump</span>
+        </h1>
+        <p
+          className="beta-rise mx-auto mt-3 max-w-sm text-pretty text-muted-foreground"
+          style={{ ["--d" as string]: "140ms" }}
+        >
+          Crée ton compte pour retrouver tâches, courses, menus et agenda de ton foyer au même endroit.
+        </p>
+      </div>
 
-        {/* Card */}
-        <div className="bg-card rounded-2xl border border-border shadow-sm p-8 space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold">Créer ton compte</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Déjà un compte ?{" "}
-              <Link href="/login" className="text-primary font-medium hover:underline">
-                Se connecter
-              </Link>
-            </p>
-          </div>
-
+      <div
+        className="beta-rise mt-7 space-y-6 rounded-3xl border border-border bg-card p-6 shadow-[0_1px_2px_hsl(var(--foreground)/0.04),0_12px_32px_-12px_hsl(var(--foreground)/0.18)] sm:p-8"
+        style={{ ["--d" as string]: "200ms" }}
+      >
           {/* Un compte créé via Google ou Apple passe ensuite par /consentement. */}
           <OAuthButtons
             callbackUrl="/"
@@ -116,6 +120,7 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
                 onChange={(e) => setName(e.target.value)}
                 required
                 autoComplete="given-name"
+                className={field}
               />
             </div>
 
@@ -130,9 +135,10 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
                 aria-describedby="email-locked"
                 required
                 autoComplete="email"
-                className="bg-muted text-muted-foreground"
+                className={`${field} bg-muted text-muted-foreground`}
               />
-              <p id="email-locked" className="text-xs text-muted-foreground">
+              <p id="email-locked" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
                 Ton invitation est liée à cette adresse.
               </p>
             </div>
@@ -148,12 +154,12 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="pr-10"
+                  className={`${field} pr-12`}
                 />
                 <button aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-muted-foreground hover:text-foreground"
+                  className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -170,23 +176,24 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
                 onChange={(e) => setConfirm(e.target.value)}
                 required
                 autoComplete="new-password"
+                className={field}
               />
             </div>
 
-            <div className="flex items-start gap-2.5 pt-1">
+            <div className="flex items-start gap-3 rounded-xl bg-muted/60 px-3 py-2">
               <Checkbox
                 id="consent"
                 checked={consent}
                 onCheckedChange={(v) => setConsent(v === true)}
-                className="mt-0.5"
+                className="relative mt-3 h-5 w-5 rounded-md after:absolute after:-inset-3"
                 aria-required="true"
               />
-              <Label htmlFor="consent" className="text-sm font-normal leading-snug text-muted-foreground">
+              <Label htmlFor="consent" className="py-2 text-sm font-normal leading-snug text-muted-foreground">
                 J&apos;accepte la{" "}
                 <Link
                   href="/confidentialite"
                   target="_blank"
-                  className="text-primary font-medium hover:underline"
+                  className="text-foreground font-semibold underline underline-offset-2"
                 >
                   politique de confidentialité
                 </Link>{" "}
@@ -195,12 +202,12 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
             </div>
 
             {error && (
-              <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
+              <p role="alert" className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">
                 {error}
               </p>
             )}
 
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+            <Button type="submit" className="h-12 w-full text-base" size="lg" disabled={loading}>
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -214,8 +221,14 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
               )}
             </Button>
           </form>
-        </div>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Déjà un compte ?{" "}
+            <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-foreground underline underline-offset-2">
+              Se connecter
+            </Link>
+          </p>
       </div>
-    </div>
+    </BetaShell>
   );
 }

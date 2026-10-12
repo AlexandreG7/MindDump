@@ -362,7 +362,7 @@ export function CtaSection() {
                 href="/register"
                 className="rounded-xl bg-white text-[hsl(24_65%_33%)] font-semibold px-7 py-3.5 hover:bg-white/90 transition-colors"
               >
-                Créer un compte
+                Demander un accès
               </Link>
               <Link
                 href="/login"

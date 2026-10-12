@@ -64,7 +64,7 @@ export function GuidePage({ guide }: { guide: Guide }) {
               href="/register"
               className="hidden sm:block text-sm font-semibold px-4 py-2 rounded-lg whitespace-nowrap bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
             >
-              Créer un compte
+              Demander un accès
             </Link>
           </nav>
         </div>
@@ -132,7 +132,7 @@ export function GuidePage({ guide }: { guide: Guide }) {
               href="/register"
               className="rounded-xl bg-white text-[hsl(24_65%_33%)] font-semibold px-7 py-3.5 hover:bg-white/90 transition-colors"
             >
-              Créer un compte
+              Demander un accès
             </Link>
             <Link
               href="/"
