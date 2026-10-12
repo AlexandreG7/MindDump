@@ -565,7 +565,7 @@ export function Dashboard() {
               onClick={() => setEditing(true)}
               aria-label="Personnaliser l'accueil"
               title="Personnaliser l'accueil"
-              className="bg-ink-foreground/10 text-ink-foreground hover:bg-ink-foreground/20 focus-visible:ring-ink-foreground"
+              className="h-11 w-11 bg-ink-foreground/10 text-ink-foreground hover:bg-ink-foreground/20 focus-visible:ring-ink-foreground"
             >
               <LayoutDashboard className="h-4 w-4" />
             </HeroIconButton>
@@ -573,16 +573,21 @@ export function Dashboard() {
         }
       >
         {currentGroup && (
-          <span className="inline-flex h-9 max-w-full items-center gap-1.5 rounded-full bg-ink-foreground/10 px-3.5 text-sm font-bold">
+          <span className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-ink-foreground/10 px-3 text-sm font-bold">
             <Users className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span className="truncate">{currentGroup.name}</span>
           </span>
         )}
         {weather && WeatherIcon && (
-          <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-tone-meal px-3.5 text-sm font-extrabold tabular-nums text-on-tone">
+          <span
+            role="img"
+            title={getWeatherInfo(weather.current.weather_code).label}
+            aria-label={`${Math.round(weather.current.temperature_2m)} degrés, ${getWeatherInfo(weather.current.weather_code).label}`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-tone-meal px-3 text-sm font-extrabold tabular-nums text-on-tone"
+          >
             <WeatherIcon className="h-4 w-4" aria-hidden="true" />
             {Math.round(weather.current.temperature_2m)}°
-            <span className="font-semibold">{getWeatherInfo(weather.current.weather_code).label}</span>
+            <span className="hidden font-semibold sm:inline">{getWeatherInfo(weather.current.weather_code).label}</span>
           </span>
         )}
       </DayScene>

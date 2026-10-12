@@ -393,7 +393,6 @@ function TodosPageContent() {
           title="Tâches"
           count={pendingNow}
           countLabel={pendingNow === 0 ? "Tout est rangé. Respire." : "à faire"}
-          kicker={lateCount > 0 ? `${lateCount} en retard` : undefined}
           action={
             <>
               {aiStatus?.enabled && (
@@ -420,6 +419,11 @@ function TodosPageContent() {
             <>
               <HeroChip>{urgentLeft} urgentes</HeroChip>
               <HeroChip>{plannedLeft} planifiées</HeroChip>
+              {lateCount > 0 && (
+                <HeroChip className="bg-destructive text-destructive-foreground">
+                  {lateCount} en retard
+                </HeroChip>
+              )}
             </>
           )}
         </ModuleHero>

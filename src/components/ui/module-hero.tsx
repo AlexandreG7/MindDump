@@ -14,7 +14,7 @@ function Shapes({ tone }: { tone: Tone }) {
       aria-hidden="true"
       viewBox="0 0 320 220"
       preserveAspectRatio="xMaxYMax slice"
-      className="hero-shape pointer-events-none absolute -bottom-px -right-px h-full w-[min(100%,34rem)] text-on-tone"
+      className="hero-shape pointer-events-none absolute -bottom-px -right-px hidden h-full w-[min(100%,26rem)] text-on-tone md:block"
     >
       {tone === "todo" && (
         <g fill="currentColor">
@@ -79,24 +79,26 @@ export function ModuleHero({
 }) {
   const t = TONE_CLASSES[tone];
   return (
-    <header className={cn("relative isolate overflow-hidden rounded-[2rem] px-5 pb-6 pt-5 md:px-8 md:pb-8 md:pt-7", t.block, className)}>
+    <header className={cn("relative isolate overflow-hidden rounded-[1.75rem] px-5 pb-4 pt-3.5 md:rounded-[2rem] md:px-8 md:pb-5 md:pt-5", t.block, className)}>
       <Shapes tone={tone} />
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          {kicker && <p className="mb-1 text-sm font-bold opacity-80">{kicker}</p>}
-          <h1 className="font-display text-[3.25rem] md:text-[4.5rem]">{title}</h1>
+          {kicker && <p className="text-sm font-bold leading-tight opacity-80">{kicker}</p>}
+          <h1 className="font-display text-[2.5rem] md:text-[3.5rem]">{title}</h1>
         </div>
         {action && <div className="relative flex shrink-0 items-center gap-1.5">{action}</div>}
       </div>
-      <div className="mt-5 flex items-end gap-3 md:mt-7">
-        {count === null ? (
-          <span className="font-display h-[5.5rem] w-24 rounded-2xl bg-on-tone/10 text-[5.5rem] md:h-[8rem] md:text-[8rem]" aria-hidden="true" />
-        ) : (
-          <AnimatedNumber value={count} className="font-display text-[5.5rem] leading-none md:text-[8rem]" />
-        )}
-        <p className="pb-2 text-lg font-bold leading-tight md:pb-4 md:text-2xl">{countLabel}</p>
+      <div className="relative mt-1 flex flex-wrap items-center gap-x-3 gap-y-2.5 md:mt-2">
+        <div className="flex items-center gap-2">
+          {count === null ? (
+            <span className="font-display h-[3.25rem] w-14 rounded-2xl bg-on-tone/10 md:h-[4.5rem]" aria-hidden="true" />
+          ) : (
+            <AnimatedNumber value={count} className="font-display text-[3.25rem] leading-none md:text-[4.5rem]" />
+          )}
+          <p className="text-base font-bold leading-tight md:text-xl">{countLabel}</p>
+        </div>
+        {children && <div className="flex flex-wrap items-center gap-2 md:ml-auto">{children}</div>}
       </div>
-      {children && <div className="relative mt-4 flex flex-wrap items-center gap-2">{children}</div>}
     </header>
   );
 }
@@ -104,7 +106,7 @@ export function ModuleHero({
 /** Pastille de contexte posée sur un aplat (encre sur voile clair). */
 export function HeroChip({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex h-9 items-center gap-1.5 rounded-full bg-on-tone/[0.12] px-3.5 text-sm font-bold tabular-nums", className)}>
+    <span className={cn("inline-flex h-8 items-center gap-1.5 rounded-full bg-on-tone/[0.12] px-3 text-sm font-bold tabular-nums", className)}>
       {children}
     </span>
   );

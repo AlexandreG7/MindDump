@@ -38,29 +38,29 @@ export function DayScene({
 
   return (
     <section aria-label="Aperçu de la journée" className="relative isolate overflow-hidden rounded-[2rem] bg-ink text-ink-foreground">
-      <div className="relative z-10 px-5 pb-32 pt-5 md:px-8 md:pb-40 md:pt-7">
-        <div className="flex items-start justify-between gap-3">
-          <p className="pt-3 text-sm font-bold text-ink-foreground/75 first-letter:uppercase md:text-base">{dateLabel}</p>
-          {action}
-        </div>
-        <div className="mt-2 flex items-end justify-between gap-4">
-          <h1 className="font-display min-w-0 text-[2.75rem] md:text-[5rem]">{greeting}</h1>
+      <div className="relative z-10 px-5 pb-16 pt-4 md:px-8 md:pb-32 md:pt-6">
+        <p className="text-sm font-bold text-ink-foreground/75 first-letter:uppercase md:text-base">{dateLabel}</p>
+        <div className="mt-1 flex items-end justify-between gap-4">
+          <h1 className="font-display min-w-0 text-[2.25rem] md:text-[3.5rem]">{greeting}</h1>
           <div className="shrink-0 text-right">
             {count === null ? (
-              <span className="block h-[5.5rem] w-16 rounded-2xl bg-ink-foreground/10 md:h-[8rem]" aria-hidden="true" />
+              <span className="block h-[3.5rem] w-12 rounded-2xl bg-ink-foreground/10 md:h-[5rem]" aria-hidden="true" />
             ) : (
-              <AnimatedNumber value={count} className="font-display text-[5.5rem] leading-none text-tone-todo md:text-[8rem]" />
+              <AnimatedNumber value={count} className="font-display text-[3.5rem] leading-none text-tone-todo md:text-[5rem]" />
             )}
-            <p className="-mt-1 text-sm font-bold leading-tight text-ink-foreground/85 md:text-lg">{countLabel}</p>
+            <p className="mt-0.5 text-sm font-bold leading-tight text-ink-foreground/85 md:text-base">{countLabel}</p>
           </div>
         </div>
-        {children && <div className="mt-4 flex flex-wrap items-center gap-2">{children}</div>}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {children}
+          {action && <div className="ml-auto">{action}</div>}
+        </div>
       </div>
 
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-40 md:h-52">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-14 md:h-40">
         <span
-          className={cn("sun absolute block h-20 w-20 rounded-full md:h-28 md:w-28", night ? "bg-ink-foreground/90" : "bg-tone-todo")}
-          style={{ left: `${sunX}%`, bottom: `${18 + sunLift}px`, transition: "left 600ms var(--spring-soft), bottom 600ms var(--spring-soft)" }}
+          className={cn("sun absolute block h-11 w-11 rounded-full [--k:0.16] md:h-20 md:w-20 md:[--k:0.5]", night ? "bg-ink-foreground/90" : "bg-tone-todo")}
+          style={{ left: `${sunX}%`, "--lift": sunLift, bottom: "calc(6px + var(--lift) * var(--k) * 1px)", transition: "left 600ms var(--spring-soft), bottom 600ms var(--spring-soft)" } as React.CSSProperties}
         />
         <svg className="hill absolute inset-x-0 bottom-0 h-full w-full" viewBox="0 0 400 160" preserveAspectRatio="none">
           <path d="M0 160V70C60 30 120 36 190 62S330 84 400 40V160Z" className="fill-tone-agenda" />
