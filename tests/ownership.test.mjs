@@ -313,6 +313,77 @@ async function main() {
     await expectVisible(alice, hugoItems, alice.defaultGroupId, "après départ de Hugo (reste au foyer)");
     await expectHidden(hugo, aliceItems, "après départ du foyer");
   }
+  console.log("11. Déplacer un élément vers un foyer dont on n'est pas membre");
+  // Carol n'est pas membre du foyer d'Alice (ni d'aucun groupe de Bob) : elle ne
+  // peut y déplacer ni y créer quoi que ce soit, et ses éléments ne bougent pas.
+  const foreign = alice.defaultGroupId;
+  const gidOf = {
+    recipe: async (id) => (await prisma.recipe.findUnique({ where: { id }, select: { groupId: true } }))?.groupId,
+    todo: async (id) => (await prisma.todo.findUnique({ where: { id }, select: { groupId: true } }))?.groupId,
+    list: async (id) => (await prisma.shoppingList.findUnique({ where: { id }, select: { groupId: true } }))?.groupId,
+    event: async (id) => (await prisma.calendarEvent.findUnique({ where: { id }, select: { groupId: true } }))?.groupId,
+  };
+  const carolItems2 = await createAll(carol, carol.defaultGroupId, "carol-déplacement");
+
+  const moveRecipe = await api(carol, "PATCH", `/api/recipes/${carolItems2.recipe}`, { groupId: foreign });
+  check(moveRecipe.status === 403, `PATCH recette vers un foyer étranger refusé (${moveRecipe.status})`);
+  check((await gidOf.recipe(carolItems2.recipe)) === carol.defaultGroupId, "la recette n'a pas bougé");
+  // Aucune autre écriture du même PATCH n'est appliquée quand le déplacement est refusé.
+  const moveWithTitle = await api(carol, "PATCH", `/api/recipes/${carolItems2.recipe}`, {
+    groupId: foreign, title: `Piratée ${run}`, ingredients: [{ name: "Sel", quantity: "1" }],
+  });
+  check(moveWithTitle.status === 403, `PATCH recette (titre + ingrédients + foyer étranger) refusé (${moveWithTitle.status})`);
+  const afterRefusal = await prisma.recipe.findUnique({
+    where: { id: carolItems2.recipe }, select: { title: true, _count: { select: { ingredients: true } } },
+  });
+  check(afterRefusal.title !== `Piratée ${run}` && afterRefusal._count.ingredients === 0, "refus atomique : ni titre ni ingrédients modifiés");
+  const moveBogus = await api(carol, "PATCH", `/api/recipes/${carolItems2.recipe}`, { groupId: { id: foreign } });
+  check(moveBogus.status === 400, `groupId qui n'est pas une chaîne refusé (${moveBogus.status})`);
+  check((await gidOf.recipe(carolItems2.recipe)) === carol.defaultGroupId, "la recette n'a toujours pas bougé");
+
+  // Tâche et événement : le groupId d'un PATCH est ignoré, jamais appliqué.
+  await api(carol, "PATCH", `/api/todos/${carolItems2.todo}`, { groupId: foreign });
+  check((await gidOf.todo(carolItems2.todo)) === carol.defaultGroupId, "la tâche n'a pas bougé (PATCH avec groupId étranger)");
+  await api(carol, "PATCH", `/api/calendar/${carolItems2.event}`, { groupId: foreign });
+  check((await gidOf.event(carolItems2.event)) === carol.defaultGroupId, "l'événement n'a pas bougé (PATCH avec groupId étranger)");
+  check((await gidOf.list(carolItems2.list)) === carol.defaultGroupId, "la liste est dans son foyer (aucune route ne la déplace)");
+
+  // Création directement dans un foyer étranger : 403 et rien n'est créé.
+  const tag = `Intrus ${run}`;
+  const intrus = {
+    recipe: await api(carol, "POST", "/api/recipes", { title: tag, groupId: foreign, steps: [] }),
+    todo: await api(carol, "POST", "/api/todos", { title: tag, groupId: foreign }),
+    list: await api(carol, "POST", "/api/lists", { name: tag, groupId: foreign }),
+    event: await api(carol, "POST", "/api/calendar", { title: tag, groupId: foreign, date: new Date().toISOString() }),
+    meal: await api(carol, "POST", "/api/meals", { date: "2030-01-01", slot: "dinner", note: tag, groupId: foreign }),
+    subscription: await api(carol, "POST", "/api/calendar/subscriptions", { url: "https://example.com/x.ics", name: tag, groupId: foreign }),
+  };
+  for (const [kind, r] of Object.entries(intrus)) {
+    check(r.status === 403, `POST ${kind} dans un foyer étranger refusé (${r.status})`);
+  }
+  const leaked =
+    (await prisma.recipe.count({ where: { groupId: foreign, title: tag } })) +
+    (await prisma.todo.count({ where: { groupId: foreign, title: tag } })) +
+    (await prisma.shoppingList.count({ where: { groupId: foreign, name: tag } })) +
+    (await prisma.calendarEvent.count({ where: { groupId: foreign, title: tag } })) +
+    (await prisma.mealPlanEntry.count({ where: { groupId: foreign, note: tag } }));
+  check(leaked === 0, "rien n'a été créé dans le foyer d'Alice");
+  check(!(await listIds(alice, "recipe", alice.defaultGroupId)).has(carolItems2.recipe), "alice ne voit pas la recette de Carol");
+
+  console.log("11b. Cas positifs : son propre foyer, puis aucun foyer");
+  const carolHome = await api(carol, "POST", "/api/groups", { name: `Foyer de Carol ${run}` });
+  check(!!carolHome.json?.id, `second foyer de Carol créé (${carolHome.status})`);
+  const toOwn = await api(carol, "PATCH", `/api/recipes/${carolItems2.recipe}`, { groupId: carolHome.json.id });
+  check(toOwn.status === 200, `déplacer sa recette vers son propre foyer (${toOwn.status})`);
+  check((await gidOf.recipe(carolItems2.recipe)) === carolHome.json.id, "la recette est dans le nouveau foyer");
+  await expectVisible(carol, { recipe: carolItems2.recipe }, carolHome.json.id, "après déplacement vers son foyer");
+
+  const toNull = await api(carol, "PATCH", `/api/recipes/${carolItems2.recipe}`, { groupId: null });
+  check(toNull.status === 200, `retirer sa recette de tout foyer (groupId null) (${toNull.status})`);
+  check((await gidOf.recipe(carolItems2.recipe)) === null, "la recette n'a plus de foyer");
+  await expectVisible(carol, { recipe: carolItems2.recipe }, carol.defaultGroupId, "recette sans foyer");
+  await expectVisible(carol, { recipe: carolItems2.recipe }, carolHome.json.id, "recette sans foyer (vue de l'autre foyer)");
+  await expectHidden(alice, { recipe: carolItems2.recipe }, "recette sans foyer");
 
   console.log(`\n${checks - failures}/${checks} vérifications OK`);
 }

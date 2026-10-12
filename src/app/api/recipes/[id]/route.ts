@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
-import { buildItemAccessWhere } from "@/lib/groupAuth";
+import { assertGroupMember, buildItemAccessWhere } from "@/lib/groupAuth";
 import {
   fetchEnrichedData,
   isHelloFreshHost,
@@ -49,6 +49,17 @@ export async function PATCH(
   });
   if (!accessible) {
     return NextResponse.json({ error: "Non trouve" }, { status: 404 });
+  }
+
+  // Déplacer la recette vers un foyer : il faut en être membre, avant toute
+  // écriture. Retirer la recette d'un foyer (groupId nul) reste permis : elle
+  // reste attachée à son auteur (ADR 0001).
+  if (body.groupId) {
+    if (typeof body.groupId !== "string") {
+      return NextResponse.json({ error: "groupId invalide" }, { status: 400 });
+    }
+    const memberErr = await assertGroupMember(body.groupId, user.id);
+    if (memberErr) return memberErr;
   }
 
   if (body.ingredients) {
