@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronLeft, ChevronRight, Maximize, Minimize, RotateCcw, Sun, Timer, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Maximize, Minimize, Moon, RotateCcw, Sun, Timer, X } from "lucide-react";
+import { useTheme } from "@/components/ThemeContext";
 import { cn } from "@/lib/utils";
 import { detectTimers, type RecipeStep } from "./meta";
 
@@ -56,6 +57,8 @@ export default function CookingMode({
   const [dir, setDir] = useState<"next" | "prev">("next");
   const [panel, setPanel] = useState<"steps" | "ingredients">("steps");
   const [awake, setAwake] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const dark = resolvedTheme === "dark";
   const [fullscreen, setFullscreen] = useState(false);
   const [canFullscreen, setCanFullscreen] = useState(false);
   const [timers, setTimers] = useState<RunningTimer[]>([]);
@@ -317,12 +320,18 @@ export default function CookingMode({
         >
           <X className="h-6 w-6" />
         </button>
-        <p className="min-w-0 flex-1 truncate px-1 text-center text-base font-bold text-muted-foreground">{title}</p>
-        {awake && (
-          <span className="flex h-14 w-8 shrink-0 items-center justify-center text-tone-meal-ink" title="Écran maintenu allumé" role="img" aria-label="Écran maintenu allumé">
-            <Sun className="h-5 w-5" />
-          </span>
-        )}
+        <div className="min-w-0 flex-1 px-1 text-center">
+          <p className="truncate text-base font-bold text-muted-foreground">{title}</p>
+          {awake && <p className="text-xs font-medium text-muted-foreground">Écran maintenu allumé</p>}
+        </div>
+        <button
+          type="button"
+          onClick={() => setTheme(dark ? "light" : "dark")}
+          aria-label={dark ? "Passer en thème clair" : "Passer en thème sombre"}
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary transition-[background-color,transform] duration-150 hover:bg-accent active:scale-90"
+        >
+          {dark ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
+        </button>
         {canFullscreen ? (
           <button
             type="button"
