@@ -233,6 +233,18 @@
     color: var(--c-time);
     font-weight: 500;
   }
+  /* Repli sans color-mix (WKWebView < iOS 16.2) : les variables ci-dessus sont
+     invalides, on retombe sur un rendu neutre mais lisible. */
+  @supports not (color: color-mix(in srgb, red, red)) {
+    .ev-chip {
+      background-color: hsl(var(--card));
+      color: hsl(var(--foreground));
+      box-shadow: inset 3px 0 0 var(--ev-base);
+    }
+    .ev-chip.ev-past { color: hsl(var(--muted-foreground)); }
+    .ev-chip.ev-sel { background-color: hsl(var(--foreground)); color: hsl(var(--background)); }
+    .ev-chip .ev-time { color: inherit; opacity: 0.8; }
+  }
   .ev-chip-cont {
     box-shadow: none;
   }
