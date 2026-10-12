@@ -97,7 +97,7 @@ export function AdminDashboard({
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
+        <TabsList className="max-w-full justify-start overflow-x-auto">
           <TabsTrigger value="overview">Vue d&apos;ensemble</TabsTrigger>
           <TabsTrigger value="users">Utilisateurs</TabsTrigger>
           <TabsTrigger value="beta">

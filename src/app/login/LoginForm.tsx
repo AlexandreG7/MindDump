@@ -67,7 +67,7 @@ export function LoginForm() {
             {/* Bêta privée : on demande un accès, on ne crée pas de compte directement. */}
             <p className="text-sm text-muted-foreground mt-1">
               Pas encore de compte ?{" "}
-              <Link href="/register" className="text-primary font-medium hover:underline">
+              <Link href="/register" className="font-medium text-orange-700 underline underline-offset-2 hover:no-underline dark:text-orange-400">
                 Demander un accès
               </Link>
             </p>
