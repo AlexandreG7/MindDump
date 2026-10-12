@@ -17,6 +17,7 @@ import {
   createUserWithGrant,
   findValidInvite,
 } from "./signupInvite";
+import { findSignupGroupInvite, groupInviteAcceptsEmail } from "./groupInviteSignup";
 
 const LOGIN_HISTORY_MONTHS = 12;
 
@@ -38,7 +39,8 @@ const providerEmailVerified = (profile: unknown) => {
 /**
  * Options NextAuth. `inviteToken` : jeton d'invitation lu dans le cookie posé avant
  * Google/Apple (route [...nextauth]) ; sans lui, seule la liste blanche autorise une
- * création de compte. Le module exporte `authOptions` (sans invitation) et
+ * création de compte ; `groupInviteToken` : lien de foyer du cookie homologue
+ * (groupInviteSignup.ts), seconde voie d'inscription. Le module exporte `authOptions` (sans invitation) et
  * `authOptionsWithInvite` pour le callback OAuth qui en porte une.
  */
 /** Échecs de connexion par fenêtre, par IP et par adresse (src/lib/rateLimit.ts). */
@@ -47,7 +49,7 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 /** Code d'erreur NextAuth (?error=) rendu par authorize quand la limite est atteinte. */
 export const LOGIN_RATE_LIMITED = "TooManyAttempts";
 
-export function authOptionsWithInvite(inviteToken?: string): NextAuthOptions {
+export function authOptionsWithInvite(inviteToken?: string, groupInviteToken?: string): NextAuthOptions {
   const adapter: Adapter = {
     ...prismaAdapter,
     // NextAuth cherche l'utilisateur par e-mail exact : un « Alice@… » existant ne
@@ -72,7 +74,8 @@ export function authOptionsWithInvite(inviteToken?: string): NextAuthOptions {
           image: data.image ?? null,
           emailVerified: data.emailVerified ?? null,
         },
-        inviteToken
+        inviteToken,
+        groupInviteToken
       );
       if (!result.ok) throw new Error(result.reason === "exists" ? "Compte existant" : "Inscriptions fermées");
       return { ...result.user, email: result.user.email as string };
@@ -168,8 +171,11 @@ export function authOptionsWithInvite(inviteToken?: string): NextAuthOptions {
         if (!wanted || !providerEmailVerified(profile)) return SIGNUP_CLOSED_URL;
         if (isSignupAllowed(wanted)) return true;
         const invite = await findValidInvite(inviteToken);
-        if (!invite) return SIGNUP_CLOSED_URL;
-        return invite.email === wanted ? true : INVITE_EMAIL_MISMATCH_URL;
+        if (invite?.email === wanted) return true;
+        // Invitation de foyer (lien /groups/join/…) : lien ouvert, ou nominatif pour cette adresse.
+        const groupInvite = await findSignupGroupInvite(groupInviteToken);
+        if (groupInvite && groupInviteAcceptsEmail(groupInvite.email, wanted)) return true;
+        return invite || groupInvite ? INVITE_EMAIL_MISMATCH_URL : SIGNUP_CLOSED_URL;
       },
       async jwt({ token, user }) {
         // Session de l'app mobile : appareil révoqué → plus de session (un jeton

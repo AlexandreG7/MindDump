@@ -31,9 +31,10 @@ const { hashPassword } = unwrap(await import("../src/lib/password.ts"));
 const { INVITE_EMAIL_MISMATCH_URL, INVITE_INVALID_MESSAGE, INVITE_EMAIL_MISMATCH_MESSAGE, INVITE_COOKIE, issueInvite, createUserWithGrant } = unwrap(
   await import("../src/lib/signupInvite.ts")
 );
-const { purgeOldBetaData, purgeOldBetaDataThrottled, listBetaRequests, refuseBetaRequest, submitAccessRequest, deleteBetaRequest, deleteDirectInvites } = unwrap(
+const { listBetaRequests, refuseBetaRequest, submitAccessRequest, deleteBetaRequest, deleteDirectInvites } = unwrap(
   await import("../src/lib/betaAccess.ts")
 );
+const betaAccessModule = unwrap(await import("../src/lib/betaAccess.ts"));
 const { findValidInvite: findValid } = unwrap(await import("../src/lib/signupInvite.ts"));
 const { rateLimit } = unwrap(await import("../src/lib/rateLimit.ts"));
 const { deleteUserAccount } = unwrap(await import("../src/lib/account.ts"));
@@ -114,21 +115,19 @@ async function main() {
   const userCookie = await login(email("simple"), plainPassword);
   check(!!adminCookie && !!userCookie, "sessions de test (administrateur, utilisateur simple)");
 
-  console.log("RGPD : la route publique ne purge plus, l'admin purge au plus une fois par heure");
+  console.log("RGPD : aucune suppression automatique");
   {
     const old = new Date();
     old.setMonth(old.getMonth() - 7);
-    await prisma.betaAccessRequest.create({ data: { email: email("perimee-1"), name: "Périmée", consentVersion: "x", createdAt: old, updatedAt: old } });
-    const pub = await requestAccess({ email: email("depot-public") });
-    check(pub.status === 200 && !!(await prisma.betaAccessRequest.findUnique({ where: { email: email("perimee-1") } })), "un dépôt public ne supprime rien (plus de purge sur la route publique)");
-    const first = await api("GET", "/api/admin/beta-requests", adminCookie);
-    check(first.status === 200 && !(await prisma.betaAccessRequest.findUnique({ where: { email: email("perimee-1") } })), "la première ouverture de la liste admin purge");
-    await prisma.betaAccessRequest.create({ data: { email: email("perimee-2"), name: "Périmée 2", consentVersion: "x", createdAt: old, updatedAt: old } });
+    await prisma.betaAccessRequest.create({ data: { email: email("ancienne-1"), name: "Ancienne", consentVersion: "x", createdAt: old, updatedAt: old } });
+    await prisma.signupInvite.create({ data: { tokenHash: sha("vieux-1"), email: email("ancienne-1"), expiresAt: old, createdAt: old } });
+    await requestAccess({ email: email("depot-public") });
     await api("GET", "/api/admin/beta-requests", adminCookie);
-    check(!!(await prisma.betaAccessRequest.findUnique({ where: { email: email("perimee-2") } })), "…mais pas une seconde fois dans l'heure");
-    await prisma.betaAccessRequest.delete({ where: { email: email("perimee-2") } });
-    const T = 4_000_000_000_000;
-    check((await purgeOldBetaDataThrottled(T)) === true && (await purgeOldBetaDataThrottled(T + 59 * 60_000)) === false && (await purgeOldBetaDataThrottled(T + 61 * 60_000)) === true, "purge limitée à une par heure (horodatage au niveau du module)");
+    await api("GET", "/api/admin/beta-requests", adminCookie);
+    check(!!(await prisma.betaAccessRequest.findUnique({ where: { email: email("ancienne-1") } })) && (await prisma.signupInvite.count({ where: { tokenHash: sha("vieux-1") } })) === 1, "une demande et une invitation de plus de 6 mois restent (ni dépôt public, ni liste admin ne suppriment)");
+    check(!("purgeOldBetaData" in betaAccessModule) && !("purgeOldBetaDataThrottled" in betaAccessModule), "le module n'expose plus de purge");
+    await prisma.signupInvite.deleteMany({ where: { tokenHash: sha("vieux-1") } });
+    await prisma.betaAccessRequest.deleteMany({ where: { email: email("ancienne-1") } });
   }
 
   console.log("Demande d'accès : réponse uniforme, fusion, validation");
@@ -400,24 +399,6 @@ async function main() {
 
   console.log("Conservation et suppression (RGPD)");
   {
-    const old = new Date();
-    old.setMonth(old.getMonth() - 7);
-    await prisma.betaAccessRequest.create({ data: { email: email("ancienne"), name: "Vieille", consentVersion: "x", createdAt: old } });
-    await prisma.betaAccessRequest.update({ where: { email: email("ancienne") }, data: { updatedAt: old } });
-    await prisma.signupInvite.create({ data: { tokenHash: sha("vieux"), email: email("ancienne"), expiresAt: old, createdAt: old } });
-    const recent = await prisma.betaAccessRequest.create({ data: { email: email("recente"), name: "Récente", consentVersion: "x" } });
-    // Redéposée récemment (updatedAt récent) mais créée il y a 7 mois : la durée court depuis la création.
-    await prisma.betaAccessRequest.create({ data: { email: email("redeposee"), name: "Redéposée", consentVersion: "x", createdAt: old, updatedAt: new Date() } });
-    // Créée récemment, mise à jour il y a longtemps : conservée (la durée ne dépend plus d'updatedAt).
-    await prisma.betaAccessRequest.create({ data: { email: email("maj-ancienne"), name: "Maj", consentVersion: "x" } });
-    await prisma.betaAccessRequest.update({ where: { email: email("maj-ancienne") }, data: { updatedAt: old } });
-    await purgeOldBetaData();
-    check(!(await prisma.betaAccessRequest.findUnique({ where: { email: email("ancienne") } })), "demande de plus de 6 mois supprimée");
-    check((await prisma.signupInvite.count({ where: { tokenHash: sha("vieux") } })) === 0, "invitation de plus de 6 mois supprimée");
-    check(!(await prisma.betaAccessRequest.findUnique({ where: { email: email("redeposee") } })), "demande redéposée mais créée il y a 7 mois : supprimée (purge sur createdAt)");
-    check(!!(await prisma.betaAccessRequest.findUnique({ where: { id: recent.id } })), "demande récente conservée");
-    check(!!(await prisma.betaAccessRequest.findUnique({ where: { email: email("maj-ancienne") } })), "demande créée récemment conservée, quel que soit updatedAt");
-
     const leaving = await prisma.user.create({ data: { name: "Partante", email: email("partante"), password: hashPassword("mdp-partante"), consentedAt: new Date() } });
     await prisma.betaAccessRequest.create({ data: { email: email("partante"), name: "Partante", consentVersion: "x", status: "registered" } });
     await issueInvite({ email: email("partante"), createdById: admin.id });

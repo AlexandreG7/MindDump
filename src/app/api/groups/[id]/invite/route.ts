@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
@@ -32,6 +33,8 @@ export async function POST(
   const invite = await prisma.groupInvite.create({
     data: {
       groupId: params.id,
+      // 32 caractères aléatoires (ce lien peut aussi ouvrir une inscription, groupInviteSignup.ts).
+      token: randomBytes(24).toString("base64url"),
       email: email || null,
       expiresAt,
     },

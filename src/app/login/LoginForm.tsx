@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { OAuthButtons, oauthErrorMessage } from "@/components/OAuthButtons";
+import { safeCallbackPath } from "@/lib/safeCallback";
 
 export function LoginForm() {
   const router = useRouter();
@@ -23,8 +24,8 @@ export function LoginForm() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setError(oauthErrorMessage(params.get("error")));
-    const requested = params.get("callbackUrl");
-    if (requested && /^\/(?![\/\\])/.test(requested)) setCallbackUrl(requested);
+    // Chemin interne uniquement (src/lib/safeCallback.ts).
+    setCallbackUrl(safeCallbackPath(params.get("callbackUrl")));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

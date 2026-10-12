@@ -375,7 +375,7 @@ export function BetaRequestsPanel({
           </div>
         )}
         <p className="text-xs text-muted-foreground">
-          Les demandes et les liens sont supprimés automatiquement après 6 mois. Les liens ne sont jamais stockés en clair.
+          Les liens ne sont jamais stockés en clair. Une demande se supprime avec la corbeille, sur demande de la personne.
         </p>
       </section>
     </div>

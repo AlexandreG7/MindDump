@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { INVITE_INVALID_MESSAGE, findValidInvite } from "@/lib/signupInvite";
+import { GROUP_INVITE_INVALID_MESSAGE, findSignupGroupInvite, isGroupInviteToken } from "@/lib/groupInviteSignup";
 import { Link as LinkIcon } from "lucide-react";
 import { BetaShell } from "./BetaShell";
 import { RegisterForm } from "./RegisterForm";
@@ -11,9 +12,20 @@ export const dynamic = "force-dynamic";
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: { invite?: string | string[] };
+  searchParams: { invite?: string | string[]; groupInvite?: string | string[] };
 }) {
-  const token = Array.isArray(searchParams.invite) ? searchParams.invite[0] : searchParams.invite;
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const token = first(searchParams.invite);
+  const groupToken = first(searchParams.groupInvite);
+
+  // Lien d'invitation de foyer (/groups/join/…) : il ouvre aussi l'inscription, puis ramène au groupe.
+  if (token === undefined && groupToken !== undefined) {
+    const group = await findSignupGroupInvite(groupToken);
+    if (group && isGroupInviteToken(groupToken)) {
+      return <RegisterForm groupInviteToken={groupToken} groupName={group.groupName} inviteEmail={group.email} />;
+    }
+    return <InvalidLink message={GROUP_INVITE_INVALID_MESSAGE} />;
+  }
 
   // Sans jeton : demande d'accès à la bêta (bêta privée).
   if (token === undefined) return <RequestAccessForm />;
@@ -22,6 +34,10 @@ export default async function RegisterPage({
   const invite = await findValidInvite(token);
   if (invite) return <RegisterForm inviteToken={token} inviteEmail={invite.email} />;
 
+  return <InvalidLink message={INVITE_INVALID_MESSAGE} />;
+}
+
+function InvalidLink({ message }: { message: string }) {
   return (
     <BetaShell className="max-w-lg">
       <div
@@ -32,7 +48,7 @@ export default async function RegisterPage({
           <LinkIcon className="h-6 w-6" aria-hidden="true" />
         </span>
         <h1 className="mt-5 text-2xl font-extrabold tracking-tight">Ce lien ne fonctionne plus</h1>
-        <p className="mx-auto mt-2 max-w-xs text-pretty text-sm text-muted-foreground">{INVITE_INVALID_MESSAGE}</p>
+        <p className="mx-auto mt-2 max-w-xs text-pretty text-sm text-muted-foreground">{message}</p>
         <div className="mt-6 flex flex-col gap-2">
           <Link
             href="/register"

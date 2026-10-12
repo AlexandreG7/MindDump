@@ -11,15 +11,33 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { OAuthButtons } from "@/components/OAuthButtons";
 import { Eye, EyeOff, Lock, UserPlus } from "lucide-react";
 import { BetaBadge, BetaShell } from "./BetaShell";
+import { safeCallbackPath } from "@/lib/safeCallback";
 
 /**
  * Inscription par lien d'invitation (/register?invite=…) : l'adresse invitée est
  * pré-remplie et verrouillée (le serveur la revérifie, src/app/api/auth/register).
+ *
+ * Variante invitation de FOYER (/register?groupInvite=…, src/lib/groupInviteSignup.ts) :
+ * adresse verrouillée si le lien est nominatif, libre sinon ; après l'inscription, retour sur
+ * la page du groupe (/groups/join/<jeton>) où la personne rejoint par le flux habituel.
  */
-export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string; inviteEmail: string }) {
+export function RegisterForm({
+  inviteToken,
+  groupInviteToken,
+  groupName,
+  inviteEmail,
+}: {
+  inviteToken?: string;
+  groupInviteToken?: string;
+  groupName?: string;
+  inviteEmail: string | null;
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [email] = useState(inviteEmail);
+  const [email, setEmail] = useState(inviteEmail ?? "");
+  const locked = inviteEmail !== null;
+  // Page du groupe : chemin interne construit ici, jamais une adresse reçue de l'extérieur.
+  const backTo = groupInviteToken ? safeCallbackPath(`/groups/join/${groupInviteToken}`) : "/";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,7 +67,7 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, consent, invite: inviteToken }),
+      body: JSON.stringify({ name, email, password, consent, invite: inviteToken, groupInvite: groupInviteToken }),
     });
 
     const data = await res.json();
@@ -62,7 +80,7 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
 
     // Connexion automatique après inscription
     await signIn("credentials", { email, password, redirect: false });
-    router.push("/");
+    router.push(backTo);
     router.refresh();
   };
 
@@ -71,18 +89,28 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
   return (
     <BetaShell className="max-w-lg">
       <div className="text-center">
-        <BetaBadge>Invitation à la bêta privée</BetaBadge>
+        <BetaBadge>{groupInviteToken ? "Invitation de foyer" : "Invitation à la bêta privée"}</BetaBadge>
         <h1
           className="beta-rise mt-5 text-balance text-3xl font-extrabold leading-[1.08] tracking-tight sm:text-4xl"
           style={{ ["--d" as string]: "60ms" }}
         >
-          Tu es invité·e à rejoindre <span className="beta-mark">MindDump</span>
+          {groupInviteToken ? (
+            <>
+              Crée ton compte pour rejoindre <span className="beta-mark">{groupName}</span>
+            </>
+          ) : (
+            <>
+              Tu es invité·e à rejoindre <span className="beta-mark">MindDump</span>
+            </>
+          )}
         </h1>
         <p
           className="beta-rise mx-auto mt-3 max-w-sm text-pretty text-muted-foreground"
           style={{ ["--d" as string]: "140ms" }}
         >
-          Crée ton compte pour retrouver tâches, courses, menus et agenda de ton foyer au même endroit.
+          {groupInviteToken
+            ? "Une fois ton compte créé, tu reviens sur la page du groupe pour le rejoindre."
+            : "Crée ton compte pour retrouver tâches, courses, menus et agenda de ton foyer au même endroit."}
         </p>
       </div>
 
@@ -92,14 +120,14 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
       >
           {/* Un compte créé via Google ou Apple passe ensuite par /consentement. */}
           <OAuthButtons
-            callbackUrl="/"
+            callbackUrl={backTo}
             label="S'inscrire avec"
             beforeStart={async () => {
               // Le jeton passe dans un cookie httpOnly (pas dans l'URL du fournisseur).
               const res = await fetch("/api/signup-invite", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ invite: inviteToken }),
+                body: JSON.stringify(groupInviteToken ? { groupInvite: groupInviteToken } : { invite: inviteToken }),
               });
               if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
@@ -131,16 +159,19 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
                 type="email"
                 placeholder="prenom@exemple.com"
                 value={email}
-                readOnly
-                aria-describedby="email-locked"
+                onChange={(e) => setEmail(e.target.value)}
+                readOnly={locked}
+                aria-describedby={locked ? "email-locked" : undefined}
                 required
                 autoComplete="email"
-                className={`${field} bg-muted text-muted-foreground`}
+                className={locked ? `${field} bg-muted text-muted-foreground` : field}
               />
-              <p id="email-locked" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
-                Ton invitation est liée à cette adresse.
-              </p>
+              {locked && (
+                <p id="email-locked" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  Ton invitation est liée à cette adresse.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -224,7 +255,7 @@ export function RegisterForm({ inviteToken, inviteEmail }: { inviteToken: string
 
           <p className="text-center text-sm text-muted-foreground">
             Déjà un compte ?{" "}
-            <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-foreground underline underline-offset-2">
+            <Link href={groupInviteToken ? `/login?callbackUrl=${encodeURIComponent(backTo)}` : "/login"} className="inline-flex min-h-11 items-center font-semibold text-foreground underline underline-offset-2">
               Se connecter
             </Link>
           </p>

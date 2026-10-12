@@ -5,13 +5,12 @@ import { parseEmail } from "./email";
 
 /**
  * Demandes d'accès à la bêta (page publique /register, traitement dans /admin).
- * Voir docs/rgpd.md « Demandes d'accès » pour la finalité et la durée de conservation.
+ * Voir docs/rgpd.md « Demandes d'accès » pour la finalité et la durée de conservation
+ * (la durée de la bêta ; aucune suppression automatique, effacement sur demande).
  */
 
 export const MESSAGE_MAX = 500;
 export const NAME_MAX = 80;
-/** Les demandes et invitations créées il y a plus longtemps que ça sont supprimées (docs/rgpd.md). */
-export const RETENTION_MONTHS = 6;
 /**
  * Plafond de demandes « en attente » : au-delà, une demande valide reçoit la même réponse
  * mais n'est pas stockée (file d'attente admin noyée par du spam). `BETA_PENDING_CAP`
@@ -85,39 +84,6 @@ export async function submitAccessRequest(input: {
   return { ok: true };
 }
 
-/**
- * Supprime les demandes et invitations CRÉÉES il y a plus de 6 mois (minimisation, RGPD).
- * Sur `createdAt` et non `updatedAt` : une personne qui redépose sa demande (ce qui met à
- * jour `updatedAt`) ne prolonge pas la conservation de ses données au-delà de 6 mois.
- */
-export async function purgeOldBetaData(): Promise<void> {
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - RETENTION_MONTHS);
-  await prisma.signupInvite.deleteMany({ where: { createdAt: { lt: cutoff } } });
-  await prisma.betaAccessRequest.deleteMany({ where: { createdAt: { lt: cutoff } } });
-}
-
-const PURGE_INTERVAL_MS = 60 * 60 * 1000;
-const purgeState = globalThis as unknown as { __betaPurgeAt?: number };
-
-/**
- * Purge au plus une fois par heure et par processus. Appelée à l'ouverture de la liste
- * admin, JAMAIS depuis la route publique (une écriture de masse déclenchable par n'importe
- * quel visiteur). `true` si la purge a eu lieu.
- */
-export async function purgeOldBetaDataThrottled(now = Date.now()): Promise<boolean> {
-  const last = purgeState.__betaPurgeAt ?? 0;
-  if (now - last < PURGE_INTERVAL_MS) return false;
-  purgeState.__betaPurgeAt = now;
-  try {
-    await purgeOldBetaData();
-  } catch (e) {
-    purgeState.__betaPurgeAt = last; // à réessayer à la prochaine ouverture
-    throw e;
-  }
-  return true;
-}
-
 export interface AdminBetaRequest {
   id: string;
   email: string;
@@ -183,7 +149,6 @@ async function listDirectInvites(): Promise<AdminDirectInvite[]> {
 export async function listBetaRequests(
   opts: { offset?: number; limit?: number } = {}
 ): Promise<AdminBetaRequestsPage> {
-  await purgeOldBetaDataThrottled().catch((e) => console.error("[beta] purge impossible", e));
   const offset = Math.max(0, Math.floor(opts.offset ?? 0) || 0);
   const limit = Math.min(ADMIN_PAGE_MAX, Math.max(1, Math.floor(opts.limit ?? ADMIN_PAGE_SIZE) || ADMIN_PAGE_SIZE));
 
@@ -247,7 +212,7 @@ export async function refuseBetaRequest(id: string): Promise<"ok" | "not-found" 
       data: { status: "refused", decidedAt: now, updatedAt: now },
     });
     if (updated.count === 0) {
-      // Inscrite entre-temps, ou supprimée (purge) : on départage sans rien modifier.
+      // Inscrite entre-temps, ou supprimée par un autre administrateur : on départage sans rien modifier.
       const still = await tx.betaAccessRequest.findUnique({ where: { id }, select: { id: true } });
       return still ? ("registered" as const) : ("not-found" as const);
     }
@@ -274,7 +239,7 @@ export async function deleteBetaRequest(id: string): Promise<"ok" | "not-found">
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${request.email}))`;
     await tx.signupInvite.deleteMany({ where: { OR: [{ requestId: id }, { email: request.email }] } });
     const deleted = await tx.betaAccessRequest.deleteMany({ where: { id } });
-    // 0 : supprimée entre-temps (purge, autre administrateur).
+    // 0 : supprimée entre-temps (autre administrateur).
     return deleted.count === 0 ? ("not-found" as const) : ("ok" as const);
   });
 }

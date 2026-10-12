@@ -12,6 +12,11 @@ import {
   createUserWithGrant,
   findValidInvite,
 } from "@/lib/signupInvite";
+import {
+  GROUP_INVITE_INVALID_MESSAGE,
+  findSignupGroupInvite,
+  groupInviteAcceptsEmail,
+} from "@/lib/groupInviteSignup";
 
 // Essais par adresse IP et par fenêtre (limiteur en mémoire, une instance : src/lib/rateLimit.ts).
 const REGISTER_MAX = 10;
@@ -27,7 +32,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => null);
-  const { name, email, password, consent, invite } = body ?? {};
+  const { name, email, password, consent, invite, groupInvite } = body ?? {};
+  const hasGroupInvite = groupInvite !== undefined && groupInvite !== null && groupInvite !== "";
 
   // Inscriptions sur invitation (src/lib/signupInvite.ts). Une adresse peut créer un
   // compte si elle est dans ALLOWED_SIGNUP_EMAILS OU si l'invitation fournie la vise.
@@ -45,6 +51,16 @@ export async function POST(req: NextRequest) {
       if (!found) return NextResponse.json({ error: INVITE_INVALID_MESSAGE }, { status: 403 });
       // Le porteur du lien connaît déjà l'adresse invitée (elle est affichée) : message précis.
       if (found.email !== cleanEmail) {
+        return NextResponse.json({ error: INVITE_EMAIL_MISMATCH_MESSAGE }, { status: 403 });
+      }
+    } else if (hasGroupInvite) {
+      // Invitation de foyer : lien valide (non expiré, pas encore associé à une inscription),
+      // ouvert ou nominatif pour cette adresse (groupInviteSignup.ts). Le contrôle atomique
+      // se refait dans createUserWithGrant.
+      const found = await findSignupGroupInvite(groupInvite);
+      if (!found) return NextResponse.json({ error: GROUP_INVITE_INVALID_MESSAGE }, { status: 403 });
+      if (!cleanEmail) return NextResponse.json({ error: "Indique une adresse e-mail valide." }, { status: 400 });
+      if (!groupInviteAcceptsEmail(found.email, cleanEmail)) {
         return NextResponse.json({ error: INVITE_EMAIL_MISMATCH_MESSAGE }, { status: 403 });
       }
     } else {
@@ -93,7 +109,8 @@ export async function POST(req: NextRequest) {
       consentedAt: new Date(),
       consentVersion: CONSENT_VERSION,
     },
-    invite
+    invite,
+    hasGroupInvite ? groupInvite : undefined
   );
 
   if (!result.ok) {
@@ -101,7 +118,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Un compte existe déjà avec cet email." }, { status: 409 });
     }
     // Invitation consommée entre-temps (deux inscriptions simultanées) ou remplacée.
-    return NextResponse.json({ error: INVITE_INVALID_MESSAGE }, { status: 403 });
+    return NextResponse.json(
+      { error: hasGroupInvite && !invite ? GROUP_INVITE_INVALID_MESSAGE : INVITE_INVALID_MESSAGE },
+      { status: 403 }
+    );
   }
 
   // Créer le groupe par défaut automatiquement

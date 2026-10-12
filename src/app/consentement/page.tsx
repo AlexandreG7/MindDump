@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ConsentForm } from "./ConsentForm";
+import { safeCallbackPath } from "@/lib/safeCallback";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,8 @@ export const metadata: Metadata = {
 
 // Chemin interne uniquement (pas de redirection ouverte).
 function safeCallback(value: string | undefined) {
-  return value && /^\/(?![\/\\])/.test(value) && !value.startsWith("/consentement") ? value : "/";
+  const path = safeCallbackPath(value);
+  return path.startsWith("/consentement") ? "/" : path;
 }
 
 export default async function ConsentPage({

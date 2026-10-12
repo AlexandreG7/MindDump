@@ -280,6 +280,9 @@ model GroupInvite {
   token     String    @unique @default(cuid())
   expiresAt DateTime
   usedAt    DateTime?
+  // Posé quand ce lien a servi à créer UN compte (inscription par invitation de foyer,
+  // src/lib/groupInviteSignup.ts). N'affecte pas l'adhésion : `usedAt` reste celui du join.
+  signupClaimedAt DateTime?
 
   groupId String
   group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -622,7 +625,7 @@ model AiImport {
 
 // Bêta privée : demande d'accès déposée depuis /register (sans compte). Une seule
 // demande par adresse normalisée (src/lib/email.ts). Statuts : pending, invited,
-// registered, refused. Purgée au bout de 6 mois (src/lib/betaAccess.ts, docs/rgpd.md).
+// registered, refused. Conservée pendant la bêta, effacée sur demande (src/lib/betaAccess.ts, docs/rgpd.md).
 model BetaAccessRequest {
   id             String    @id @default(cuid())
   email          String    @unique

@@ -4,6 +4,7 @@ import { prisma } from "./prisma";
 import { useSecureCookies } from "./secureCookies";
 import { isSignupAllowed } from "./signupAllowlist";
 import { parseEmail } from "./email";
+import { isGroupInviteToken } from "./groupInviteSignup";
 
 /**
  * Liens d'inscription à usage unique (bêta privée).
@@ -116,19 +117,25 @@ export type CreateUserResult =
  *    lower(email), voir docs/migrations-prisma.md) ;
  * 2. refus si un compte porte déjà cette adresse, sans tenir compte de la casse ;
  * 3. hors liste blanche, consommation de l'invitation par un `updateMany` conditionnel :
- *    0 ligne = jeton absent, utilisé, expiré, remplacé ou pour une autre adresse ;
+ *    0 ligne = jeton absent, utilisé, expiré, remplacé ou pour une autre adresse. À défaut
+ *    d'invitation bêta, une invitation de FOYER (`groupInviteToken`, groupInviteSignup.ts) est
+ *    « réclamée » de la même façon (une seule inscription par lien, adresse conforme si le lien
+ *    est nominatif) sans être consommée pour rejoindre le groupe ;
  * 4. création de l'utilisateur (adresse stockée en minuscules) ;
  * 5. la demande d'accès correspondante passe à « inscrite ».
  */
 export async function createUserWithGrant(
   email: string,
   data: Omit<Prisma.UserCreateInput, "email">,
-  inviteToken?: unknown
+  inviteToken?: unknown,
+  groupInviteToken?: unknown
 ): Promise<CreateUserResult> {
   const normalized = parseEmail(email);
   if (!normalized) return { ok: false, reason: "closed" };
   const allowlisted = isSignupAllowed(normalized);
-  if (!allowlisted && !isToken(inviteToken)) return { ok: false, reason: "closed" };
+  if (!allowlisted && !isToken(inviteToken) && !isGroupInviteToken(groupInviteToken)) {
+    return { ok: false, reason: "closed" };
+  }
 
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${normalized}))`;
@@ -139,6 +146,7 @@ export async function createUserWithGrant(
     });
     if (existing) return { ok: false as const, reason: "exists" as const };
 
+    let granted = allowlisted;
     if (isToken(inviteToken)) {
       const now = new Date();
       const consumed = await tx.signupInvite.updateMany({
@@ -151,8 +159,24 @@ export async function createUserWithGrant(
         },
         data: { usedAt: now },
       });
-      if (consumed.count !== 1 && !allowlisted) return { ok: false as const, reason: "closed" as const };
+      if (consumed.count === 1) granted = true;
     }
+    if (!granted && isGroupInviteToken(groupInviteToken)) {
+      const now = new Date();
+      const claimed = await tx.groupInvite.updateMany({
+        where: {
+          token: groupInviteToken,
+          usedAt: null,
+          signupClaimedAt: null,
+          expiresAt: { gt: now },
+          // Lien ouvert (sans adresse) ou nominatif pour cette adresse, sans tenir compte de la casse.
+          OR: [{ email: null }, { email: { equals: normalized, mode: "insensitive" } }],
+        },
+        data: { signupClaimedAt: now },
+      });
+      if (claimed.count === 1) granted = true;
+    }
+    if (!granted) return { ok: false as const, reason: "closed" as const };
 
     const user = await tx.user.create({ data: { ...data, email: normalized } });
     const now = new Date();

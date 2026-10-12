@@ -310,9 +310,9 @@ export default function PrivacyPolicyPage() {
             de MindDump et l&apos;éditeur y ont accès.
           </li>
           <li>
-            <strong className="text-foreground">Combien de temps</strong> : 6 mois au plus après ta
-            demande, puis suppression automatique. Si tu crées ton compte, la demande et ses liens sont
-            effacés avec lui lorsque tu le supprimes.
+            <strong className="text-foreground">Combien de temps</strong> : pendant la durée de la bêta ;
+            suppression sur simple demande, traitée dans un délai d&apos;un mois. Si tu crées ton
+            compte, la demande et ses liens sont effacés avec lui lorsque tu le supprimes.
           </li>
           <li>
             <strong className="text-foreground">Tes droits</strong> : tu peux demander la suppression

@@ -63,6 +63,35 @@ existant (même adresse sans tenir compte de la casse) n'est jamais concerné : 
 ou refus « compte existant ». Le filet `createUser` de l'adaptateur refuse tout ce que le callback
 n'a pas autorisé et consomme l'invitation.
 
+### Invitation de foyer : le lien de groupe ouvre aussi l'inscription
+
+Un lien `/groups/join/<jeton>` (`GroupInvite`, valable 7 jours, créé par un admin ou le propriétaire
+du groupe) donne le droit de créer UN compte, puis ramène au groupe (`src/lib/groupInviteSignup.ts`).
+
+- Modèle existant : le lien est **ouvert** (`email` vide) ou **nominatif** (`email`), et sert **une
+  fois** à rejoindre (`usedAt`, posé par `POST /api/groups/join/[token]`, flux inchangé : rôle
+  « member »). Les nouveaux jetons font 32 caractères aléatoires (`randomBytes(24)`), les anciens
+  (cuid) restent acceptés.
+- Règle d'inscription (la plus prudente pour un lien qui peut fuiter) : lien non expiré, pas encore
+  utilisé pour rejoindre, **une seule inscription par lien** (`GroupInvite.signupClaimedAt`, posé par
+  un `updateMany` conditionnel dans la transaction de `createUserWithGrant`, sous le même verrou
+  consultatif par adresse) ; nominatif = seule son adresse (sans tenir compte de la casse). Un lien
+  de foyer ouvert qui fuite ne crée donc qu'un compte, pas un accès à la bêta pour tout le monde.
+  Limites de débit : `/api/auth/register` (10 essais / 15 min / IP), `/api/signup-invite` (30), et
+  `GET /api/groups/join/[token]` (60).
+- Parcours : lien sans session → la page du groupe propose « Se connecter » (`/login?callbackUrl=`)
+  et, si le lien le permet, « Créer mon compte » (`/register?groupInvite=<jeton>`). Après
+  l'inscription (mot de passe : connexion automatique ; Google/Apple : `callbackUrl` du fournisseur),
+  retour sur `/groups/join/<jeton>` et adhésion par le bouton habituel.
+- Google/Apple : même mécanique que le lien bêta, avec son propre cookie httpOnly de 15 minutes
+  (`minddump.signup-group-invite`, posé par `POST /api/signup-invite` avec `{ groupInvite }`, lu
+  uniquement sur le callback). Comme pour le lien bêta, dans l'app native : mot de passe seulement.
+- `callbackUrl` : chemin interne uniquement (`src/lib/safeCallback.ts` : refuse `//`, `\`, tabulation
+  ou retour à la ligne, et toute URL qui change d'origine).
+- ADR 0001 : l'inscription ne touche à aucun élément existant ; l'adhésion suit le flux existant
+  (mêmes règles de rôle et de visibilité). Test : `tests/group-invite.test.mjs` (dans `test:signup`)
+  et la section 10 de `tests/ownership.test.mjs`.
+
 ### Circuit mobile
 
 `/api/mobile-auth/*` ne crée aucun utilisateur : il passe par NextAuth, dans le **navigateur
@@ -124,8 +153,8 @@ peut être sondée par essais. C'est la limite de débit qui freine l'essai en m
 
 Hors périmètre, volontairement : la connexion d'un compte existant (mot de passe, OAuth déjà lié),
 la liaison d'un fournisseur depuis le profil ou l'app (`linkAuthOptions` ne crée personne), les
-invitations de groupe (elles exigent un compte connecté) et les profils du foyer (sans compte).
-Test : `npm run test:signup` (enchaîne `tests/signup.test.mjs` et `tests/beta.test.mjs`, bloquant au
+adhésion à un groupe (compte connecté ; l'inscription par lien de foyer est décrite plus haut) et les profils du foyer (sans compte).
+Test : `npm run test:signup` (enchaîne `tests/signup.test.mjs`, `tests/beta.test.mjs` et `tests/group-invite.test.mjs`, bloquant au
 déploiement).
 
 ## Pourquoi un « cookie d'intention » pour lier

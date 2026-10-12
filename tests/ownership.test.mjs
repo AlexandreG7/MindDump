@@ -256,6 +256,49 @@ async function main() {
     `carol ne peut pas filtrer le résumé sur un groupe dont elle n'est pas membre (${carolSummaryGroupFilter.status})`
   );
 
+  console.log("10. Inscription par invitation de foyer, adhésion, puis départ du groupe");
+  // Inscriptions fermées (aucune liste blanche sur ce serveur) : seul le lien de foyer ouvre
+  // l'inscription (src/lib/groupInviteSignup.ts). L'adhésion suit le flux existant (rôle « member »).
+  {
+    const token = randomBytes(24).toString("base64url");
+    await prisma.groupInvite.create({
+      data: { groupId: alice.defaultGroupId, token, expiresAt: new Date(Date.now() + 7 * 86_400_000) },
+    });
+    const addr = `hugo-${run}@test.local`;
+    const closed = await fetch(`${BASE_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Hugo", email: addr, password: "motdepasse-solide", consent: true }),
+    });
+    check(closed.status === 403, `sans lien de foyer, l'inscription reste fermée (${closed.status})`);
+    const signup = await fetch(`${BASE_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Hugo", email: addr, password: "motdepasse-solide", consent: true, groupInvite: token }),
+    });
+    check(signup.status === 201, `inscription avec le lien de foyer (${signup.status})`);
+    const row = await prisma.user.findUnique({ where: { email: addr } });
+    const hugoKey = `test-${run}-hugo-${randomBytes(8).toString("hex")}`;
+    await prisma.apiKey.create({ data: { key: hugoKey, userId: row.id } });
+    const hugoGroup = await prisma.group.findFirst({ where: { ownerId: row.id, isDefault: true } });
+    const hugo = { id: row.id, key: hugoKey, defaultGroupId: hugoGroup.id, name: "hugo" };
+    const joined = await api(hugo, "POST", `/api/groups/join/${token}`);
+    check(joined.status === 200, `Hugo rejoint le foyer d'Alice par la page du groupe (${joined.status})`);
+    const membership = await prisma.groupMember.findFirst({ where: { groupId: alice.defaultGroupId, userId: hugo.id } });
+    check(membership?.role === "member", "Hugo est membre simple (aucun droit d'admin)");
+    const denied = await api(hugo, "POST", `/api/groups/${alice.defaultGroupId}/invite`, {});
+    check(denied.status === 403, `un membre simple ne peut pas inviter à son tour (${denied.status})`);
+    const hugoItems = await createAll(hugo, alice.defaultGroupId, "hugo-chez-alice");
+    await expectVisible(alice, hugoItems, alice.defaultGroupId, "inscrit par lien de foyer (partage au foyer)");
+    await expectVisible(hugo, aliceItems, alice.defaultGroupId, "inscrit par lien de foyer (éléments du foyer)");
+    await expectHidden(carol, hugoItems, "inscrit par lien de foyer");
+    const leftHome = await api(hugo, "DELETE", `/api/groups/${alice.defaultGroupId}/members/${hugo.id}`);
+    check(leftHome.status === 200, `Hugo quitte le foyer (${leftHome.status})`);
+    await expectVisible(hugo, hugoItems, hugo.defaultGroupId, "après départ du foyer");
+    await expectVisible(alice, hugoItems, alice.defaultGroupId, "après départ de Hugo (reste au foyer)");
+    await expectHidden(hugo, aliceItems, "après départ du foyer");
+  }
+
   console.log(`\n${checks - failures}/${checks} vérifications OK`);
 }
 

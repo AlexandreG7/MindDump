@@ -1,7 +1,8 @@
 #!/bin/sh
 # Test de non-régression des inscriptions fermées : liste blanche (src/lib/signupAllowlist.ts,
 # docs/oauth.md « Inscriptions fermées ») ET bêta privée sur invitation (demandes d'accès,
-# liens à usage unique, admin : tests/beta.test.mjs). Personne hors liste blanche ou sans
+# liens à usage unique, admin : tests/beta.test.mjs) et invitations de foyer qui ouvrent l'inscription
+# (tests/group-invite.test.mjs). Personne hors liste blanche ou sans
 # invitation valide ne crée de compte (e-mail/mot de passe, Google/Apple), mais les comptes
 # existants se connectent et lient un fournisseur comme avant (ADR 0001).
 #
@@ -93,7 +94,7 @@ export BASE_URL="http://127.0.0.1:$PORT_APP"
 export BASE_URL_CLOSED="http://127.0.0.1:$PORT_CLOSED"
 export NEXTAUTH_URL="$BASE_URL"
 
-if ! ./node_modules/.bin/tsx tests/signup.test.mjs || ! ./node_modules/.bin/tsx tests/beta.test.mjs; then
+if ! ./node_modules/.bin/tsx tests/signup.test.mjs || ! ./node_modules/.bin/tsx tests/beta.test.mjs || ! ./node_modules/.bin/tsx tests/group-invite.test.mjs; then
   echo "--- journal du serveur (liste) ---"; tail -n 50 "$WORK/app.log"
   echo "--- journal du serveur (fermé) ---"; tail -n 50 "$WORK/closed.log"
   exit 1
