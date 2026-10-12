@@ -4,9 +4,9 @@
 # branche locale.
 #
 # Garde-fous :
-# - seulement les worktrees dont le HEAD est dans les commits NOUVELLEMENT poussés
-#   (origin/main@{1}..origin/main) : un worktree tout juste créé depuis main n'est
-#   jamais touché ;
+# - seulement les worktrees dont la branche est entièrement dans origin/main ET a
+#   reçu au moins un commit (un worktree tout juste créé depuis main n'est jamais
+#   touché) ; les worktrees en HEAD détaché sont ignorés ;
 # - jamais un worktree avec des modifications suivies (hors cache .impeccable) ou
 #   des fichiers non suivis ;
 # - jamais le worktree courant de la session.
@@ -24,8 +24,6 @@ cd "$repo" || exit 0
 git fetch -q origin main 2>/dev/null
 
 new=$(git rev-parse -q --verify origin/main) || exit 0
-old=$(git rev-parse -q --verify 'origin/main@{1}') || exit 0
-[ "$new" = "$old" ] && exit 0
 
 here=$(cd "$(printf '%s' "$input" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin).get("cwd",""))' 2>/dev/null)" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null)
 
@@ -35,10 +33,11 @@ while IFS= read -r wt; do
   [ "$wt" = "$here" ] && continue
   head=$(git -C "$wt" rev-parse HEAD 2>/dev/null) || continue
   git merge-base --is-ancestor "$head" "$new" || continue      # pas (encore) sur main
-  git merge-base --is-ancestor "$head" "$old" && continue      # déjà sur main avant ce push
+  branch=$(git -C "$wt" symbolic-ref -q --short HEAD) || continue   # HEAD détaché : on n'y touche pas
+  # Branche jamais commitée (worktree tout juste créé depuis main) : on la garde.
+  [ "$(git reflog show --format=%H "refs/heads/$branch" 2>/dev/null | wc -l | tr -d ' ')" -gt 1 ] || continue
   dirty=$(git -C "$wt" status --porcelain | grep -v ' \.impeccable/hook\.cache\.json$')
   if [ -n "$dirty" ]; then skipped+=("$(basename "$wt") (modifs locales)"); continue; fi
-  branch=$(git -C "$wt" symbolic-ref -q --short HEAD)
   if git worktree remove --force "$wt" 2>/dev/null; then
     [ -n "$branch" ] && git branch -D "$branch" >/dev/null 2>&1
     removed+=("$(basename "$wt")${branch:+ [$branch]}")
