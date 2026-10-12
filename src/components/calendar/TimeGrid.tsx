@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { format, isSameDay, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { CalendarEvent } from "./types";
-import { evVars, isAllDayLike, layoutDay, occursOn, startTimePrefix } from "./utils";
+import { cn } from "@/lib/utils";
+import { timeLabel } from "./EventList";
+import { evState, evVars, isAllDayLike, layoutDay, occursOn } from "./utils";
 
 const HOUR_PX = 56;
 const GUTTER = "2.75rem";
@@ -21,6 +23,7 @@ export function TimeGrid({
   onSelectDay,
   onCreateAt,
   onOpen,
+  selectedId,
 }: {
   days: Date[];
   events: CalendarEvent[];
@@ -28,6 +31,7 @@ export function TimeGrid({
   onSelectDay: (day: Date) => void;
   onCreateAt: (day: Date, hour: number) => void;
   onOpen: (event: CalendarEvent) => void;
+  selectedId?: string | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => new Date());
@@ -60,25 +64,25 @@ export function TimeGrid({
   const minWidth = single ? undefined : `calc(${GUTTER} + (100% - ${GUTTER}) * ${days.length} / 3)`;
 
   return (
-    <div ref={scrollRef} className="max-h-[70vh] overflow-auto overscroll-x-contain rounded-3xl border border-border/70 bg-card">
+    <div ref={scrollRef} className="max-h-[70vh] overflow-auto overscroll-x-contain rounded-3xl border border-border/60 bg-card">
       <div className={single ? undefined : "sm:!min-w-0"} style={{ minWidth }}>
         {/* En-têtes et journées entières */}
-        <div className="sticky top-0 z-30 grid border-b border-border bg-muted" style={cols}>
-          <div className="sticky left-0 z-20 bg-muted" />
+        <div className="sticky top-0 z-30 grid border-b border-border/60 bg-card" style={cols}>
+          <div className="sticky left-0 z-20 bg-card" />
           {days.map((day) => {
             const allDay = events.filter((e) => isAllDayLike(e) && occursOn(e, day));
             const selected = selectedDate && isSameDay(day, selectedDate);
             return (
-              <div key={day.toISOString()} className="border-l border-border p-1 min-w-0">
+              <div key={day.toISOString()} className="border-l border-border/40 p-1 min-w-0">
                 <button
                   onClick={() => onSelectDay(day)}
-                  className={`flex min-h-11 w-full flex-col items-center justify-center rounded-md py-1 transition-colors hover:bg-accent ${selected ? "bg-accent" : ""}`}
+                  className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded transition-colors hover:bg-accent ${selected ? "bg-accent" : ""}`}
                 >
-                  <span className="text-xs font-bold uppercase text-muted-foreground">
-                    {format(day, single ? "EEEE" : "EEE", { locale: fr })}
+                  <span className="text-xs font-medium capitalize text-muted-foreground">
+                    {format(day, single ? "EEEE" : "EEE", { locale: fr }).replace(".", "")}
                   </span>
                   <span
-                    className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full ${
+                    className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-sm font-medium tabular-nums ${
                       isToday(day) ? "bg-tone-agenda text-on-tone" : ""
                     }`}
                   >
@@ -90,7 +94,7 @@ export function TimeGrid({
                     <button
                       key={e.id}
                       onClick={() => onOpen(e)}
-                      className="ev-chip block min-h-11 w-full break-words rounded-md py-1.5 pl-2.5 pr-1.5 text-left text-xs font-bold leading-snug sm:min-h-8 sm:text-[0.8125rem]"
+                      className={cn("ev-chip block min-h-11 w-full break-words rounded py-1.5 pl-2.5 pr-1.5 text-left text-xs leading-snug sm:min-h-7 sm:py-1 sm:text-[0.8125rem]", evState(e, now, selectedId))}
                       style={evVars(e)}
                       title={e.title}
                     >
@@ -108,7 +112,7 @@ export function TimeGrid({
           <div className="grid relative" style={cols}>
             <div className="sticky left-0 z-20 bg-card">
               {HOURS.map((h) => (
-                <div key={h} className="relative pr-1.5 text-right text-xs tabular-nums text-muted-foreground" style={{ height: HOUR_PX }}>
+                <div key={h} className="relative pr-1.5 text-right text-xs tabular-nums text-muted-foreground/80" style={{ height: HOUR_PX }}>
                   {h > 0 && <span className="absolute -top-2 right-1.5">{`${h}:00`}</span>}
                 </div>
               ))}
@@ -118,26 +122,27 @@ export function TimeGrid({
               const positioned = layoutDay(timed, day);
               const nowTop = isToday(day) ? (now.getHours() * 60 + now.getMinutes()) * (HOUR_PX / 60) : null;
               return (
-                <div key={day.toISOString()} className="relative border-l border-border">
+                <div key={day.toISOString()} className="relative border-l border-border/40">
                   {HOURS.map((h) => (
                     <button
                       key={h}
                       aria-label={`Nouvel événement le ${format(day, "d MMMM", { locale: fr })} à ${h} h`}
                       onClick={() => onCreateAt(day, h)}
-                      className="block w-full border-b border-border/60 hover:bg-accent/50 transition-colors"
+                      className="block w-full border-b border-border/40 hover:bg-accent/50 transition-colors"
                       style={{ height: HOUR_PX }}
                     />
                   ))}
                   {positioned.map(({ event, top, height, column, columns }) => {
                     const px = Math.max(height * (HOUR_PX / 60) - 2, 24);
-                    const time = startTimePrefix(event);
-                    const lines = Math.max(1, Math.floor((px - 6) / 16));
+                    const time = timeLabel(event, day);
+                    const twoLines = !!time && px >= 44;
+                    const lines = Math.max(1, Math.floor((px - 8 - (twoLines ? 16 : 0)) / 16));
                     return (
                       <button
                         key={event.id}
                         onClick={() => onOpen(event)}
-                        title={`${time ?? ""} ${event.title}`.trim()}
-                        className="ev-chip absolute overflow-hidden rounded-md border border-card py-0.5 pl-2 pr-1 text-left text-xs leading-4 sm:text-[0.8125rem] sm:leading-4"
+                        title={`${event.title}${time ? ` ${time}` : ""}`}
+                        className={cn("ev-chip absolute overflow-hidden rounded py-1 pl-2 pr-1 text-left text-xs leading-4 sm:text-[0.8125rem] sm:leading-4", evState(event, now, selectedId))}
                         style={{
                           top: top * (HOUR_PX / 60),
                           height: px,
@@ -150,9 +155,10 @@ export function TimeGrid({
                           className="block break-words"
                           style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: lines, overflow: "hidden" }}
                         >
-                          {time && <span className="font-extrabold tabular-nums">{time} </span>}
-                          <span className="font-semibold">{event.title}</span>
+                          {event.title}
+                          {time && !twoLines && <span className="ev-time tabular-nums"> {time.split(" ")[0]}</span>}
                         </span>
+                        {twoLines && <span className="ev-time block truncate text-xs leading-4 tabular-nums">{time}</span>}
                       </button>
                     );
                   })}

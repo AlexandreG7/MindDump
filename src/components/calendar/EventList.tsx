@@ -9,7 +9,7 @@ import { EVENT_COLORS, RECURRENCE_LABELS } from "@/lib/recurrence";
 import type { CalendarEvent } from "./types";
 import { AssigneeAvatars, AssigneePicker } from "@/components/profiles/Assignees";
 import { textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
-import { daySpan, eventEnd, eventStart, isAllDayLike, isFinished } from "./utils";
+import { daySpan, eventEnd, eventStart, evState, evVars, isAllDayLike } from "./utils";
 
 export function timeLabel(e: CalendarEvent, day?: Date): string | null {
   if (e.allDay) return null;
@@ -54,6 +54,7 @@ export function EventList({
   onSetAssignees,
   onDelete,
   profiles,
+  selectedId,
 }: {
   events: CalendarEvent[];
   day?: Date;
@@ -62,6 +63,7 @@ export function EventList({
   onSetAssignees: (id: string, assigneeIds: string[]) => void;
   onDelete: (event: CalendarEvent) => void;
   profiles: { all: FamilyProfile[]; byId: Map<string, FamilyProfile> };
+  selectedId?: string | null;
 }) {
   const [colorMenuFor, setColorMenuFor] = useState<string | null>(null);
   const [peopleMenuFor, setPeopleMenuFor] = useState<string | null>(null);
@@ -73,7 +75,6 @@ export function EventList({
         const time = timeLabel(event, day);
         const span = day ? daySpan(event, day) : null;
         const color = event.displayColor ?? event.color ?? null;
-        const done = !!day && day.toDateString() === now.toDateString() && isFinished(event, now);
         const continuing = !!span && span.index > 1;
 
         if (continuing && span) {
@@ -101,22 +102,17 @@ export function EventList({
         }
 
         return (
-          <li key={event.id} className={cn("group/card transition-opacity", done && "opacity-60")}>
-            <div className="flex items-stretch rounded-2xl border border-border/70 bg-card">
+          <li key={event.id} className="group/card">
+            <div className={cn("ev-chip flex items-stretch rounded-lg", evState(event, now, selectedId))} style={evVars(event)}>
               <button
                 type="button"
                 onClick={() => onOpen(event)}
-                className="flex min-h-14 min-w-0 flex-1 items-stretch gap-3 rounded-2xl py-2.5 pl-3 pr-3 text-left transition-[transform,background-color] duration-150 hover:bg-secondary/40 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-14 min-w-0 flex-1 items-stretch gap-3 rounded-lg py-2.5 pl-4 pr-3 text-left transition-transform duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span
-                  aria-hidden
-                  className={cn("w-1.5 shrink-0 rounded-full", !color && "bg-tone-agenda-ink/60")}
-                  style={color ? { backgroundColor: color } : undefined}
-                />
                 <span className="min-w-0 flex-1">
-                  <span className="block break-words text-base font-bold leading-snug">{event.title}</span>
+                  <span className="block break-words text-base font-medium leading-snug">{event.title}</span>
                   {(time || span || event.subscriptionName || (event.assigneeIds?.length ?? 0) > 0) && (
-                    <span className="block text-sm text-muted-foreground">
+                    <span className="ev-time block text-sm">
                       {[
                         time,
                         span && `jusqu'au ${format(span.lastDay, "EEE d MMM", { locale: fr })} · ${span.total} jours`,
@@ -131,14 +127,14 @@ export function EventList({
                     </span>
                   )}
                   {event.description && (
-                    <span className="mt-0.5 line-clamp-1 block text-sm text-muted-foreground">{event.description}</span>
+                    <span className="ev-time mt-0.5 line-clamp-1 block text-sm">{event.description}</span>
                   )}
                   {span && <SpanPips index={span.index} total={span.total} color={color} />}
                 </span>
                 <span className="flex shrink-0 flex-col items-end justify-between gap-1">
                   <AssigneeAvatars ids={event.assigneeIds} byId={profiles.byId} />
                   {event.recurrence && RECURRENCE_LABELS[event.recurrence] && (
-                    <span className="text-muted-foreground" title={RECURRENCE_LABELS[event.recurrence]}>
+                    <span className="ev-time" title={RECURRENCE_LABELS[event.recurrence]}>
                       <Repeat className="h-3.5 w-3.5" aria-label={RECURRENCE_LABELS[event.recurrence]} />
                     </span>
                   )}
@@ -158,7 +154,7 @@ export function EventList({
                           title="Pour qui ?"
                           aria-label="Choisir les personnes"
                           className={cn(
-                            "rounded-md p-1.5 text-muted-foreground transition-all hover:bg-secondary hover:text-foreground",
+                            "rounded-md p-1.5 text-[color:var(--c-time)] transition-all hover:bg-foreground/10",
                             peopleMenuFor === event.id ? "opacity-100" : "opacity-0 focus:opacity-100 group-hover/card:opacity-100"
                           )}
                         >
@@ -186,7 +182,7 @@ export function EventList({
                       title="Couleur"
                       aria-label="Choisir la couleur"
                       className={cn(
-                        "rounded-md p-1.5 text-muted-foreground transition-all hover:bg-secondary hover:text-foreground",
+                        "rounded-md p-1.5 text-[color:var(--c-time)] transition-all hover:bg-foreground/10",
                         colorMenuFor === event.id ? "opacity-100" : "opacity-0 focus:opacity-100 group-hover/card:opacity-100"
                       )}
                     >
@@ -239,7 +235,7 @@ export function EventList({
                     onClick={() => onDelete(event)}
                     title="Supprimer"
                     aria-label="Supprimer l'événement"
-                    className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-secondary hover:text-destructive focus:opacity-100 group-hover/card:opacity-100"
+                    className="rounded-md p-1.5 text-[color:var(--c-time)] opacity-0 transition-all hover:bg-foreground/10 hover:text-destructive focus:opacity-100 group-hover/card:opacity-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

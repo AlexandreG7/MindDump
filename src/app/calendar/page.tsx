@@ -516,7 +516,7 @@ export default function CalendarPage() {
         }}
       />
 
-      {view === "agenda" && glanceOwn !== null && <WeekStrip events={glanceEvents} onSelectDay={openDay} />}
+      {view === "agenda" && glanceOwn !== null && <WeekStrip events={glanceEvents} onSelectDay={openDay} selectedId={openId} />}
 
       <PeopleFilter profiles={profiles.assignable} value={activeFilter} onChange={changePeopleFilter} />
 
@@ -552,7 +552,7 @@ export default function CalendarPage() {
       </div>
 
       {view === "month" && (
-        <MonthGrid month={anchor} events={allEvents} selectedDate={selectedDate} onSelectDay={pickMonthDay} />
+        <MonthGrid month={anchor} events={allEvents} selectedDate={selectedDate} onSelectDay={pickMonthDay} selectedId={openId} />
       )}
 
       {(view === "week" || view === "day") && (
@@ -563,6 +563,7 @@ export default function CalendarPage() {
           onSelectDay={setSelectedDate}
           onCreateAt={openNewEvent}
           onOpen={(e) => setOpenId(e.id)}
+          selectedId={openId}
         />
       )}
 
@@ -576,6 +577,7 @@ export default function CalendarPage() {
             onSetAssignees={setEventAssignees}
             onDelete={requestDelete}
             profiles={listProfiles}
+            selectedId={openId}
           />
         </div>
       )}
@@ -620,6 +622,7 @@ export default function CalendarPage() {
               onSetAssignees={setEventAssignees}
               onDelete={requestDelete}
               profiles={listProfiles}
+              selectedId={openId}
             />
           )}
         </section>

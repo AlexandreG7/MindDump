@@ -4,7 +4,7 @@ import { addDays, format, isToday, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "./types";
-import { dayKey, eventDays, evVars, occursOn } from "./utils";
+import { dayKey, eventDays, evState, evVars, occursOn } from "./utils";
 
 const MAX_LANES = 3;
 
@@ -25,10 +25,13 @@ interface Bar {
 export function WeekStrip({
   events,
   onSelectDay,
+  selectedId,
 }: {
   events: CalendarEvent[];
   onSelectDay: (day: Date) => void;
+  selectedId?: string | null;
 }) {
+  const now = new Date();
   const days = Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), i));
   const keys = days.map(dayKey);
 
@@ -49,7 +52,7 @@ export function WeekStrip({
   const shown = bars.filter((b) => b.lane < MAX_LANES);
 
   return (
-    <section aria-label="Cette semaine" className="rounded-[1.75rem] border border-border/70 bg-card p-2.5">
+    <section aria-label="Cette semaine" className="rounded-[1.75rem] border border-border/60 bg-card p-2.5">
       <div className="grid grid-cols-7 gap-1">
         {days.map((day) => {
           const today = isToday(day);
@@ -103,9 +106,10 @@ export function WeekStrip({
             <span
               key={b.event.id}
               className={cn(
-                "ev-chip flex min-h-7 items-center py-1 pl-2.5 pr-2 text-xs font-bold leading-4",
-                b.fromBefore ? "ev-chip-cont rounded-l-none" : "rounded-l-2xl",
-                b.toAfter ? "rounded-r-none" : "rounded-r-2xl"
+                "ev-chip flex min-h-7 items-center py-1 pl-2.5 pr-2 text-xs leading-4",
+                evState(b.event, now, selectedId),
+                b.fromBefore ? "ev-chip-cont rounded-l-none" : "rounded-l",
+                b.toAfter ? "rounded-r-none" : "rounded-r"
               )}
               style={{ ...evVars(b.event), gridColumn: `${b.startCol + 1} / span ${b.span}`, gridRow: b.lane + 1 }}
             >

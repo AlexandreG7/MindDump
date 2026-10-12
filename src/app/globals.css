@@ -196,20 +196,73 @@
 }
 
 @layer components {
-  /* Événement de l'agenda : fond teinté clair (sombre en mode sombre), liseré
-     de la couleur de l'événement, texte toujours --foreground. Le contraste du
-     texte ne dépend donc pas de la couleur choisie (>= 7:1, mesuré). */
+  /* Événement de l'agenda, à la manière de Cron : chaque couleur donne une
+     famille de teintes (fond très pâle, titre en nuance foncée, heure en
+     nuance moyenne, ruban plein). Passé = famille atténuée ; ouvert dans la
+     fiche = aplat plein, texte blanc. Contrastes mesurés (voir le retour). */
   .ev-chip {
     --ev-base: var(--ev, hsl(var(--tone-agenda-ink)));
-    background-color: color-mix(in srgb, var(--ev-base) 16%, hsl(var(--card)));
-    color: hsl(var(--foreground));
-    box-shadow: inset 4px 0 0 var(--ev-base);
+    --ev-bg: color-mix(in srgb, var(--ev-base) 11%, hsl(var(--card)));
+    --ev-bg-past: color-mix(in srgb, var(--ev-base) 5%, hsl(var(--card)));
+    --ev-ribbon: var(--ev-base);
+    --ev-ribbon-past: color-mix(in srgb, var(--ev-base) 40%, hsl(var(--card)));
+    --ev-title: color-mix(in oklab, var(--ev-base) 40%, black);
+    --ev-time: color-mix(in oklab, var(--ev-base) 62%, black);
+    --ev-title-past: color-mix(in oklab, var(--ev-base) 55%, hsl(var(--foreground) / 0.5));
+    --ev-time-past: var(--ev-title-past);
+    --ev-selected-bg: color-mix(in oklab, var(--ev-base) 70%, black);
+    --c-bg: var(--ev-bg);
+    --c-title: var(--ev-title);
+    --c-time: var(--ev-time);
+    --c-ribbon: var(--ev-ribbon);
+    background-color: var(--c-bg);
+    color: var(--c-title);
+    box-shadow: inset 3px 0 0 var(--c-ribbon);
+    font-weight: 500;
+  }
+  @supports (color: oklch(from red l c h)) {
+    .ev-chip {
+      --ev-title: oklch(from var(--ev-base) 0.36 min(c, 0.12) h);
+      --ev-time: oklch(from var(--ev-base) 0.5 min(c, 0.14) h);
+      --ev-title-past: oklch(from var(--ev-base) 0.56 min(c, 0.1) h);
+      --ev-time-past: oklch(from var(--ev-base) 0.6 min(c, 0.09) h);
+      --ev-selected-bg: oklch(from var(--ev-base) min(l, 0.54) c h);
+    }
+    .dark .ev-chip {
+      --ev-title: oklch(from var(--ev-base) 0.9 min(c, 0.09) h);
+      --ev-time: oklch(from var(--ev-base) 0.82 min(c, 0.1) h);
+      --ev-title-past: oklch(from var(--ev-base) 0.68 min(c, 0.08) h);
+      --ev-time-past: oklch(from var(--ev-base) 0.62 min(c, 0.07) h);
+      --ev-selected-bg: oklch(from var(--ev-base) min(l, 0.54) c h);
+    }
   }
   .dark .ev-chip {
-    background-color: color-mix(in srgb, var(--ev-base) 24%, hsl(var(--card)));
+    --ev-bg: color-mix(in srgb, var(--ev-base) 22%, hsl(var(--card)));
+    --ev-bg-past: color-mix(in srgb, var(--ev-base) 9%, hsl(var(--card)));
+    --ev-ribbon-past: color-mix(in srgb, var(--ev-base) 45%, hsl(var(--card)));
+  }
+  .ev-chip.ev-past {
+    --c-bg: var(--ev-bg-past);
+    --c-title: var(--ev-title-past);
+    --c-time: var(--ev-time-past);
+    --c-ribbon: var(--ev-ribbon-past);
+  }
+  .ev-chip.ev-sel {
+    --c-bg: var(--ev-selected-bg);
+    --c-title: #fff;
+    --c-time: rgb(255 255 255 / 0.85);
+    --c-ribbon: rgb(255 255 255 / 0.55);
+  }
+  .ev-time {
+    color: var(--c-time);
+    font-weight: 500;
   }
   .ev-chip-cont {
     box-shadow: none;
+  }
+  .ev-chip {
+    transition-property: background-color, color, box-shadow;
+    transition-duration: 150ms;
   }
 
   /* Barre de progression de la maquette de la landing (LoopSection) : inchangée.

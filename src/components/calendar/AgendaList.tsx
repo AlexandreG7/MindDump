@@ -29,6 +29,7 @@ export function AgendaList({
   onSetAssignees,
   onDelete,
   profiles,
+  selectedId,
 }: {
   from: Date;
   events: CalendarEvent[];
@@ -37,6 +38,7 @@ export function AgendaList({
   onSetAssignees: (id: string, assigneeIds: string[]) => void;
   onDelete: (event: CalendarEvent) => void;
   profiles: { all: FamilyProfile[]; byId: Map<string, FamilyProfile> };
+  selectedId?: string | null;
 }) {
   const days = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(from, i))
     .map((day) => ({ day, events: sortEvents(events.filter((e) => occursOn(e, day))) }))
@@ -83,6 +85,7 @@ export function AgendaList({
                 onSetAssignees={onSetAssignees}
                 onDelete={onDelete}
                 profiles={profiles}
+                selectedId={selectedId}
               />
             </div>
           </section>

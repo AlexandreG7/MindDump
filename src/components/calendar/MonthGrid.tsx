@@ -4,7 +4,7 @@ import { addDays, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "./types";
-import { dayKey, eventDays, eventStart, evVars, occursOn, startTimePrefix } from "./utils";
+import { dayKey, eventDays, eventStart, evState, evVars, occursOn, startTimePrefix } from "./utils";
 
 const WEEK = { weekStartsOn: 1 as const };
 
@@ -65,32 +65,35 @@ export function MonthGrid({
   events,
   selectedDate,
   onSelectDay,
+  selectedId,
 }: {
   month: Date;
   events: CalendarEvent[];
   selectedDate: Date | null;
   onSelectDay: (day: Date) => void;
+  selectedId?: string | null;
 }) {
+  const now = new Date();
   const all = monthDays(month);
   const weeks = Array.from({ length: all.length / 7 }, (_, i) => all.slice(i * 7, i * 7 + 7));
 
   return (
     <div className="overflow-hidden rounded-3xl border border-border/70 bg-card">
-      <div className="grid grid-cols-7 bg-tone-agenda-soft">
+      <div className="grid grid-cols-7 border-b border-border/50">
         {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((d) => (
-          <div key={d} className="py-2.5 text-center text-xs font-extrabold uppercase tracking-wide text-tone-agenda-ink">
+          <div key={d} className="py-2 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {d}
           </div>
         ))}
       </div>
-      <div className="space-y-px bg-border/70">
+      <div className="space-y-px bg-border/50">
         {weeks.map((week) => {
           const weekEvents = events.filter((e) => week.some((d) => occursOn(e, d)));
           const { bars, lanes } = weekBars(week, weekEvents);
           const rowVars = { "--lm": Math.min(lanes, 2), "--ld": Math.min(lanes, MAX_LANES) } as React.CSSProperties;
           return (
             <div key={week[0].toISOString()} className="relative" style={rowVars}>
-              <div className="grid grid-cols-7 gap-px bg-border/70">
+              <div className="grid grid-cols-7 gap-px bg-border/50">
                 {week.map((d, col) => {
                   const dayEvents = weekEvents.filter((e) => occursOn(e, d));
                   const singles = dayEvents.filter((e) => !isMulti(e)).sort((a, b) => eventStart(a).getTime() - eventStart(b).getTime());
@@ -123,7 +126,7 @@ export function MonthGrid({
                     >
                       <span
                         className={cn(
-                          "font-display grid h-7 w-7 shrink-0 place-items-center rounded-full text-[0.9375rem] leading-none tabular-nums",
+                          "font-display grid h-6 w-6 shrink-0 place-items-center rounded-full text-sm leading-none tabular-nums",
                           !inMonth && "text-muted-foreground",
                           today && "bg-tone-agenda text-on-tone",
                           !today && isSelected && "bg-tone-agenda-ink text-tone-agenda-soft"
@@ -140,10 +143,10 @@ export function MonthGrid({
                             <span
                               key={e.id}
                               title={`${time ? `${time} ` : ""}${e.title}`}
-                              className="ev-chip line-clamp-2 break-words rounded-md py-0.5 pl-2 pr-1 text-[0.8125rem] leading-[1.15rem]"
+                              className={cn("ev-chip line-clamp-2 break-words rounded py-0.5 pl-2 pr-1 text-[0.8125rem] leading-[1.15rem]", evState(e, now, selectedId))}
                               style={evVars(e)}
                             >
-                              {time && <span className="font-extrabold tabular-nums">{time} </span>}
+                              {time && <span className="ev-time tabular-nums">{time} </span>}
                               {e.title}
                             </span>
                           );
@@ -172,14 +175,15 @@ export function MonthGrid({
                       title={b.event.title}
                       className={cn(
                         "ev-chip flex items-center overflow-hidden text-xs leading-none sm:text-[0.8125rem]",
-                        b.fromBefore ? "ev-chip-cont rounded-l-none pl-2" : "ml-1 rounded-l-md pl-2 sm:ml-1.5",
-                        b.toAfter ? "rounded-r-none" : "mr-1 rounded-r-md sm:mr-1.5",
+                        evState(b.event, now, selectedId),
+                        b.fromBefore ? "ev-chip-cont rounded-l-none pl-2" : "ml-1 rounded-l pl-2 sm:ml-1.5",
+                        b.toAfter ? "rounded-r-none" : "mr-1 rounded-r sm:mr-1.5",
                         b.lane >= 2 && "max-sm:hidden",
                         b.lane >= MAX_LANES && "hidden"
                       )}
                       style={{ ...evVars(b.event), gridColumn: `${b.startCol + 1} / span ${b.span}`, gridRow: b.lane + 1 }}
                     >
-                      <span className="truncate font-bold">{b.event.title}</span>
+                      <span className="truncate">{b.event.title}</span>
                     </span>
                   ))}
                 </div>

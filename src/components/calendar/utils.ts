@@ -268,3 +268,15 @@ export function daysCovered(e: Timed): number {
 export function isFinished(e: Timed, now: Date): boolean {
   return !e.allDay && eventEnd(e) <= now;
 }
+
+/** Événement entièrement passé (journée entière : dernier jour avant aujourd'hui). */
+export function isPast(e: Timed, now: Date): boolean {
+  if (e.allDay) return eventDays(e).last < dayKey(now);
+  return eventEnd(e) <= now;
+}
+
+/** Classes d'état de `.ev-chip` : atténué si passé, aplat si ouvert dans la fiche. */
+export function evState(e: CalendarEvent, now: Date, selectedId?: string | null): string {
+  if (selectedId && e.id === selectedId) return "ev-sel";
+  return isPast(e, now) ? "ev-past" : "";
+}
