@@ -9,7 +9,7 @@ import {
   AccidentDay,
   NapYes,
   NapNo,
-} from "@/components/kids/icons";
+} from "./legacyIcons";
 
 interface DayEntry {
   date: string;
