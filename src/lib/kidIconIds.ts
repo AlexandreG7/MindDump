@@ -89,6 +89,18 @@ export const KID_ICONS = [
   { id: "bolt", label: "éclair" },
   { id: "flame", label: "flamme" },
   { id: "target", label: "cible" },
+  // Visages (émotions uniquement, ADR 0002).
+  { id: "face-surprised", label: "visage surpris" },
+  { id: "face-laughing", label: "visage qui rit aux larmes" },
+  { id: "face-in-love", label: "visage aux yeux en cœur" },
+  { id: "face-tongue", label: "visage qui tire la langue" },
+  { id: "face-cool", label: "visage avec lunettes de soleil" },
+  { id: "face-worried", label: "visage inquiet" },
+  { id: "face-crying", label: "visage qui pleure" },
+  { id: "face-shy", label: "visage timide aux joues roses" },
+  { id: "face-thinking", label: "visage pensif" },
+  { id: "face-serene", label: "visage serein aux yeux fermés" },
+  { id: "face-wink", label: "visage qui fait un clin d'œil" },
 ] as const;
 
 export type KidIconId = (typeof KID_ICONS)[number]["id"];

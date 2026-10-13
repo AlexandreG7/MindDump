@@ -1,5 +1,5 @@
 /**
- * Bibliothèque d'images neutres du Semainier (83 icônes).
+ * Bibliothèque d'images neutres du Semainier (94 icônes).
  *
  * Origine et licence : dessin maison, tracés SVG écrits pour MindDump
  * (aucune icône reprise de Lucide, Phosphor, Tabler ou autre pack ; aucune
@@ -131,6 +131,17 @@ export const KID_ICON_LABELS: Record<KidIconId, string> = {
   bolt: "éclair",
   flame: "flamme",
   target: "cible et flèche",
+  "face-surprised": "visage surpris",
+  "face-laughing": "visage qui rit aux larmes",
+  "face-in-love": "visage aux yeux en cœur",
+  "face-tongue": "visage qui tire la langue",
+  "face-cool": "visage avec lunettes de soleil",
+  "face-worried": "visage inquiet",
+  "face-crying": "visage qui pleure",
+  "face-shy": "visage timide aux joues roses",
+  "face-thinking": "visage pensif",
+  "face-serene": "visage serein aux yeux fermés",
+  "face-wink": "visage qui fait un clin d'œil",
 };
 
 export const KID_ICON_CATEGORIES: Record<KidIconId, KidIconCategory> = {
@@ -138,6 +149,9 @@ export const KID_ICON_CATEGORIES: Record<KidIconId, KidIconCategory> = {
   snow: "meteo", moon: "meteo", rainbow: "meteo",
   "face-very-happy": "humeur", "face-happy": "humeur", "face-neutral": "humeur",
   "face-sad": "humeur", "face-angry": "humeur",
+  "face-surprised": "humeur", "face-laughing": "humeur", "face-in-love": "humeur", "face-tongue": "humeur",
+  "face-cool": "humeur", "face-worried": "humeur", "face-crying": "humeur", "face-shy": "humeur",
+  "face-thinking": "humeur", "face-serene": "humeur", "face-wink": "humeur",
   apple: "nourriture", carrot: "nourriture", plate: "nourriture", sandwich: "nourriture",
   "ice-cream": "nourriture", glass: "nourriture", cake: "nourriture", cup: "nourriture",
   cat: "animaux", dog: "animaux", fish: "animaux", bird: "animaux", rabbit: "animaux",
@@ -373,6 +387,103 @@ const DRAW: Record<KidIconId, () => React.ReactNode> = {
       <path d="M47 19L37 24" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />
       <Eyes y={30} />
       <path d="M22 46Q32 38 42 46" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" />
+    </Face>
+  ),
+  "face-surprised": () => (
+    <Face>
+      <path d="M17 17Q23.5 12 30 16" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" />
+      <path d="M34 16Q40.5 12 47 17" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" />
+      <circle cx="23.5" cy="27" r="5.4" fill={PAPER} stroke={INK} strokeWidth="2.4" />
+      <circle cx="40.5" cy="27" r="5.4" fill={PAPER} stroke={INK} strokeWidth="2.4" />
+      <circle cx="23.5" cy="27" r="2.3" fill={INK} />
+      <circle cx="40.5" cy="27" r="2.3" fill={INK} />
+      <ellipse cx="32" cy="45" rx="4.6" ry="6" fill={INK} />
+    </Face>
+  ),
+  "face-laughing": () => (
+    <Face>
+      <path d="M18 22L28 27L18 32" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M46 22L36 27L46 32" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M17 38H47A15 14 0 0 1 17 38Z" fill={INK} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M12 31q-4 5 0 8q4-3 0-8Z" fill={C.blue} stroke={INK} strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M52 31q4 5 0 8q-4-3 0-8Z" fill={C.blue} stroke={INK} strokeWidth="1.6" strokeLinejoin="round" />
+    </Face>
+  ),
+  "face-in-love": () => (
+    <Face>
+      <path d="M23.5 32.5C14.5 26 18.0 19.5 23.5 24C29.0 19.5 32.5 26 23.5 32.5Z" fill={C.red} stroke={INK} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M40.5 32.5C31.5 26 35.0 19.5 40.5 24C46.0 19.5 49.5 26 40.5 32.5Z" fill={C.red} stroke={INK} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M22 41Q32 51 42 41" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Face>
+  ),
+  "face-tongue": () => (
+    <Face>
+      <Eyes y={27} />
+      <path d="M40 18Q45 14 50 18" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" />
+      <path d="M26 42V49Q26 55 32 55Q38 55 38 49V42Z" fill={C.pink} stroke={INK} strokeWidth="2.4" strokeLinejoin="round" />
+      <path d="M32 44V50" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M20 40Q32 47 44 40" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Face>
+  ),
+  "face-cool": () => (
+    <Face>
+      <path d="M16 24H48V28Q48 35 41 35H37Q30 35 30 28H34V28H30V28Q30 35 27 35H23Q16 35 16 28Z" fill={INK} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M30 26H34" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" />
+      <path d="M19.5 27.5L23 27M36 27.5L39.5 27" fill="none" stroke={PAPER} strokeWidth="1.8" strokeLinecap="round" opacity=".8" />
+      <path d="M22 43Q32 50 44 41" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Face>
+  ),
+  "face-worried": () => (
+    <Face>
+      <path d="M17 22L27 17" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M47 22L37 17" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <Eyes y={28} />
+      <path d="M23 46Q27.5 41 32 45Q36.5 49 41 44" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M48 12q4 5 0 8q-4-3 0-8Z" fill={C.blue} stroke={INK} strokeWidth="1.6" strokeLinejoin="round" />
+    </Face>
+  ),
+  "face-crying": () => (
+    <Face fill={C.sky}>
+      <path d="M18 29Q23.5 24 29 29" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M35 29Q40.5 24 46 29" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 31Q17 41 20 51M44 31Q47 41 44 51" fill="none" stroke={C.blue} strokeWidth="5" strokeLinecap="round" />
+      <path d="M25 46Q32 38 39 46Z" fill={INK} stroke={INK} strokeWidth="2.4" strokeLinejoin="round" />
+    </Face>
+  ),
+  "face-shy": () => (
+    <Face>
+      <circle cx="23.5" cy="29" r="3" fill={INK} />
+      <circle cx="40.5" cy="29" r="3" fill={INK} />
+      <ellipse cx="17" cy="38" rx="5.2" ry="3.6" fill={C.pink} />
+      <ellipse cx="47" cy="38" rx="5.2" ry="3.6" fill={C.pink} />
+      <path d="M27 43Q32 47 37 43" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Face>
+  ),
+  "face-thinking": () => (
+    <Face>
+      <path d="M16 20L27 20" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M37 16Q42 12 48 16" fill="none" stroke={INK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="23.5" cy="27" r="5.2" fill={PAPER} stroke={INK} strokeWidth="2.2" />
+      <circle cx="40.5" cy="27" r="5.2" fill={PAPER} stroke={INK} strokeWidth="2.2" />
+      <circle cx="25.5" cy="25" r="2.3" fill={INK} />
+      <circle cx="42.5" cy="25" r="2.3" fill={INK} />
+      <path d="M25 44Q31 40 36 44Q39 46 42 42" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Face>
+  ),
+  "face-serene": () => (
+    <Face>
+      <path d="M18 27Q23.5 32 29 27" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M35 27Q40.5 32 46 27" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      <ellipse cx="16.5" cy="37" rx="4.2" ry="2.8" fill={C.orange} opacity=".55" />
+      <ellipse cx="47.5" cy="37" rx="4.2" ry="2.8" fill={C.orange} opacity=".55" />
+      <path d="M25 40Q32 47 39 40" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Face>
+  ),
+  "face-wink": () => (
+    <Face>
+      <path d="M18 28Q23.5 22 29 28" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="40.5" cy="27" r="3.6" fill={INK} />
+      <path d="M21 38Q32 49 43 38" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
     </Face>
   ),
   brush: () => (
