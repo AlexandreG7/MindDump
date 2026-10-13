@@ -24,7 +24,7 @@ const variants = [
 // noindex, et surtout aucune canonique (donc pas de pointage vers l'accueil).
 const noindex = [
   "/login", "/login?callbackUrl=%2Ftodos", "/register", "/mot-de-passe-oublie",
-  "/reinitialiser-mot-de-passe", "/confidentialite", "/hors-ligne", "/wall/abc",
+  "/reinitialiser-mot-de-passe", "/confidentialite", "/cgu", "/hors-ligne", "/wall/abc",
 ];
 
 let failures = 0;

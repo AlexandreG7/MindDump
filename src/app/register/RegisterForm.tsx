@@ -239,6 +239,14 @@ export function RegisterForm({
                   className="text-foreground font-semibold underline underline-offset-2"
                 >
                   politique de confidentialité
+                </Link>
+                , les{" "}
+                <Link
+                  href="/cgu"
+                  target="_blank"
+                  className="text-foreground font-semibold underline underline-offset-2"
+                >
+                  conditions d&apos;utilisation
                 </Link>{" "}
                 et le traitement de mes données pour le fonctionnement de MindDump.
               </Label>

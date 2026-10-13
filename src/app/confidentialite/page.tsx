@@ -28,7 +28,7 @@ function Contact({ email }: { email: string }) {
 
 // Texte de départ à relire. Toute modification substantielle doit
 // s'accompagner d'une nouvelle CONSENT_VERSION (src/lib/consent.ts).
-const UPDATED_AT = "12 octobre 2026";
+const UPDATED_AT = "13 octobre 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -127,10 +127,13 @@ export default function PrivacyPolicyPage() {
                 quiconque a son lien secret ; le déconnecter depuis Groupes coupe l&apos;accès.
               </Row>
               <Row label="Semainier">
-                Si tu utilises le semainier enfant : les informations que tu notes sur la journée
-                d&apos;un enfant (météo, humeur, sieste, « accidents », activités). Elles sont partagées
-                avec les membres du groupe de l&apos;enfant. Ne saisis que ce qui est utile au suivi
-                familial.
+                Si tu utilises le semainier enfant : les rubriques que ton foyer définit lui-même
+                (nom, image choisie parmi des images neutres, type de réponse) et ce que tu y notes
+                jour par jour pour un enfant. Le sens d&apos;une rubrique est le tien : MindDump n&apos;en
+                impose aucune. Ces informations sont partagées avec les membres du groupe de
+                l&apos;enfant. N&apos;y saisis aucune donnée de santé, la tienne ou celle d&apos;un tiers :
+                voir l&apos;article « Données de santé interdites » des{" "}
+                <Link href="/cgu" className="text-primary hover:underline">conditions d&apos;utilisation</Link>.
               </Row>
               <Row label="Localisation">
                 Seulement pour la météo : la ville choisie et ses coordonnées, ou ta position (arrondie
@@ -250,7 +253,7 @@ export default function PrivacyPolicyPage() {
           </li>
         </ul>
         <p>
-          Si tu connectes un assistant IA avec une clé API, cet assistant accède à tes données à ta
+          Si tu connectes un assistant IA avec une clé API, cet assistant accède à tes données, semainier compris, à ta
           demande et selon ses propres conditions. Tu peux révoquer la clé depuis ton profil.
         </p>
         <p>
