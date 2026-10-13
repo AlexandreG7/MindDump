@@ -14,6 +14,19 @@ import type { WeekDay } from "./WeekTable";
 // Sept jours, quatre teintes du design system : l'enfant repère « son » jour par la couleur.
 const DAY_TONES: Tone[] = ["todo", "list", "meal", "agenda", "todo", "list", "meal"];
 const HOLD_MS = 1000;
+// Après la sortie, le relâchement de l'appui long peut produire un clic sur ce qui se trouve
+// sous le doigt (le bouton de thème, par exemple) : on l'avale pendant ce délai.
+const GHOST_CLICK_MS = 400;
+
+function swallowClicks(ms: number) {
+  const block = (e: Event) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  };
+  window.addEventListener("click", block, true);
+  setTimeout(() => window.removeEventListener("click", block, true), ms);
+}
 
 /** `inert` n'est pas encore connu de React 18 : on pose l'attribut à la main. */
 const inertWhen = (on: boolean) => ({ inert: on ? "" : undefined }) as Record<string, unknown>;
@@ -45,6 +58,7 @@ function ExitLock({ onExit }: { onExit: () => void }) {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       setHolding(false);
+      swallowClicks(GHOST_CLICK_MS);
       onExit();
     }, HOLD_MS);
   };
@@ -72,7 +86,7 @@ function ExitLock({ onExit }: { onExit: () => void }) {
       aria-label="Quitter le mode enfant : maintenir appuyé une seconde"
       title="Maintenir appuyé pour quitter le mode enfant"
       className={cn(
-        "relative flex h-11 w-11 select-none items-center justify-center rounded-full bg-secondary text-muted-foreground [-webkit-touch-callout:none]",
+        "relative flex h-14 w-14 select-none items-center justify-center rounded-full bg-secondary text-muted-foreground [-webkit-touch-callout:none]",
         "transition-[opacity,background-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         holding ? "bg-ink text-ink-foreground opacity-100" : "opacity-60 hover:opacity-100"
       )}
@@ -92,7 +106,7 @@ function ExitLock({ onExit }: { onExit: () => void }) {
           style={{ transition: holding ? `stroke-dashoffset ${HOLD_MS}ms linear` : "none" }}
         />
       </svg>
-      <Lock className="h-4 w-4" aria-hidden />
+      <Lock className="h-5 w-5" aria-hidden />
     </button>
   );
 }
@@ -111,6 +125,8 @@ export function KidMode({
   trackers,
   values,
   loading,
+  error,
+  onRetry,
   onChange,
   onExit,
   rangeLabel,
@@ -120,6 +136,9 @@ export function KidMode({
   trackers: KidTrackerDto[];
   values: Record<string, KidDayValues>;
   loading: boolean;
+  /** La semaine n'a pas pu être lue : on le dit, on ne prétend pas qu'il n'y a rien à remplir. */
+  error: boolean;
+  onRetry: () => void;
   onChange: (date: string, trackerId: string, next: string[] | number | null) => Promise<boolean>;
   onExit: () => void;
   rangeLabel: string;
@@ -128,6 +147,7 @@ export function KidMode({
   const [editing, setEditing] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const panelTitle = useRef<HTMLHeadingElement>(null);
+  const pageTitle = useRef<HTMLHeadingElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const editIndex = editing ? days.findIndex((d) => d.date === editing) : -1;
   const editTone = editIndex >= 0 ? TONE_CLASSES[DAY_TONES[editIndex]] : null;
@@ -153,8 +173,14 @@ export function KidMode({
     if (editing) panelTitle.current?.focus();
   }, [editing]);
 
+  // À l'ouverture, le focus va au titre : le lecteur d'écran annonce l'enfant, le clavier part de là.
+  useEffect(() => {
+    if (host) pageTitle.current?.focus();
+  }, [host]);
+
   const close = () => {
     setEditing(null);
+    setFailed(false);
     opener.current?.focus();
   };
 
@@ -168,20 +194,31 @@ export function KidMode({
     <div
       role="region"
       aria-label="Mode enfant"
-      className="fixed inset-0 z-[9999] overflow-y-auto bg-background px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] md:px-8"
+      className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-background px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] md:px-8"
     >
       <div {...inertWhen(!!editing)} className="fixed right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-10">
         <ExitLock onExit={onExit} />
       </div>
 
       <div {...inertWhen(!!editing)} className="mx-auto max-w-5xl">
-        <header className="mb-5 pr-14 text-center md:pr-0">
+        <header className="mb-5 pr-[4.5rem] text-center md:pr-0">
           <p className="text-base font-bold text-muted-foreground">Semainier</p>
-          <h1 className="font-display text-4xl md:text-5xl">{childName}</h1>
+          <h1 ref={pageTitle} tabIndex={-1} className="font-display text-4xl outline-none md:text-5xl">{childName}</h1>
           <p className="mt-1 text-base text-muted-foreground">{rangeLabel}</p>
         </header>
 
-        {!loading && trackers.length === 0 ? (
+        {error && !loading ? (
+          <div role="alert" className="mx-auto max-w-sm py-16 text-center">
+            <p className="text-lg font-bold">La semaine ne s&apos;est pas chargée.</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-4 h-14 rounded-full bg-ink px-8 text-lg font-extrabold text-ink-foreground transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring"
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : !loading && trackers.length === 0 ? (
           <p className="mx-auto max-w-sm py-16 text-center text-lg text-muted-foreground">
             Il n&apos;y a rien à remplir pour l&apos;instant. Un grand peut créer des rubriques.
           </p>

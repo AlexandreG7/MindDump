@@ -10,6 +10,8 @@ interface WeekResponse {
   summary: KidWeekSummary;
 }
 
+const EMPTY_TRACKERS: KidTrackerDto[] = [];
+
 export type DayPatch = Record<string, string[] | number | null>;
 
 /**
@@ -19,14 +21,22 @@ export type DayPatch = Record<string, string[] | number | null>;
  * sur la page (saisies faites par l'assistant ou un autre membre du foyer).
  */
 export function useKidWeek(profileId: string | null, from: string, to: string) {
-  const [trackers, setTrackers] = useState<KidTrackerDto[]>([]);
+  const [rawTrackers, setTrackers] = useState<KidTrackerDto[]>([]);
   const [values, setValues] = useState<Record<string, KidDayValues>>({});
   const [summary, setSummary] = useState<KidWeekSummary | null>(null);
+  // Enfant dont viennent les rubriques affichées : tant qu'il diffère de l'enfant choisi,
+  // on n'affiche rien de lui (ni rubriques, ni bandeau « à renommer »).
+  const [loadedProfileId, setLoadedProfileId] = useState<string | null>(null);
+  const trackers = loadedProfileId === profileId ? rawTrackers : EMPTY_TRACKERS;
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const token = useRef(0);
   const pending = useRef(0);
+  // File d'écritures par enfant et par jour : deux appuis rapides partent l'un après l'autre,
+  // dans l'ordre, et le serveur ne peut pas appliquer le plus ancien en dernier.
+  const queues = useRef(new Map<string, Promise<unknown>>());
   const rangeKey = `${profileId}|${from}|${to}`;
   const lastKey = useRef(rangeKey);
+  const lastProfile = useRef(profileId);
 
   const load = useCallback(
     async (silent = false) => {
@@ -40,6 +50,7 @@ export function useKidWeek(profileId: string | null, from: string, to: string) {
         return;
       }
       setTrackers(res.data.trackers);
+      setLoadedProfileId(profileId);
       setValues(Object.fromEntries(res.data.days.map((d) => [d.date, d.values])));
       setSummary(res.data.summary);
       setStatus("ready");
@@ -52,8 +63,15 @@ export function useKidWeek(profileId: string | null, from: string, to: string) {
       lastKey.current = rangeKey;
       setValues({});
       setSummary(null);
+      if (lastProfile.current !== profileId) {
+        lastProfile.current = profileId;
+        setTrackers(EMPTY_TRACKERS);
+        setLoadedProfileId(null);
+        setStatus("loading");
+      }
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, load]);
 
   useEffect(() => {
@@ -77,7 +95,13 @@ export function useKidWeek(profileId: string | null, from: string, to: string) {
         return { ...prev, [date]: day };
       });
       pending.current++;
-      const res = await kidsFetch(`/api/kids/day`, { method: "PATCH", json: { profileId, date, values: patch } });
+      const key = `${profileId}|${date}`;
+      const run = (queues.current.get(key) ?? Promise.resolve()).then(() =>
+        kidsFetch(`/api/kids/day`, { method: "PATCH", json: { profileId, date, values: patch } })
+      );
+      queues.current.set(key, run);
+      const res = await run;
+      if (queues.current.get(key) === run) queues.current.delete(key);
       pending.current--;
       if (pending.current === 0) await load(true);
       return res.ok;
@@ -85,5 +109,7 @@ export function useKidWeek(profileId: string | null, from: string, to: string) {
     [profileId, load]
   );
 
-  return { trackers, values, summary, status, reload: load, save };
+  // Entre le choix d'un autre enfant et l'arrivée de ses rubriques : chargement, jamais « vide ».
+  const effectiveStatus = status === "ready" && profileId !== loadedProfileId ? "loading" : status;
+  return { trackers, values, summary, status: effectiveStatus, reload: load, save };
 }

@@ -145,7 +145,7 @@ export function Navbar() {
       <nav
         aria-label="Navigation principale"
         className={cn(
-          "hidden md:flex md:flex-col m-3 mr-0 rounded-[2rem] bg-ink text-ink-foreground overflow-y-auto shrink-0 transition-[width,padding] duration-200",
+          "hidden md:flex md:flex-col m-3 mr-0 mt-[calc(0.75rem+env(safe-area-inset-top))] rounded-[2rem] bg-ink text-ink-foreground overflow-y-auto shrink-0 transition-[width,padding] duration-200",
           collapsed ? "md:w-[4.5rem] p-2.5" : "md:w-64 p-4"
         )}
       >
