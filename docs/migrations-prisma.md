@@ -116,5 +116,12 @@ dont `values` est nul (`src/lib/kidTrackers.ts`). Les deux partagent `prisma/kid
 **Contract (au moins une semaine après, déploiement distinct)** : vérifier en lecture sur la prod
 `SELECT count(*) FROM "KidDayEntry" WHERE "values" IS NULL AND "profileId" IS NOT NULL;` = 0, puis
 supprimer `weather`, `mood`, `nap`, `accident`, `activities`, `KidTracker.legacyKey` (et son index
-unique), `KidTrackerOption.legacyValue`, le backfill, `prisma/kid-legacy.js`, la lecture tolérante
-et `GET`/`PATCH /api/kids`.
+unique `profileId, legacyKey`), `KidTrackerOption.legacyValue`, `KidTracker.needsRename` (avec le
+bandeau « à renommer » et le champ de l'API), le backfill, `prisma/kid-legacy.js`, la lecture
+tolérante, la lecture des anciennes colonnes de l'export (`loadReadableContext`) et
+`GET`/`PATCH /api/kids`.
+
+La reprise est écrite pour ne pas bloquer un démarrage : une transaction par enfant, avec son
+propre `try/catch` (un enfant en échec est ignoré et repris au démarrage suivant ; le journal ne
+contient ni nom ni identifiant), les lignes verrouillées dans l'ordre des `id` puis converties par
+un seul UPDATE ensembliste. Verrous du semainier : voir l'ADR 0002, section Risques.

@@ -31,11 +31,15 @@ import {
   KID_LABEL_MAX,
   KID_MAX_ACTIVE_OPTIONS,
   KID_MAX_ACTIVE_TRACKERS,
+  KID_MAX_OPTIONS_TOTAL,
+  KID_MAX_TRACKERS_TOTAL,
   KID_MAX_WEEK_DAYS,
   daysBetween,
+  describeValues,
   eachDate,
   isRealDate,
   normalizeKidKey,
+  stripInvisible,
   summarizeWeek,
   todayInParis,
   visibleValues,
@@ -48,7 +52,14 @@ import {
 type Tx = Prisma.TransactionClient;
 
 /** Plafond de choix au total (masqués compris), pour borner la croissance. */
-const MAX_OPTIONS_TOTAL = 40;
+const MAX_OPTIONS_TOTAL = KID_MAX_OPTIONS_TOTAL;
+
+/** La reprise d'un gros semainier peut dépasser les 5 s par défaut d'une transaction interactive. */
+const KID_TX = { timeout: 60_000, maxWait: 10_000 };
+
+function kidTx<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return prisma.$transaction(fn, KID_TX);
+}
 
 // ─── Erreurs ──────────────────────────────────────────────────────────────────
 
@@ -97,7 +108,7 @@ export async function requireKidTracker(trackerId: string, userId: string) {
 // ─── Verrou et lecture ────────────────────────────────────────────────────────
 
 /** Sérialise toutes les écritures du semainier d'un enfant (config, saisies, reprise). */
-async function lockProfile(tx: Tx, profileId: string) {
+export async function lockProfile(tx: Tx, profileId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"kids:" + profileId}))`;
 }
 
@@ -151,7 +162,8 @@ type LegacyIndex = Parameters<typeof legacyToValues>[1];
 async function convertInTx(tx: Tx, profileId: string) {
   const rows = await tx.$queryRaw<Array<LegacyRow & { id: string }>>`
     SELECT id, weather, mood, nap, accident, activities
-    FROM "KidDayEntry" WHERE "profileId" = ${profileId} AND "values" IS NULL`;
+    FROM "KidDayEntry" WHERE "profileId" = ${profileId} AND "values" IS NULL
+    ORDER BY id FOR UPDATE`;
   if (rows.length === 0) return { converted: 0, trackersCreated: 0, unmapped: 0 };
 
   const existing = await tx.kidTracker.findMany({
@@ -199,9 +211,10 @@ async function convertInTx(tx: Tx, profileId: string) {
     });
   }
 
-  let converted = 0;
   let unmapped = 0;
   const reveal = new Set<string>();
+  const ids: string[] = [];
+  const payloads: string[] = [];
   for (const row of rows) {
     const r = legacyToValues(row, index);
     unmapped += r.unmapped;
@@ -210,11 +223,16 @@ async function convertInTx(tx: Tx, profileId: string) {
       const t = byKey.get(key)!;
       if (!t.active && r.values[t.id] !== undefined) reveal.add(t.id);
     }
-    // Sans effet si une autre écriture est passée entre-temps : la ligne reste telle quelle.
-    converted += await tx.$executeRaw`
-      UPDATE "KidDayEntry" SET "values" = ${JSON.stringify(r.values)}::jsonb
-      WHERE id = ${row.id} AND "values" IS NULL`;
+    ids.push(row.id);
+    payloads.push(JSON.stringify(r.values));
   }
+  // Un seul UPDATE ensembliste. Les lignes sont déjà verrouillées (SELECT … ORDER BY id FOR UPDATE) :
+  // l'ordre de prise des verrous est celui des id, comme dans la suppression de compte
+  // (src/lib/account.ts), donc pas d'interblocage. Sans effet sur une ligne déjà reprise.
+  const converted = await tx.$executeRaw`
+    UPDATE "KidDayEntry" k SET "values" = v.payload::jsonb
+    FROM unnest(${ids}::text[], ${payloads}::text[]) AS v(id, payload)
+    WHERE k.id = v.id AND k."values" IS NULL`;
   if (reveal.size > 0) {
     await tx.kidTracker.updateMany({ where: { id: { in: Array.from(reveal) } }, data: { active: true } });
   }
@@ -226,10 +244,65 @@ export async function ensureLegacyConverted(profileId: string) {
   const [{ n }] = await prisma.$queryRaw<Array<{ n: bigint }>>`
     SELECT count(*)::bigint AS n FROM "KidDayEntry" WHERE "profileId" = ${profileId} AND "values" IS NULL`;
   if (Number(n) === 0) return;
-  await prisma.$transaction(async (tx) => {
+  await kidTx(async (tx) => {
     await lockProfile(tx, profileId);
     await convertInTx(tx, profileId);
   });
+}
+
+/**
+ * Lecture seule pour l'export RGPD : aucune écriture en base (un export ne doit jamais
+ * créer de rubrique ni convertir de ligne). Pour chaque enfant, les rubriques existantes
+ * (masquées comprises) ; une ligne pas encore reprise (`values` nul) est lue depuis les
+ * anciennes colonnes, avec les rubriques reprises si elles existent (libellé que la famille
+ * a pu renommer), sinon avec les libellés d'origine de prisma/kid-legacy.js.
+ * Supprimé avec les anciennes colonnes au contract.
+ */
+export async function loadReadableContext(profileIds: string[]) {
+  const rows = await prisma.kidTracker.findMany({
+    where: { profileId: { in: profileIds } },
+    include: { options: true },
+    orderBy: [{ position: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+  });
+  const rowsByProfile = new Map<string, TrackerRow[]>();
+  for (const r of rows) rowsByProfile.set(r.profileId, [...(rowsByProfile.get(r.profileId) ?? []), r]);
+  const trackers = (profileId: string) => (rowsByProfile.get(profileId) ?? []).map((r) => toDto(r, true));
+
+  const readable = (
+    profileId: string,
+    entry: LegacyRow & { values: unknown }
+  ): Record<string, string[] | number> => {
+    const persisted = rowsByProfile.get(profileId) ?? [];
+    const dtos = persisted.map((r) => toDto(r, true));
+    if (entry.values !== null && entry.values !== undefined) return describeValues(entry.values, dtos);
+    const index: LegacyIndex = new Map();
+    const virtual: KidTrackerDto[] = [];
+    for (const spec of LEGACY_SPECS) {
+      const t = persisted.find((r) => r.legacyKey === spec.key);
+      if (t) {
+        index.set(spec.key, {
+          trackerId: t.id,
+          options: new Map(t.options.filter((o) => o.legacyValue !== null).map((o) => [o.legacyValue as string, o.id])),
+        });
+        continue;
+      }
+      const trackerId = `legacy:${spec.key}`;
+      index.set(spec.key, { trackerId, options: new Map(spec.options.map(([v]) => [v, `${trackerId}:${v}`])) });
+      virtual.push({
+        id: trackerId,
+        profileId,
+        label: spec.label,
+        icon: spec.icon,
+        kind: spec.kind as KidTrackerKind,
+        position: 0,
+        active: true,
+        needsRename: !!spec.needsRename,
+        options: spec.options.map(([v, label, icon], i) => ({ id: `${trackerId}:${v}`, label, icon, position: i, active: true })),
+      });
+    }
+    return describeValues(legacyToValues(entry, index).values, [...dtos, ...virtual]);
+  };
+  return { trackers, readable };
 }
 
 // ─── Validation de la configuration ───────────────────────────────────────────
@@ -237,10 +310,8 @@ export async function ensureLegacyConverted(profileId: string) {
 /** Libellé nettoyé (espaces, caractères de contrôle) : 1 à 30 caractères, sinon KidError. */
 export function cleanKidLabel(value: unknown, what = "libellé"): string {
   if (typeof value !== "string") throw new KidError(400, "label_invalid", `${what} requis`);
-  const label = value
+  const label = stripInvisible(value)
     .normalize("NFC")
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   const length = Array.from(label).length;
@@ -290,7 +361,7 @@ export function validateTrackerInput(body: unknown): TrackerInput {
     return { label, icon, kind, options: [] };
   }
   if (rawOptions.length === 0) throw new KidError(400, "options_required", "Au moins un choix est requis");
-  if (rawOptions.length > KID_MAX_ACTIVE_OPTIONS) {
+  if (rawOptions.length > Math.min(KID_MAX_ACTIVE_OPTIONS, MAX_OPTIONS_TOTAL)) {
     throw new KidError(400, "too_many_options", `${KID_MAX_ACTIVE_OPTIONS} choix au plus par rubrique`);
   }
   const options = rawOptions.map((o) => {
@@ -319,6 +390,16 @@ async function trackerHasEntries(tx: Tx, profileId: string, trackerId: string): 
   return Number(rows[0].n) > 0;
 }
 
+function assertTotalTrackerRoom(totalCount: number) {
+  if (totalCount >= KID_MAX_TRACKERS_TOTAL) {
+    throw new KidError(
+      400,
+      "too_many_trackers",
+      `${KID_MAX_TRACKERS_TOTAL} rubriques au plus par enfant, masquées comprises : supprime une rubrique sans saisie`
+    );
+  }
+}
+
 function assertActiveTrackerRoom(activeCount: number) {
   if (activeCount >= KID_MAX_ACTIVE_TRACKERS) {
     throw new KidError(400, "too_many_trackers", `${KID_MAX_ACTIVE_TRACKERS} rubriques actives au plus par enfant`);
@@ -333,10 +414,11 @@ function assertUniqueTrackerLabel(all: Array<{ id: string; label: string; active
 }
 
 export async function createTracker(profileId: string, userId: string, input: TrackerInput) {
-  return prisma.$transaction(async (tx) => {
+  return kidTx(async (tx) => {
     await lockProfile(tx, profileId);
     await convertInTx(tx, profileId);
     const all = await tx.kidTracker.findMany({ where: { profileId }, select: { id: true, label: true, active: true, position: true } });
+    assertTotalTrackerRoom(all.length);
     assertActiveTrackerRoom(all.filter((t) => t.active).length);
     assertUniqueTrackerLabel(all, input.label);
     const created = await tx.kidTracker.create({
@@ -424,7 +506,7 @@ export async function updateTracker(trackerId: string, body: unknown) {
   const patch = validateTrackerPatch(body, head.kind as KidTrackerKind);
   const profileId = head.profileId;
 
-  return prisma.$transaction(async (tx) => {
+  return kidTx(async (tx) => {
     await lockProfile(tx, profileId);
     await convertInTx(tx, profileId);
     const current = await tx.kidTracker.findUnique({ where: { id: trackerId }, include: { options: true } });
@@ -516,7 +598,7 @@ export async function updateTracker(trackerId: string, body: unknown) {
 export async function deleteTracker(trackerId: string) {
   const head = await prisma.kidTracker.findUnique({ where: { id: trackerId }, select: { profileId: true } });
   if (!head) throw new KidError(404, "not_found", "Rubrique introuvable");
-  await prisma.$transaction(async (tx) => {
+  await kidTx(async (tx) => {
     await lockProfile(tx, head.profileId);
     await convertInTx(tx, head.profileId);
     if (await trackerHasEntries(tx, head.profileId, trackerId)) {
@@ -533,7 +615,7 @@ export async function orderTrackers(profileId: string, ids: unknown) {
   }
   const wanted = ids as string[];
   if (new Set(wanted).size !== wanted.length) throw new KidError(400, "ids_invalid", "Rubrique citée deux fois");
-  return prisma.$transaction(async (tx) => {
+  return kidTx(async (tx) => {
     await lockProfile(tx, profileId);
     await convertInTx(tx, profileId);
     const all = await tx.kidTracker.findMany({
@@ -639,7 +721,7 @@ export function requireKidDate(value: unknown, name = "date"): string {
  * jamais (ADR 0001) ; la première saisie du jour crée la ligne au nom de l'utilisateur.
  */
 export async function writeDay(profileId: string, userId: string, date: string, rawValues: unknown) {
-  return prisma.$transaction(async (tx) => {
+  return kidTx(async (tx) => {
     await lockProfile(tx, profileId);
     await convertInTx(tx, profileId);
 

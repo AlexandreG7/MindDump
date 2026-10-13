@@ -54,9 +54,16 @@ Elle ne vaut que pour `KidDayEntry`, `KidTracker` et `KidTrackerOption`.
   aujourd'hui).
 - `KidTracker.createdById` est informatif et passe à `NULL` si le compte est
   supprimé. La rubrique reste au profil.
-- La suppression de compte avec « garder ce qui est partagé » transfère les
-  saisies au propriétaire du groupe. C'est le transfert existant, choisi par
-  l'utilisateur (`src/lib/account.ts`).
+- **Suppression de compte : les saisies du semainier sont toujours transférées au
+  propriétaire du groupe quand le groupe survit, quel que soit `keepShared`**
+  (`src/lib/account.ts`). Une ligne de jour appartient à son premier auteur, mais
+  d'autres parents la complètent dans le même objet JSON : la supprimer avec le
+  compte de l'auteur ferait disparaître le jour de l'enfant pour tout le foyer, et
+  des saisies d'autres personnes avec lui. Le choix `keepShared` ne vaut que pour
+  ce que la personne a rangé elle-même dans le groupe (ADR 0001). Si le groupe
+  disparaît (personne d'autre dedans), le semainier part avec lui, comme avant.
+  Seules les lignes rangées sur le profil personnel de la personne (profil adulte,
+  retiré avec son compte) disparaissent avec elle.
 - Tout autre élément reste sous la règle de l'ADR 0001.
 
 ### Pourquoi pas de catégorie de santé fournie
@@ -106,7 +113,8 @@ Elle ne vaut que pour `KidDayEntry`, `KidTracker` et `KidTrackerOption`.
 ### Positif
 - La famille choisit ses rubriques, et l'app ne propose aucune catégorie de santé.
 - Une seule bibliothèque serveur sert l'API, le MCP et l'app.
-- Le transfert de compte et la suppression du groupe restent ceux d'aujourd'hui.
+- La suppression du groupe reste celle d'aujourd'hui ; la suppression de compte ne
+  fait jamais disparaître le jour d'un enfant pour le foyer.
 
 ### Négatif
 - Un membre retiré perd l'accès à ses saisies dans le semainier.
@@ -118,4 +126,33 @@ Elle ne vaut que pour `KidDayEntry`, `KidTracker` et `KidTrackerOption`.
 - Libellés libres de santé : rappel à la création, clause CGU, et avis juridique
   avant l'ouverture large et la soumission aux stores.
 - Saisies simultanées (assistant et parent, même jour) : verrou de ligne à l'écriture.
+- Interblocage (40P01) : toute écriture sur un enfant prend d'abord le verrou
+  consultatif du profil (`lockProfile`), puis les lignes dans l'ordre des `id`
+  (`SELECT … ORDER BY id FOR UPDATE`, puis un UPDATE ensembliste pour la reprise).
+  La suppression de compte prend les mêmes verrous dans le même ordre : verrous
+  consultatifs des profils concernés triés par `id` (lignes saisies ou rubriques
+  créées par la personne), puis ses lignes triées par `id`. Toute nouvelle
+  transaction qui écrit dans `KidDayEntry` ou `KidTracker` doit suivre cet ordre.
+  Reste hors de cet ordre : le DELETE d'un profil (cascade en une instruction), qui
+  n'attend que des verrous de ligne.
+
+### Garde-fous de volume et de saisie
+
+- 40 rubriques par enfant au plus, masquées comprises (12 actives au plus), et 40
+  choix par rubrique au plus, masqués compris (16 actifs au plus ; 16 à la création).
+  Une rubrique sans saisie se supprime et libère sa place.
+- Les libellés sont nettoyés et comparés avec la même règle : les caractères de
+  contrôle deviennent des espaces, les caractères de format Unicode (`\p{Cf}` :
+  U+00AD, U+200B-200F, U+2060-2064, U+061C, U+FEFF…) sont retirés
+  (`stripInvisible`, `src/lib/kidWeek.ts`). « Hu⁠meur » et « Humeur » sont un doublon.
+
+### À retirer au contract
+
+Une fois toutes les lignes reprises (`values` non nul pour tout enfant), lors d'un
+déploiement distinct (`docs/migrations-prisma.md`) : les colonnes `weather`, `mood`,
+`nap`, `accident`, `activities` ; `KidTracker.legacyKey` (et son index unique
+`profileId, legacyKey`) ; `KidTrackerOption.legacyValue` ; `KidTracker.needsRename`
+(avec le bandeau « à renommer » et le champ `needsRename` de l'API) ; le backfill,
+`prisma/kid-legacy.js`, la lecture tolérante et la lecture des anciennes colonnes de
+l'export (`loadReadableContext`).
 - Fenêtre de déploiement avec l'ancienne version : déployer à une heure creuse.

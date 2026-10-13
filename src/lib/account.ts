@@ -2,8 +2,7 @@ import { unlink } from "fs/promises";
 import { prisma } from "./prisma";
 import { resolveUploadPaths } from "./uploads";
 import { revokeAppleToken } from "./authProviders";
-import { ensureLegacyConverted, loadTrackers } from "./kidTrackers";
-import { describeValues } from "./kidWeek";
+import { loadReadableContext, lockProfile } from "./kidTrackers";
 
 // Mot à taper pour confirmer la suppression du compte (UI et API).
 export const DELETE_CONFIRMATION = "SUPPRIMER";
@@ -117,9 +116,14 @@ export async function exportUserData(userId: string) {
 
   const { password, calendarToken, recipes, kidTrackersCreated, ...rest } = user;
 
-  // Semainier : les saisies de la personne (ses ajouts du jour) avec leurs valeurs en clair,
-  // et les rubriques des enfants concernés (saisies ou créées par elle). Les anciennes
-  // colonnes restent exportées jusqu'au contract.
+  // Semainier : les lignes dont la personne est l'AUTEUR (la première saisie du jour crée la
+  // ligne à son nom) avec leurs valeurs en clair, et les rubriques des enfants concernés
+  // (saisies ou créées par elle). Lecture seule : un export n'écrit jamais en base, donc les
+  // lignes pas encore reprises sont lues depuis les anciennes colonnes (loadReadableContext).
+  // Limite assumée : pas d'attribution par champ. La ligne d'un jour est un seul objet
+  // JSON, sans auteur par rubrique : elle contient aussi ce que d'autres parents y ont
+  // ajouté, et ce que la personne a ajouté à une ligne ouverte par un autre n'est pas exporté
+  // ici (ça figure dans l'export de l'auteur de la ligne). Voir docs/rgpd.md.
   const entryProfiles = await prisma.kidDayEntry.findMany({
     where: { userId, profileId: { not: null } },
     select: { profileId: true },
@@ -131,12 +135,8 @@ export async function exportUserData(userId: string) {
       ...kidTrackersCreated.map((t) => t.profileId),
     ])
   );
-  const trackersByProfile = new Map<string, Awaited<ReturnType<typeof loadTrackers>>>();
-  for (const profileId of kidProfileIds) {
-    await ensureLegacyConverted(profileId);
-    trackersByProfile.set(profileId, await loadTrackers(profileId, { includeInactive: true }));
-  }
-  const kidTrackers = Array.from(trackersByProfile.values()).flat().map((t) => ({
+  const readableContext = await loadReadableContext(kidProfileIds);
+  const kidTrackers = kidProfileIds.flatMap((id) => readableContext.trackers(id)).map((t) => ({
     id: t.id,
     profileId: t.profileId,
     label: t.label,
@@ -157,7 +157,7 @@ export async function exportUserData(userId: string) {
     })
   ).map((e) => ({
     ...e,
-    readableValues: e.profile ? describeValues(e.values, trackersByProfile.get(e.profile.id) ?? []) : {},
+    readableValues: e.profile ? readableContext.readable(e.profile.id, e) : {},
   }));
   // Sans relation vers User (voir schema.prisma) : lus à part.
   const mobileDevices = await prisma.mobileDevice.findMany({
@@ -204,9 +204,17 @@ function parseJson(value: string): unknown {
  *     true  -> ces éléments passent au propriétaire du groupe, rien ne disparaît
  *              pour les autres membres ;
  *     false -> ils sont supprimés avec le reste.
- *   Le semainier d'un enfant du groupe suit la même règle. Les abonnements
- *   calendrier (URL ICS, souvent porteuses d'un jeton privé) sont toujours
- *   supprimés.
+ *   Les abonnements calendrier (URL ICS, souvent porteuses d'un jeton privé) sont
+ *   toujours supprimés.
+ * - Le semainier d'un enfant du groupe ne suit PAS keepShared (ADR 0002) : une ligne
+ *   de jour appartient à son premier auteur mais d'autres parents la complètent, la
+ *   supprimer ferait disparaître le jour de l'enfant pour tout le foyer. Quand le
+ *   groupe survit, les saisies passent toujours à son propriétaire ; quand il
+ *   disparaît, elles partent avec lui. Seules les lignes rangées sur le profil
+ *   personnel de la personne (profil adulte, retiré avec son compte) disparaissent.
+ * - Verrous : pour ne pas se croiser avec l'API du semainier (verrou consultatif du
+ *   profil, puis lignes), on prend d'abord les verrous consultatifs des profils concernés
+ *   dans l'ordre des id, puis les lignes de la personne par ORDER BY id FOR UPDATE.
  * - Tout le reste part en cascade depuis User (éléments personnels, adhésions
  *   et profils de membre, clés API, préférences, historique de connexion,
  *   comptes OAuth).
@@ -226,6 +234,17 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
   if (!user) return false;
 
   await prisma.$transaction(async (tx) => {
+    // Semainier : mêmes verrous que l'API, dans le même ordre (profils par id, puis lignes
+    // par id), avant toute écriture. Évite un interblocage (40P01) avec une saisie ou une
+    // reprise en cours sur un enfant que la personne a rempli ou dont elle a créé une rubrique.
+    const touchedProfiles = new Set<string>();
+    (await tx.kidDayEntry.findMany({ where: { userId, profileId: { not: null } }, select: { profileId: true }, distinct: ["profileId"] }))
+      .forEach((e) => e.profileId && touchedProfiles.add(e.profileId));
+    (await tx.kidTracker.findMany({ where: { createdById: userId }, select: { profileId: true }, distinct: ["profileId"] }))
+      .forEach((t) => touchedProfiles.add(t.profileId));
+    for (const profileId of Array.from(touchedProfiles).sort()) await lockProfile(tx, profileId);
+    await tx.$queryRaw`SELECT id FROM "KidDayEntry" WHERE "userId" = ${userId} ORDER BY id FOR UPDATE`;
+
     const ownedGroups = await tx.group.findMany({
       where: { ownerId: userId },
       select: {
@@ -270,12 +289,6 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
       collect(await tx.shoppingList.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
       collect(await tx.recipe.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
       collect(await tx.mealPlanEntry.findMany({ where: inGroup, select: { groupId: true }, distinct: ["groupId"] }));
-      const kidProfiles = await tx.kidDayEntry.findMany({
-        where: { userId, profileId: { not: null } },
-        select: { profile: { select: { groupId: true } } },
-        distinct: ["profileId"],
-      });
-      collect(kidProfiles.map((e) => ({ groupId: e.profile?.groupId ?? null })));
 
       const groups = await tx.group.findMany({
         where: { id: { in: Array.from(groupIds) } },
@@ -289,8 +302,21 @@ export async function deleteUserAccount(userId: string, { keepShared }: { keepSh
         await tx.shoppingList.updateMany({ where, data });
         await tx.recipe.updateMany({ where, data });
         await tx.mealPlanEntry.updateMany({ where, data });
-        await tx.kidDayEntry.updateMany({ where: { userId, profile: { groupId: g.id } }, data });
       }
+    }
+
+    // Semainier, quel que soit keepShared : les saisies passent au propriétaire du groupe qui
+    // survit (ADR 0002). Un groupe supprimé plus haut a déjà emporté ses profils et leurs lignes.
+    const kidGroups = await tx.kidDayEntry.findMany({
+      where: { userId, profileId: { not: null } },
+      select: { profile: { select: { groupId: true, group: { select: { ownerId: true } } } } },
+      distinct: ["profileId"],
+    });
+    const kidOwners = new Map<string, string>();
+    for (const e of kidGroups) if (e.profile) kidOwners.set(e.profile.groupId, e.profile.group.ownerId);
+    for (const [groupId, ownerId] of Array.from(kidOwners)) {
+      if (ownerId === userId) continue; // ne peut pas arriver : ses groupes ont déjà un nouvel héritier ou ont disparu
+      await tx.kidDayEntry.updateMany({ where: { userId, profile: { groupId } }, data: { userId: ownerId } });
     }
 
     if (user.email) {

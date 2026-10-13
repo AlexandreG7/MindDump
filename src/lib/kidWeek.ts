@@ -42,11 +42,29 @@ export const KID_LABEL_MAX = 30;
 export const KID_COUNT_MAX = 99;
 export const KID_MAX_ACTIVE_TRACKERS = 12;
 export const KID_MAX_ACTIVE_OPTIONS = 16;
+/** Plafonds au total, masqués compris : bornent la croissance de la configuration d'un enfant. */
+export const KID_MAX_TRACKERS_TOTAL = 40;
+export const KID_MAX_OPTIONS_TOTAL = 40;
 export const KID_MAX_WEEK_DAYS = 31;
 
-/** Comparaison de libellés : sans casse, sans accents, espaces réduits. */
+// RegExp(…) plutôt qu'un littéral : le drapeau « u » (propriétés Unicode) dépasse la cible de tsconfig.
+const CONTROL_CHARS = new RegExp("[\\p{Cc}\\u2028\\u2029]", "gu");
+const FORMAT_CHARS = new RegExp("\\p{Cf}", "gu");
+
+/**
+ * Retire les caractères invisibles d'un libellé : les caractères de contrôle (tabulation,
+ * retour à la ligne…) et les séparateurs U+2028-2029 deviennent des espaces ; les caractères de format (Cf : trait d'union
+ * conditionnel U+00AD, joints U+200B-200F, U+2060-2064, marque arabe U+061C, U+FEFF…) sont
+ * supprimés. Règle unique du nettoyage des
+ * libellés et de la comparaison (« Hu\u2060meur » doit valoir « Humeur »).
+ */
+export function stripInvisible(value: string): string {
+  return value.replace(CONTROL_CHARS, " ").replace(FORMAT_CHARS, "");
+}
+
+/** Comparaison de libellés : sans casse, sans accents, sans caractères invisibles, espaces réduits. */
 export function normalizeKidKey(value: string): string {
-  return value
+  return stripInvisible(value)
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/œ/gi, "oe")

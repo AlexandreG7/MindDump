@@ -225,6 +225,21 @@ async function lazy() {
   const A = { key: s.users.a }, C = { key: s.users.c };
   console.log("3. Lecture tolérante (avant la reprise au démarrage)");
 
+  // L'export RGPD est en lecture seule : il lit les anciennes colonnes sans rien convertir ni créer.
+  const { exportUserData } = await import("../src/lib/account.ts");
+  const nullsBeforeExport = Number((await prisma.$queryRaw`SELECT count(*)::int AS n FROM "KidDayEntry" WHERE "values" IS NULL`)[0].n);
+  const exportA = await exportUserData(s.userIds.a);
+  const nullsAfterExport = Number((await prisma.$queryRaw`SELECT count(*)::int AS n FROM "KidDayEntry" WHERE "values" IS NULL`)[0].n);
+  check(nullsBeforeExport === s.total && nullsAfterExport === s.total && (await prisma.kidTracker.count()) === 0, "export RGPD : aucune ligne convertie, aucune rubrique créée (lecture seule)");
+  const exportedLegacy = exportA.user.kidDayEntries.filter((e) => e.profile?.id === s.profiles.twin);
+  const authoredByA = LEGACY_ROWS.filter((r) => r.by === "a");
+  let exportOk = exportedLegacy.length === authoredByA.length;
+  for (const e of exportedLegacy) {
+    const row = LEGACY_ROWS.find((r) => r.date === e.date);
+    if (!row || sorted(e.readableValues) !== sorted(expectedReadable(row))) { exportOk = false; console.log("   écart export", e.date, JSON.stringify(e.readableValues)); }
+  }
+  check(exportOk && exportA.user.kidTrackers.length === 0, "export RGPD : les saisies non reprises sont lues depuis les anciennes colonnes, en clair, sans rubrique en base");
+
   // Un non-membre n'obtient rien et ne déclenche aucune conversion.
   const denied = await api(C, "GET", `/api/kids/week?profileId=${s.profiles.twin}&from=2026-10-01&to=2026-10-11`);
   check(denied.status === 404, `un non-membre reçoit 404 (${denied.status})`);
@@ -313,6 +328,51 @@ async function snapshot() {
   const entries = await prisma.$queryRaw`SELECT * FROM "KidDayEntry" ORDER BY id`;
   const trackers = await prisma.kidTracker.findMany({ include: { options: { orderBy: { id: "asc" } } }, orderBy: { id: "asc" } });
   process.stdout.write(JSON.stringify({ entries, trackers }, (_k, v) => (typeof v === "bigint" ? Number(v) : v)));
+}
+
+// ─── Phases isolation : un enfant en échec n'arrête pas la reprise des autres ─
+
+const ISO_FILE_KEY = "isolation";
+
+async function isolationSeed() {
+  const s = loadState();
+  const run = randomBytes(4).toString("hex");
+  const u = await makeUser(run, "iso");
+  const mk = (name, position) => prisma.familyProfile.create({ data: { groupId: u.defaultGroupId, name, kind: "child", position } });
+  const kids = { bad: await mk("Prénom-secret-défaillant", 0), good1: await mk("Prénom-secret-bon-1", 1), good2: await mk("Prénom-secret-bon-2", 2) };
+  for (const k of Object.values(kids)) {
+    await prisma.$executeRaw`
+      INSERT INTO "KidDayEntry" (id, date, weather, mood, activities, "createdAt", "updatedAt", "userId", "profileId")
+      VALUES (${"kde" + randomBytes(8).toString("hex")}, '2026-10-05', 'sunny', 'happy', '["park"]', now(), now(), ${u.id}, ${k.id})`;
+  }
+  // Panne simulée : toute création de rubrique pour cet enfant échoue, avec un message qui contient des données.
+  await prisma.$executeRawUnsafe(`
+    CREATE OR REPLACE FUNCTION kid_test_fail() RETURNS trigger AS $$
+    BEGIN
+      IF NEW."profileId" = '${kids.bad.id}' THEN RAISE EXCEPTION 'panne simulee Prénom-secret-défaillant'; END IF;
+      RETURN NEW;
+    END $$ LANGUAGE plpgsql`);
+  await prisma.$executeRawUnsafe(`CREATE TRIGGER kid_test_fail BEFORE INSERT ON "KidTracker" FOR EACH ROW EXECUTE FUNCTION kid_test_fail()`);
+  s[ISO_FILE_KEY] = { bad: kids.bad.id, good1: kids.good1.id, good2: kids.good2.id };
+  saveState(s);
+  console.log("   enfants de test créés, panne simulée sur l'un d'eux");
+}
+
+async function isolationCheck(step) {
+  const s = loadState();
+  const ids = s[ISO_FILE_KEY];
+  const nulls = async (id) => Number((await prisma.$queryRaw`SELECT count(*)::int AS n FROM "KidDayEntry" WHERE "profileId" = ${id} AND "values" IS NULL`)[0].n);
+  if (step === "failed") {
+    console.log("   Reprise avec un enfant en échec");
+    const log = readFileSync(process.env.KIDS_ISOLATION_LOG, "utf8");
+    check((await nulls(ids.good1)) === 0 && (await nulls(ids.good2)) === 0, "les deux autres enfants sont repris malgré l'échec du premier");
+    check((await nulls(ids.bad)) === 1, "l'enfant en échec reste intact (transaction annulée), à reprendre plus tard");
+    check(/skipped/.test(log), "le journal signale l'enfant ignoré");
+    check(!log.includes(ids.bad) && !log.includes("secret") && !log.includes("panne") && !log.includes("Prénom"), "le journal ne contient ni nom, ni identifiant, ni message d'erreur");
+  } else {
+    console.log("   Reprise une fois la panne levée");
+    check((await nulls(ids.bad)) === 0, "au démarrage suivant, l'enfant ignoré est repris");
+  }
 }
 
 // ─── Phase api ────────────────────────────────────────────────────────────────
@@ -616,7 +676,8 @@ async function apiPhase() {
   const eveTrackerRow = await prisma.kidTracker.findUnique({ where: { id: eveTracker.json.id } });
   check(!!eveTrackerRow && eveTrackerRow.createdById === null, "la rubrique créée par Eve reste à l'enfant (créateur effacé)");
   await deleteUserAccount(frank.id, { keepShared: false });
-  check((await prisma.kidDayEntry.count({ where: { profileId: P, date: "2026-09-21" } })) === 0, "suppression sans « garder le partagé » : ses saisies partent avec le compte");
+  const frankRow = await prisma.kidDayEntry.findUnique({ where: { profileId_date: { profileId: P, date: "2026-09-21" } } });
+  check(frankRow?.userId === alice.id, "suppression sans « garder le partagé » : la saisie du semainier passe quand même au propriétaire (ADR 0002, le groupe survit)");
   check((await prisma.kidTracker.count({ where: { profileId: P } })) > 0, "…mais les rubriques de l'enfant restent");
 
   console.log("15. Suppression du profil de l'enfant");
@@ -628,6 +689,109 @@ async function apiPhase() {
       Number((await prisma.$queryRaw`SELECT count(*)::int AS n FROM "KidTrackerOption" o LEFT JOIN "KidTracker" t ON t.id = o."trackerId" WHERE t.id IS NULL`)[0].n) === 0,
     "rubriques, choix et saisies partent avec le profil (le semainier appartient à l'enfant)"
   );
+
+  console.log("16. Corrections de revue : transfert du semainier, plafonds, caractères invisibles, verrous");
+  const { normalizeKidKey } = await import("../src/lib/kidWeek.ts");
+  const olga = await makeUser(run, "olga");
+  const ines = await makeUser(run, "ines");
+  const maxi = await makeUser(run, "maxi");
+  await prisma.groupMember.createMany({ data: [{ groupId: olga.defaultGroupId, userId: ines.id }, { groupId: olga.defaultGroupId, userId: maxi.id }] });
+  const Q = (await prisma.familyProfile.create({ data: { groupId: olga.defaultGroupId, name: "Sacha", kind: "child", position: 0 } })).id;
+  const humeur = await api(olga, "POST", "/api/kids/trackers", { profileId: Q, label: "Humeur", icon: "face-happy", kind: "single", options: choices("Content", "Bof") });
+  const eau = await api(olga, "POST", "/api/kids/trackers", { profileId: Q, label: "Eau", icon: "cup", kind: "count" });
+  check(humeur.status === 201 && eau.status === 201, "rubriques de test créées");
+
+  // (secops 1) La ligne du jour appartient à son premier auteur, mais d'autres parents la complètent.
+  await api(ines, "PATCH", "/api/kids/day", { profileId: Q, date: "2026-11-02", values: { Humeur: "Content" } });
+  await api(maxi, "PATCH", "/api/kids/day", { profileId: Q, date: "2026-11-02", values: { Eau: 2 } });
+  await api(ines, "PATCH", "/api/kids/day", { profileId: Q, date: "2026-11-03", values: { Eau: 5 } });
+  const inesRecipe = await api(ines, "POST", "/api/recipes", { title: `Recette d'Ines ${run}`, groupId: olga.defaultGroupId, steps: [] });
+  check((await prisma.kidDayEntry.findUnique({ where: { profileId_date: { profileId: Q, date: "2026-11-02" } } }))?.userId === ines.id, "la ligne du 2 novembre appartient à Ines (première auteure), Maxi l'a complétée");
+  await deleteUserAccount(ines.id, { keepShared: false });
+  const d2 = await prisma.kidDayEntry.findUnique({ where: { profileId_date: { profileId: Q, date: "2026-11-02" } } });
+  const d3 = await prisma.kidDayEntry.findUnique({ where: { profileId_date: { profileId: Q, date: "2026-11-03" } } });
+  check(d2?.userId === olga.id && d2.values[humeur.json.id]?.length === 1 && d2.values[eau.json.id] === 2, "keepShared=false : le jour complété par Maxi est conservé en entier, transféré à la propriétaire du foyer");
+  check(d3?.userId === olga.id && d3.values[eau.json.id] === 5, "keepShared=false : la saisie seule d'Ines est aussi transférée (le semainier appartient à l'enfant)");
+  const maxiWeek = await api(maxi, "GET", `/api/kids/week?profileId=${Q}&from=2026-11-01&to=2026-11-05`);
+  check(maxiWeek.status === 200 && maxiWeek.json.days.find((d) => d.date === "2026-11-02")?.values[eau.json.id] === 2, "les autres parents voient toujours le jour");
+  check(inesRecipe.status === 201 && (await prisma.recipe.count({ where: { title: `Recette d'Ines ${run}` } })) === 0, "ADR 0001 intact ailleurs : sa recette de groupe suit toujours keepShared=false");
+
+  // Propriétaire supprimée, groupe qui survit : les saisies vont à l'héritier.
+  await api(olga, "PATCH", "/api/kids/day", { profileId: Q, date: "2026-11-04", values: { Eau: 1 } });
+
+  // Groupe qui disparaît (personne d'autre) : comportement actuel, le semainier part avec lui.
+  const solo = await makeUser(run, "solo");
+  const R = (await prisma.familyProfile.create({ data: { groupId: solo.defaultGroupId, name: "Enfant seul", kind: "child", position: 0 } })).id;
+  await prisma.kidTracker.create({ data: { profileId: R, label: "Eau", icon: "cup", kind: "count" } });
+  await api(solo, "PATCH", "/api/kids/day", { profileId: R, date: "2026-11-02", values: { Eau: 3 } });
+  await deleteUserAccount(solo.id, { keepShared: false });
+  check((await prisma.kidDayEntry.count({ where: { profileId: R } })) === 0 && (await prisma.familyProfile.count({ where: { id: R } })) === 0, "groupe sans autre membre : il disparaît avec le semainier de l'enfant (comportement inchangé)");
+
+  // (secops 4) Caractères invisibles : même règle pour le nettoyage et la comparaison.
+  console.log("   caractères invisibles");
+  check(["⁠", "­", "﻿", "؜", "​", "⁤"].every((c) => normalizeKidKey(`Hu${c}meur`) === normalizeKidKey("Humeur")), "normalizeKidKey : « Hu⁠meur » (U+2060, U+00AD, U+FEFF, U+061C, U+200B, U+2064) vaut « Humeur »");
+  for (const c of ["⁠", "­", "﻿", "؜"]) {
+    const r = await api(olga, "POST", "/api/kids/trackers", { profileId: Q, label: `Hu${c}meur`, icon: "star", kind: "count" });
+    check(r.status === 409 && r.json?.code === "duplicate_label", `« Hu+U+${c.codePointAt(0).toString(16).toUpperCase()}+meur » : doublon détecté (${r.status})`);
+  }
+  const soft = await api(olga, "POST", "/api/kids/trackers", { profileId: Q, label: "Ca­lme", icon: "star", kind: "count" });
+  check(soft.status === 201 && soft.json?.label === "Calme", `le libellé enregistré est nettoyé (« ${soft.json?.label} »)`);
+  const viaKey = await api(olga, "PATCH", "/api/kids/day", { profileId: Q, date: "2026-11-05", values: { "Hu⁠meur": "Con­tent" } });
+  check(viaKey.status === 200 && viaKey.json?.values[humeur.json.id]?.length === 1, `une rubrique et un choix se désignent aussi avec des caractères invisibles (${viaKey.status})`);
+  const dupInvisible = await api(olga, "POST", "/api/kids/trackers", { profileId: Q, label: "Dup", icon: "star", kind: "single", options: [{ label: "Oui", icon: "star" }, { label: "O‍ui", icon: "star" }] });
+  check(dupInvisible.status === 409, `deux choix qui ne diffèrent que par un caractère invisible : refusés (${dupInvisible.status})`);
+
+  // (secops 3) Plafonds au total, masquées comprises.
+  console.log("   plafonds");
+  const Q2 = (await prisma.familyProfile.create({ data: { groupId: olga.defaultGroupId, name: "Plafond", kind: "child", position: 1 } })).id;
+  await prisma.kidTracker.createMany({
+    data: Array.from({ length: 40 }, (_, i) => ({ profileId: Q2, label: `R${i}`, icon: "star", kind: "count", position: i, active: i < 3 })),
+  });
+  const over = await api(olga, "POST", "/api/kids/trackers", { profileId: Q2, label: "Quarante et une", icon: "star", kind: "count" });
+  check(over.status === 400 && over.json?.code === "too_many_trackers", `40 rubriques dont 37 masquées : la 41e est refusée (${over.status})`);
+  const hiddenId = (await prisma.kidTracker.findFirst({ where: { profileId: Q2, label: "R10" } })).id;
+  const del = await api(olga, "DELETE", `/api/kids/trackers/${hiddenId}`);
+  const again = await api(olga, "POST", "/api/kids/trackers", { profileId: Q2, label: "Quarante et une", icon: "star", kind: "count" });
+  check(del.status === 200 && again.status === 201, `supprimer une rubrique masquée sans saisie libère une place (${del.status}, ${again.status})`);
+  const opts41 = await api(olga, "POST", "/api/kids/trackers", { profileId: Q, label: "Choix", icon: "star", kind: "multi", options: choices(...Array.from({ length: 41 }, (_, i) => `choix ${i}`)) });
+  check(opts41.status === 400 && opts41.json?.code === "too_many_options", `41 choix à la création : refusés (${opts41.status})`);
+  const patch41 = await api(olga, "PATCH", `/api/kids/trackers/${humeur.json.id}`, { options: Array.from({ length: 41 }, (_, i) => ({ label: `n${i}`, icon: "star" })) });
+  check(patch41.status === 400, `41 choix d'un coup à la modification : refusés (${patch41.status})`);
+
+  // (secops 2, reviewer, secops : verrous) Suppression de compte, lecture et saisie en même temps sur un
+  // semainier dont 60 lignes attendent la reprise : pas d'interblocage (40P01), rien de perdu.
+  console.log("   verrous : suppression de compte contre reprise et saisies");
+  for (let round = 0; round < 3; round++) {
+    const owner = await makeUser(run, `lk${round}o`);
+    const author = await makeUser(run, `lk${round}a`);
+    const peer = await makeUser(run, `lk${round}p`);
+    await prisma.groupMember.createMany({ data: [{ groupId: owner.defaultGroupId, userId: author.id }, { groupId: owner.defaultGroupId, userId: peer.id }] });
+    const K = (await prisma.familyProfile.create({ data: { groupId: owner.defaultGroupId, name: `Verrou ${round}`, kind: "child", position: 0 } })).id;
+    for (let i = 0; i < 60; i++) {
+      const date = new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10);
+      await prisma.$executeRaw`
+        INSERT INTO "KidDayEntry" (id, date, weather, mood, activities, "createdAt", "updatedAt", "userId", "profileId")
+        VALUES (${"kde" + randomBytes(8).toString("hex")}, ${date}, 'sunny', 'happy', '["park"]', now(), now(), ${author.id}, ${K})`;
+    }
+    const settled = await Promise.allSettled([
+      deleteUserAccount(author.id, { keepShared: false }),
+      api(peer, "GET", `/api/kids/week?profileId=${K}&from=2026-01-01&to=2026-01-31`),
+      api(owner, "GET", `/api/kids/trackers?profileId=${K}&all=1`),
+      api(peer, "PATCH", "/api/kids/day", { profileId: K, date: "2026-06-01", values: { Humeur: "Content" } }),
+      api(owner, "POST", "/api/kids/trackers", { profileId: K, label: "Autre", icon: "star", kind: "count" }),
+    ]);
+    const statuses = settled.map((r) => (r.status === "fulfilled" ? (typeof r.value === "object" && r.value ? r.value.status ?? r.value : r.value) : "rejected"));
+    check(settled.every((r) => r.status === "fulfilled") && settled[0].value === true && settled.slice(1).every((r) => [200, 201].includes(r.value.status)), `tour ${round + 1} : aucun interblocage ni erreur (${statuses.join(", ")})`);
+    const rows = await prisma.kidDayEntry.findMany({ where: { profileId: K }, select: { userId: true, values: true } });
+    check(rows.length === 61 && rows.every((r) => r.userId !== author.id && r.values !== null), `tour ${round + 1} : 61 lignes conservées, aucune à l'auteure supprimée, toutes reprises (${rows.length})`);
+  }
+
+  // Propriétaire supprimée avec keepShared=false : le groupe survit chez Maxi, qui reçoit ses saisies.
+  await deleteUserAccount(olga.id, { keepShared: false });
+  const d4 = await prisma.kidDayEntry.findUnique({ where: { profileId_date: { profileId: Q, date: "2026-11-04" } } });
+  check(d4?.userId === maxi.id && d4.values[eau.json.id] === 1, "propriétaire supprimée, groupe repris par Maxi : ses saisies du semainier passent à Maxi");
+  const maxiAfter = await api(maxi, "GET", `/api/kids/week?profileId=${Q}&from=2026-11-01&to=2026-11-05`);
+  check(maxiAfter.status === 200 && maxiAfter.json.days.filter((d) => Object.keys(d.values).length > 0).length >= 3, "…et le jour reste visible pour le foyer");
   console.log(`\n${checks - failures}/${checks} vérifications OK (phase api)`);
 }
 
@@ -637,6 +801,9 @@ try {
   else if (phase === "lazy") await lazy();
   else if (phase === "verify") await verify();
   else if (phase === "snapshot") await snapshot();
+  else if (phase === "isolation-seed") await isolationSeed();
+  else if (phase === "isolation-failed") await isolationCheck("failed");
+  else if (phase === "isolation-retry") await isolationCheck("retry");
   else if (phase === "api") await apiPhase();
   else throw new Error(`phase inconnue : ${phase}`);
 } catch (e) {

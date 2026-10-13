@@ -119,5 +119,18 @@ else
   echo "  FAIL la base a changé au 2e passage"; exit 1
 fi
 
+echo "== Isolation : un enfant en échec n'arrête pas la reprise des autres"
+$TSX tests/kids.test.mjs isolation-seed || fail
+KIDS_ISOLATION_LOG="$WORK/backfill-iso.log"
+export KIDS_ISOLATION_LOG
+node prisma/backfill-kid-trackers.js > "$KIDS_ISOLATION_LOG" 2>&1 || { echo "  FAIL le backfill a quitté en erreur"; cat "$KIDS_ISOLATION_LOG"; exit 1; }
+cat "$KIDS_ISOLATION_LOG"
+$TSX tests/kids.test.mjs isolation-failed || fail
+node -e "
+const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();
+p.\$executeRawUnsafe('DROP TRIGGER kid_test_fail ON \"KidTracker\"').then(()=>p.\$disconnect());"
+node prisma/backfill-kid-trackers.js | tee "$WORK/backfill-iso2.log"
+$TSX tests/kids.test.mjs isolation-retry || fail
+
 echo "== API"
 $TSX tests/kids.test.mjs api || fail

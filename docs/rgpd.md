@@ -28,8 +28,14 @@
   valeurs du jour, auteur de la rubrique (`createdById`, mis à `NULL` si son compte
   est supprimé). Conservation : tant que le profil existe ; la suppression du groupe
   ou du profil efface le semainier. Un membre retiré du groupe perd l'accès à ce qu'il
-  y a saisi (exception à l'ADR 0001). Export : les saisies figurent dans l'export du
-  compte. **Base légale : non tranchée** dans les documents du chantier, à compléter
+  y a saisi (exception à l'ADR 0001). Suppression du compte d'un membre : ses saisies
+  sont **toujours** transférées au propriétaire du groupe qui survit, quel que soit
+  `keepShared` (ADR 0002). Export : les lignes dont la personne est l'auteur figurent
+  dans l'export du compte, en lecture seule (aucune écriture en base). **Limite : pas
+  d'attribution par champ.** Une ligne de jour est un seul objet JSON sans auteur par
+  rubrique : l'export d'un parent contient ce que d'autres parents ont ajouté à ses
+  lignes, et ne contient pas ce qu'il a ajouté à une ligne ouverte par un autre. Un droit
+  d'accès par champ demanderait un auteur par valeur ; à décider avec l'avis juridique. **Base légale : non tranchée** dans les documents du chantier, à compléter
   avant l'ouverture large.
   - **Rappel et CGU** : à la création d'une rubrique, l'app affiche « N'y note pas de
     données de santé. » avec un lien vers `/cgu`. La page `/cgu` contient la clause
@@ -135,8 +141,10 @@
     qu'elle a rangé dans ces groupes : le laisser aux autres membres (rattaché au propriétaire du
     groupe) ou le supprimer. Dans l'app, tout élément appartient à un groupe (le groupe par défaut
     si rien n'est précisé) ;
-  - applique ce même choix au semainier qu'elle a rempli pour un enfant du groupe (le semainier
-    appartient au profil de l'enfant, pas au parent) ;
+  - n'applique **pas** ce choix au semainier qu'elle a rempli pour un enfant d'un groupe qui
+    continue d'exister : ses saisies passent toujours au propriétaire du groupe (le semainier
+    appartient au profil de l'enfant, pas au parent, et d'autres parents complètent la même
+    ligne de jour). Si le groupe disparaît, le semainier part avec lui ;
   - supprime toujours les abonnements calendrier (URL ICS souvent porteuses d'un jeton privé : les
     transférer continuerait d'importer l'agenda de la personne partie) ;
   - ne touche jamais aux éléments des autres membres, puis efface du disque les photos des

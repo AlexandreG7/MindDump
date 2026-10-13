@@ -20,7 +20,8 @@ async function convertProfile(tx, profileId) {
 
   const rows = await tx.$queryRaw`
     SELECT id, weather, mood, nap, accident, activities
-    FROM "KidDayEntry" WHERE "profileId" = ${profileId} AND "values" IS NULL`;
+    FROM "KidDayEntry" WHERE "profileId" = ${profileId} AND "values" IS NULL
+    ORDER BY id FOR UPDATE`;
   if (rows.length === 0) return { converted: 0, created: 0, unmapped: 0 };
 
   const existing = await tx.kidTracker.findMany({
@@ -68,9 +69,10 @@ async function convertProfile(tx, profileId) {
     });
   }
 
-  let converted = 0;
   let unmapped = 0;
   const reveal = new Set();
+  const ids = [];
+  const payloads = [];
   for (const row of rows) {
     const r = legacyToValues(row, index);
     unmapped += r.unmapped;
@@ -78,10 +80,15 @@ async function convertProfile(tx, profileId) {
       const t = byKey.get(key);
       if (!t.active && r.values[t.id] !== undefined) reveal.add(t.id);
     }
-    converted += await tx.$executeRaw`
-      UPDATE "KidDayEntry" SET "values" = ${JSON.stringify(r.values)}::jsonb
-      WHERE id = ${row.id} AND "values" IS NULL`;
+    ids.push(row.id);
+    payloads.push(JSON.stringify(r.values));
   }
+  // Un seul UPDATE ensembliste ; les lignes sont déjà verrouillées dans l'ordre des id
+  // (SELECT … ORDER BY id FOR UPDATE), comme la suppression de compte : pas d'interblocage.
+  const converted = await tx.$executeRaw`
+    UPDATE "KidDayEntry" k SET "values" = v.payload::jsonb
+    FROM unnest(${ids}::text[], ${payloads}::text[]) AS v(id, payload)
+    WHERE k.id = v.id AND k."values" IS NULL`;
   if (reveal.size > 0) {
     await tx.kidTracker.updateMany({ where: { id: { in: Array.from(reveal) } }, data: { active: true } });
   }
@@ -94,24 +101,34 @@ async function main() {
     const pending = await prisma.$queryRaw`
       SELECT DISTINCT "profileId" FROM "KidDayEntry" WHERE "values" IS NULL AND "profileId" IS NOT NULL`;
     let profiles = 0;
+    let failed = 0;
     let converted = 0;
     let created = 0;
     let unmapped = 0;
-    for (const { profileId } of pending) {
-      const r = await prisma.$transaction((tx) => convertProfile(tx, profileId), { timeout: 60000 });
-      profiles++;
-      converted += r.converted;
-      created += r.created;
-      unmapped += r.unmapped;
+    // Un enfant en échec n'empêche pas les suivants : chaque transaction est isolée, et
+    // l'enfant en échec sera repris au démarrage suivant (ou à sa première lecture).
+    // Le journal ne contient ni libellé, ni nom, ni identifiant : seulement le rang et le code d'erreur.
+    for (const [i, { profileId }] of pending.entries()) {
+      try {
+        const r = await prisma.$transaction((tx) => convertProfile(tx, profileId), { timeout: 60000 });
+        profiles++;
+        converted += r.converted;
+        created += r.created;
+        unmapped += r.unmapped;
+      } catch (e) {
+        failed++;
+        console.log(`backfill-kid-trackers: profile ${i + 1}/${pending.length} skipped (${(e && (e.code || e.name)) || "error"})`);
+      }
     }
-    if (profiles > 0) {
+    if (profiles > 0 || failed > 0) {
       console.log(
         `Kid trackers: ${profiles} profile(s), ${created} tracker(s) created, ${converted} entr${converted === 1 ? "y" : "ies"} converted` +
-          (unmapped > 0 ? `, ${unmapped} unknown legacy value(s) left in the old columns` : "")
+          (unmapped > 0 ? `, ${unmapped} unknown legacy value(s) left in the old columns` : "") +
+          (failed > 0 ? `, ${failed} profile(s) skipped` : "")
       );
     }
   } catch (e) {
-    console.log("backfill-kid-trackers: skipped (" + e.message + ")");
+    console.log(`backfill-kid-trackers: skipped (${(e && (e.code || e.name)) || "error"})`);
   } finally {
     await prisma.$disconnect();
   }
