@@ -8,11 +8,15 @@
 #
 # Utilisé par le stage « test » du Dockerfile : un échec bloque le déploiement.
 # En local, après `npm run build` : npm run test:ownership
+# Sans initdb en local : OWNERSHIP_TEST_DATABASE_URL=postgresql://…/minddump_xxx_test
+# (le nom de la base doit contenir « test » ; son schéma public est réinitialisé).
 set -eu
 
 PORT_DB="${OWNERSHIP_TEST_DB_PORT:-54329}"
 PORT_APP="${OWNERSHIP_TEST_APP_PORT:-3999}"
-PG_BIN="${PG_BIN:-$(dirname "$(command -v initdb 2>/dev/null || ls /usr/lib/postgresql/*/bin/initdb | tail -n 1)")}"
+if [ -z "${OWNERSHIP_TEST_DATABASE_URL:-}" ]; then
+  PG_BIN="${PG_BIN:-$(dirname "$(command -v initdb 2>/dev/null || ls /usr/lib/postgresql/*/bin/initdb | tail -n 1)")}"
+fi
 WORK="$(mktemp -d)"
 PGDATA="$WORK/pgdata"
 SERVER_PID=""
@@ -22,19 +26,31 @@ as_pg() {
   if [ "$(id -u)" = "0" ]; then su -s /bin/sh postgres -c "$1"; else sh -c "$1"; fi
 }
 
+EXTERNAL_DB="${OWNERSHIP_TEST_DATABASE_URL:-}"
+
 cleanup() {
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null || true
-  as_pg "$PG_BIN/pg_ctl -D '$PGDATA' -m immediate stop" >/dev/null 2>&1 || true
+  if [ -z "$EXTERNAL_DB" ]; then
+    as_pg "$PG_BIN/pg_ctl -D '$PGDATA' -m immediate stop" >/dev/null 2>&1 || true
+  fi
   rm -rf "$WORK"
 }
 trap cleanup EXIT INT TERM
 
-[ "$(id -u)" = "0" ] && chown postgres "$WORK"
-as_pg "$PG_BIN/initdb -D '$PGDATA' -A trust -U postgres" >/dev/null
-as_pg "$PG_BIN/pg_ctl -D '$PGDATA' -o '-p $PORT_DB -k $WORK -c listen_addresses=localhost' -l '$WORK/pg.log' -w start" >/dev/null
-as_pg "$PG_BIN/createdb -h localhost -p $PORT_DB -U postgres minddump_ownership_test"
-
-export DATABASE_URL="postgresql://postgres@localhost:$PORT_DB/minddump_ownership_test"
+if [ -n "$EXTERNAL_DB" ]; then
+  case "$EXTERNAL_DB" in
+    *test*) ;;
+    *) echo "Refus : OWNERSHIP_TEST_DATABASE_URL doit viser une base de test."; exit 2 ;;
+  esac
+  export DATABASE_URL="$EXTERNAL_DB"
+  echo 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' | node ./node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma >/dev/null
+else
+  [ "$(id -u)" = "0" ] && chown postgres "$WORK"
+  as_pg "$PG_BIN/initdb -D '$PGDATA' -A trust -U postgres" >/dev/null
+  as_pg "$PG_BIN/pg_ctl -D '$PGDATA' -o '-p $PORT_DB -k $WORK -c listen_addresses=localhost' -l '$WORK/pg.log' -w start" >/dev/null
+  as_pg "$PG_BIN/createdb -h localhost -p $PORT_DB -U postgres minddump_ownership_test"
+  export DATABASE_URL="postgresql://postgres@localhost:$PORT_DB/minddump_ownership_test"
+fi
 export OWNERSHIP_TEST_DB=disposable
 export NEXTAUTH_SECRET="ownership-test-secret"
 export NEXTAUTH_URL="http://127.0.0.1:$PORT_APP"

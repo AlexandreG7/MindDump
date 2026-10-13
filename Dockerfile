@@ -42,6 +42,10 @@ RUN sh scripts/test-mobile-link.sh && touch /app/.mobile-link-test-passed
 # inscriptions sur invitation (demandes d'accès, liens à usage unique, admin), comptes
 # existants intacts (docs/oauth.md « Bêta privée »). Deux fichiers : signup et beta.
 RUN sh scripts/test-signup.sh && touch /app/.signup-test-passed
+# Semainier à rubriques choisies par la famille : reprise des saisies existantes sur une base au
+# schéma de production (sans perte, rejouable), accès par foyer, masquage plutôt que suppression,
+# écritures concurrentes, ancien PATCH en 409 (docs/semainier/02-plan-technique.md).
+RUN sh scripts/test-kids.sh && touch /app/.kids-test-passed
 
 # Production image
 FROM base AS runner
@@ -59,6 +63,7 @@ COPY --from=test /app/.ownership-test-passed /app/.ownership-test-passed
 COPY --from=test /app/.reminders-test-passed /app/.reminders-test-passed
 COPY --from=test /app/.mobile-link-test-passed /app/.mobile-link-test-passed
 COPY --from=test /app/.signup-test-passed /app/.signup-test-passed
+COPY --from=test /app/.kids-test-passed /app/.kids-test-passed
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

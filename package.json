@@ -12,6 +12,7 @@
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate",
     "test:ownership": "sh scripts/test-ownership.sh",
+    "test:kids": "sh scripts/test-kids.sh",
     "test:reminders": "sh scripts/test-reminders.sh",
     "test:mobile-link": "sh scripts/test-mobile-link.sh",
     "test:signup": "sh scripts/test-signup.sh",

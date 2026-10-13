@@ -94,6 +94,9 @@ node prisma/backfill-subscription-groups.js
 echo "Attaching kid diaries to a child profile..."
 node prisma/backfill-kid-profiles.js
 
+echo "Converting kid diaries to child-defined trackers..."
+node prisma/backfill-kid-trackers.js
+
 echo "Marking scheduled recipes as planned..."
 node prisma/backfill-planned-meals.js
 

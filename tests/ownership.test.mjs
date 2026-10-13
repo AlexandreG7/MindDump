@@ -83,6 +83,8 @@ async function createAll(user, groupId, label) {
   return { recipe: recipe.json.id, todo: todo.json.id, list: list.json.id, event: event.json.id };
 }
 
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
 const now = new Date();
 const RESOURCES = {
   recipe: { list: "/api/recipes", item: (id) => `/api/recipes/${id}` },
@@ -384,6 +386,68 @@ async function main() {
   await expectVisible(carol, { recipe: carolItems2.recipe }, carol.defaultGroupId, "recette sans foyer");
   await expectVisible(carol, { recipe: carolItems2.recipe }, carolHome.json.id, "recette sans foyer (vue de l'autre foyer)");
   await expectHidden(alice, { recipe: carolItems2.recipe }, "recette sans foyer");
+
+  console.log("12. Semainier : il appartient à l'enfant, donc au foyer (exception assumée à l'ADR 0001, voir ADR 0002)");
+  // Le semainier n'a pas d'auteur « propriétaire » : l'accès suit le groupe de l'enfant. Un membre
+  // retiré du foyer perd l'accès à ce qu'il y a rempli ; rien n'est supprimé ni réattribué, et le
+  // reste de ses éléments (recettes, tâches…) reste visible pour lui comme avant.
+  {
+    const ida = await makeUser("ida");
+    const joe = await makeUser("joe");
+    const kim = await makeUser("kim");
+    await prisma.groupMember.create({ data: { groupId: ida.defaultGroupId, userId: joe.id } });
+    const child = await prisma.familyProfile.create({
+      data: { groupId: ida.defaultGroupId, name: `Enfant ${run}`, kind: "child" },
+    });
+    const kidRoutes = (user, trackerId) => ({
+      "GET trackers": api(user, "GET", `/api/kids/trackers?profileId=${child.id}&all=1`),
+      "POST trackers": api(user, "POST", "/api/kids/trackers", { profileId: child.id, label: "Intrus", icon: "star", kind: "count" }),
+      "PATCH tracker": api(user, "PATCH", `/api/kids/trackers/${trackerId}`, { label: "Piraté" }),
+      "DELETE tracker": api(user, "DELETE", `/api/kids/trackers/${trackerId}`),
+      "PUT order": api(user, "PUT", "/api/kids/trackers/order", { profileId: child.id, ids: [trackerId] }),
+      "GET week": api(user, "GET", `/api/kids/week?profileId=${child.id}&from=2026-10-05&to=2026-10-11`),
+      "PATCH day": api(user, "PATCH", "/api/kids/day", { profileId: child.id, date: "2026-10-06", values: { Humeur: "Content" } }),
+      "GET legacy": api(user, "GET", `/api/kids?profileId=${child.id}&from=2026-10-05&to=2026-10-11`),
+    });
+    const resolveAll = async (obj) => Object.fromEntries(await Promise.all(Object.entries(obj).map(async ([k, v]) => [k, await v])));
+
+    const mood = await api(joe, "POST", "/api/kids/trackers", {
+      profileId: child.id, label: "Humeur", icon: "face-happy", kind: "single",
+      options: [{ label: "Content", icon: "face-happy" }, { label: "Triste", icon: "face-sad" }],
+    });
+    check(mood.status === 201, `un membre (clé API) crée une rubrique pour l'enfant (${mood.status})`);
+    const wrote = await api(joe, "PATCH", "/api/kids/day", { profileId: child.id, date: "2026-10-06", values: { Humeur: "Content" } });
+    check(wrote.status === 200, `un membre saisit une journée (${wrote.status})`);
+    const joeRecipe = await api(joe, "POST", "/api/recipes", { title: `Recette de Joe ${run}`, groupId: ida.defaultGroupId, steps: [] });
+    check(!!joeRecipe.json?.id, "Joe a aussi une recette dans le foyer");
+
+    const idaWeek = await api(ida, "GET", `/api/kids/week?profileId=${child.id}&from=2026-10-05&to=2026-10-11`);
+    const idaSees = idaWeek.json?.days?.find((d) => d.date === "2026-10-06")?.values?.[mood.json?.id]?.[0] === mood.json?.options?.[0]?.id;
+    check(idaWeek.status === 200 && idaSees, "Ida (propriétaire) voit la saisie de Joe");
+
+    for (const [name, r] of Object.entries(await resolveAll(kidRoutes(kim, mood.json.id)))) {
+      check(r.status === 404, `Kim (hors foyer) : ${name} → 404 (${r.status})`);
+    }
+    const intact = await api(ida, "GET", `/api/kids/trackers?profileId=${child.id}&all=1`);
+    check(intact.json?.length === 1 && intact.json[0].label === "Humeur", "les tentatives de Kim n'ont rien modifié");
+
+    const kick = await api(ida, "DELETE", `/api/groups/${ida.defaultGroupId}/members/${joe.id}`);
+    check(kick.status === 200, `Joe est retiré du foyer (${kick.status})`);
+    for (const [name, r] of Object.entries(await resolveAll(kidRoutes(joe, mood.json.id)))) {
+      check(r.status === 404, `Joe retiré : ${name} → 404 (exception documentée) (${r.status})`);
+    }
+    const kept = await prisma.kidDayEntry.findFirst({ where: { profileId: child.id, userId: joe.id } });
+    check(!!kept, "la saisie de Joe n'est ni supprimée ni réattribuée");
+    const idaAfter = await api(ida, "GET", `/api/kids/week?profileId=${child.id}&from=2026-10-05&to=2026-10-11`);
+    check(idaAfter.json?.days?.find((d) => d.date === "2026-10-06")?.values?.[mood.json.id]?.[0] === mood.json.options[0].id, "Ida voit toujours la saisie de Joe");
+    const joeKeeps = await api(joe, "GET", `/api/recipes/${joeRecipe.json.id}`);
+    check(joeKeeps.status === 200, `ADR 0001 pour le reste : Joe voit toujours sa recette (${joeKeeps.status})`);
+    await prisma.groupMember.create({ data: { groupId: ida.defaultGroupId, userId: joe.id } });
+    const joeBack = await api(joe, "GET", `/api/kids/week?profileId=${child.id}&from=2026-10-05&to=2026-10-11`);
+    check(joeBack.status === 200 && same(joeBack.json.days, idaAfter.json.days), "réintégré, Joe retrouve exactement la même semaine");
+    const oldPatch = await api(joe, "PATCH", "/api/kids", { profileId: child.id, date: "2026-10-06", weather: "sunny" });
+    check(oldPatch.status === 409, `l'ancien PATCH /api/kids renvoie 409 (${oldPatch.status})`);
+  }
 
   console.log(`\n${checks - failures}/${checks} vérifications OK`);
 }

@@ -2,6 +2,8 @@ import { unlink } from "fs/promises";
 import { prisma } from "./prisma";
 import { resolveUploadPaths } from "./uploads";
 import { revokeAppleToken } from "./authProviders";
+import { ensureLegacyConverted, loadTrackers } from "./kidTrackers";
+import { describeValues } from "./kidWeek";
 
 // Mot à taper pour confirmer la suppression du compte (UI et API).
 export const DELETE_CONFIRMATION = "SUPPRIMER";
@@ -108,18 +110,55 @@ export async function exportUserData(userId: string) {
       familyProfiles: {
         select: { id: true, groupId: true, name: true, kind: true, color: true, emoji: true, birthDate: true },
       },
-      kidDayEntries: {
-        select: {
-          date: true, weather: true, mood: true, nap: true, accident: true,
-          activities: true, createdAt: true, updatedAt: true,
-          profile: { select: { id: true, name: true, groupId: true } },
-        },
-      },
+      kidTrackersCreated: { select: { profileId: true } },
     },
   });
   if (!user) return null;
 
-  const { password, calendarToken, recipes, ...rest } = user;
+  const { password, calendarToken, recipes, kidTrackersCreated, ...rest } = user;
+
+  // Semainier : les saisies de la personne (ses ajouts du jour) avec leurs valeurs en clair,
+  // et les rubriques des enfants concernés (saisies ou créées par elle). Les anciennes
+  // colonnes restent exportées jusqu'au contract.
+  const entryProfiles = await prisma.kidDayEntry.findMany({
+    where: { userId, profileId: { not: null } },
+    select: { profileId: true },
+    distinct: ["profileId"],
+  });
+  const kidProfileIds = Array.from(
+    new Set([
+      ...entryProfiles.flatMap((e) => (e.profileId ? [e.profileId] : [])),
+      ...kidTrackersCreated.map((t) => t.profileId),
+    ])
+  );
+  const trackersByProfile = new Map<string, Awaited<ReturnType<typeof loadTrackers>>>();
+  for (const profileId of kidProfileIds) {
+    await ensureLegacyConverted(profileId);
+    trackersByProfile.set(profileId, await loadTrackers(profileId, { includeInactive: true }));
+  }
+  const kidTrackers = Array.from(trackersByProfile.values()).flat().map((t) => ({
+    id: t.id,
+    profileId: t.profileId,
+    label: t.label,
+    icon: t.icon,
+    kind: t.kind,
+    active: t.active,
+    options: t.options.map((o) => ({ id: o.id, label: o.label, icon: o.icon, active: o.active })),
+  }));
+  const kidDayEntries = (
+    await prisma.kidDayEntry.findMany({
+      where: { userId },
+      orderBy: { date: "asc" },
+      select: {
+        date: true, weather: true, mood: true, nap: true, accident: true, activities: true,
+        values: true, createdAt: true, updatedAt: true,
+        profile: { select: { id: true, name: true, groupId: true } },
+      },
+    })
+  ).map((e) => ({
+    ...e,
+    readableValues: e.profile ? describeValues(e.values, trackersByProfile.get(e.profile.id) ?? []) : {},
+  }));
   // Sans relation vers User (voir schema.prisma) : lus à part.
   const mobileDevices = await prisma.mobileDevice.findMany({
     where: { userId },
@@ -133,6 +172,8 @@ export async function exportUserData(userId: string) {
       hasPassword: !!password,
       hasCalendarFeed: !!calendarToken,
       mobileDevices,
+      kidTrackers,
+      kidDayEntries,
       recipes: recipes.map((r) => ({
         ...r,
         steps: parseJson(r.steps),

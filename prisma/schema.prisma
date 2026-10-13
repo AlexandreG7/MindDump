@@ -89,6 +89,7 @@ model User {
   featureFlags          UserFeatureFlag[]
   apiKeys               ApiKey[]
   kidDayEntries         KidDayEntry[]
+  kidTrackersCreated    KidTracker[]
   loginEvents           LoginEvent[]
   familyProfiles        FamilyProfile[]
   wallDevices           WallDevice[]
@@ -501,6 +502,11 @@ model KidDayEntry {
   nap        Boolean?
   accident   Boolean?
   activities String   @default("[]") @db.Text
+  // Saisies du jour par rubrique : { [KidTracker.id]: string[] (ids de KidTrackerOption) | number }.
+  // Nul = ligne pas encore reprise des colonnes ci-dessus (src/lib/kidTrackers.ts,
+  // prisma/backfill-kid-trackers.js). Les colonnes weather, mood, nap, accident et
+  // activities ne sont plus écrites ; elles disparaissent au contract.
+  values     Json?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -537,12 +543,57 @@ model FamilyProfile {
   user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   kidDayEntries    KidDayEntry[]
+  kidTrackers      KidTracker[]
   eventAssignments EventAssignee[]
   todoAssignments  TodoAssignee[]
 
   @@unique([groupId, userId])
   @@index([groupId])
   @@index([userId])
+}
+
+// Rubrique du semainier d'un enfant, définie par la famille (libellé libre, image
+// d'une bibliothèque neutre : src/lib/kidIconIds.ts). Appartient au profil de
+// l'enfant, donc à son groupe (ADR 0002). Une rubrique qui a des saisies n'est
+// jamais supprimée, seulement masquée (active = false).
+model KidTracker {
+  id          String        @id @default(cuid())
+  profileId   String
+  profile     FamilyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  label       String
+  icon        String
+  // "single" (un choix) | "multi" (plusieurs choix) | "count" (compteur 0-99)
+  kind        String
+  position    Int           @default(0)
+  active      Boolean       @default(true)
+  // Rubrique reprise des anciennes colonnes de KidDayEntry, à renommer par la
+  // famille : vrai jusqu'au premier enregistrement de son libellé.
+  needsRename Boolean       @default(false)
+  // Reprise uniquement (identifie la colonne d'origine), supprimé au contract.
+  legacyKey   String?
+  createdById String?
+  createdBy   User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  options     KidTrackerOption[]
+
+  @@unique([profileId, legacyKey])
+  @@index([profileId, position])
+  @@index([createdById])
+}
+
+model KidTrackerOption {
+  id          String     @id @default(cuid())
+  trackerId   String
+  tracker     KidTracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+  label       String
+  icon        String
+  position    Int        @default(0)
+  active      Boolean    @default(true)
+  // Reprise uniquement (valeur d'origine dans la colonne), supprimé au contract.
+  legacyValue String?
+
+  @@index([trackerId, position])
 }
 
 // Personnes du foyer concernées par un événement ou une tâche (profils du

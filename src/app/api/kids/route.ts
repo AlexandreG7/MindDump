@@ -4,8 +4,19 @@ import { getSessionUser, unauthorized } from "@/lib/session";
 import { findAccessibleProfile } from "@/lib/profiles";
 
 // Le semainier appartient à l'enfant (profil du foyer) : tous les membres du
-// groupe le voient et le remplissent.
-const EDITABLE_FIELDS = ["weather", "mood", "nap", "accident", "activities"] as const;
+// groupe le voient et le remplissent. Lecture des anciennes colonnes seulement,
+// conservée jusqu'au contract pour les onglets restés sur l'ancienne version ;
+// les routes courantes sont dans ./trackers, ./week et ./day.
+
+/** Colonne texte écrite par l'ancienne version : une valeur illisible ne doit pas faire échouer la lecture. */
+function parseActivities(raw: string | null): unknown[] {
+  try {
+    const value = JSON.parse(raw || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
 
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();
@@ -32,42 +43,23 @@ export async function GET(req: NextRequest) {
 
   const parsed = entries.map((e) => ({
     ...e,
-    activities: JSON.parse(e.activities || "[]"),
+    activities: parseActivities(e.activities),
   }));
 
   return NextResponse.json(parsed);
 }
 
-export async function PATCH(req: NextRequest) {
+/**
+ * Ancienne saisie par colonnes fixes : refusée. Les saisies passent par
+ * PATCH /api/kids/day (rubriques choisies par la famille). Un onglet resté sur
+ * l'ancienne version reçoit ce message plutôt que d'écrire dans des colonnes que
+ * plus rien ne lit. Supprimée avec les colonnes au contract.
+ */
+export async function PATCH() {
   const user = await getSessionUser();
   if (!user) return unauthorized();
-
-  const body = await req.json();
-  const { date, profileId } = body;
-
-  if (!date || typeof date !== "string" || !profileId || typeof profileId !== "string") {
-    return NextResponse.json({ error: "date and profileId required" }, { status: 400 });
-  }
-  if (!(await findAccessibleProfile(profileId, user.id))) {
-    return NextResponse.json({ error: "Profil introuvable" }, { status: 404 });
-  }
-
-  const fields: Record<string, unknown> = {};
-  for (const key of EDITABLE_FIELDS) {
-    if (key in body) fields[key] = body[key];
-  }
-  if (Array.isArray(fields.activities)) {
-    fields.activities = JSON.stringify(fields.activities);
-  }
-
-  const entry = await prisma.kidDayEntry.upsert({
-    where: { profileId_date: { profileId, date } },
-    create: { userId: user.id, profileId, date, ...fields },
-    update: fields,
-  });
-
-  return NextResponse.json({
-    ...entry,
-    activities: JSON.parse(entry.activities || "[]"),
-  });
+  return NextResponse.json(
+    { error: "Nouvelle version, recharge la page", code: "outdated_client" },
+    { status: 409 }
+  );
 }
