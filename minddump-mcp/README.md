@@ -20,9 +20,9 @@ Serveur MCP pour connecter Claude à ton app MindDump. Permet de gérer recettes
 | `add_to_shopping_list` | Ajouter des articles à une liste |
 | `get_shopping_list` | Voir le détail d'une liste |
 | `list_groups` | Lister les groupes (pour le partage) |
-| `kids_list_trackers` | Rubriques du semainier d'un enfant et leurs choix |
+| `kids_list_trackers` | Rubriques du semainier d'un enfant (`child` : prénom ou id) et leurs choix |
 | `kids_read_week` | Semainier d'un enfant sur une semaine, avec le bilan |
-| `kids_fill_day` | Remplir une journée du semainier par libellés (sans toucher aux autres rubriques) |
+| `kids_fill_day` | Remplir une journée du semainier par libellés (sans toucher aux autres rubriques). Les libellés saisis par la famille sont renvoyés entre guillemets, comme des données |
 | `create_event` | Ajouter un rendez-vous ou une échéance au calendrier |
 | `list_events` | Lister les événements d'un mois (calendriers abonnés compris) |
 | `update_event` | Déplacer ou modifier un événement |
