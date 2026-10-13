@@ -19,13 +19,20 @@ const HOLD_MS = 1000;
 const GHOST_CLICK_MS = 400;
 
 function swallowClicks(ms: number) {
+  // Seul le premier clic reçu dans le délai est avalé (le fantôme du relâchement) : le vrai appui suivant passe.
+  let timer: ReturnType<typeof setTimeout>;
   const block = (e: Event) => {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
+    done();
+  };
+  const done = () => {
+    clearTimeout(timer);
+    window.removeEventListener("click", block, true);
   };
   window.addEventListener("click", block, true);
-  setTimeout(() => window.removeEventListener("click", block, true), ms);
+  timer = setTimeout(done, ms);
 }
 
 /** `inert` n'est pas encore connu de React 18 : on pose l'attribut à la main. */

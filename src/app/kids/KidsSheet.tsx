@@ -9,6 +9,12 @@ import { cn } from "@/lib/utils";
  * Hauteur laissée par le clavier à l'écran (iOS ne réduit pas la fenêtre, seulement le
  * `visualViewport`). Sans clavier : { kb: 0, vh: null } et la feuille garde ses réglages.
  */
+/** Barre d'accessoires du clavier iOS (flèches et coche) : hors du `visualViewport`, environ 44 pt. */
+const IOS_ACCESSORY_BAR = 44;
+const isIOS = () =>
+  typeof navigator !== "undefined" &&
+  (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
 function useKeyboardInset(active: boolean) {
   const [inset, setInset] = React.useState<{ kb: number; vh: number | null }>({ kb: 0, vh: null });
   React.useEffect(() => {
@@ -18,7 +24,11 @@ function useKeyboardInset(active: boolean) {
       const kb = Math.round(window.innerHeight - vv.height - vv.offsetTop);
       // Pincer pour zoomer réduit aussi le visualViewport : ce n'est pas un clavier.
       if (vv.scale > 1.01 || kb < 80) setInset((cur) => (cur.kb === 0 && cur.vh === null ? cur : { kb: 0, vh: null }));
-      else setInset({ kb, vh: Math.round(vv.height) });
+      else {
+        // Sur iOS, la barre d'accessoires recouvre le bas du viewport visible : on remonte le pied d'autant.
+        const bar = isIOS() ? IOS_ACCESSORY_BAR : 0;
+        setInset({ kb: kb + bar, vh: Math.round(vv.height) - bar });
+      }
     };
     update();
     vv.addEventListener("resize", update);

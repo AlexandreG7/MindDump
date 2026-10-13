@@ -170,12 +170,12 @@ async function run(width, height) {
   }, centre);
   check((await page.getByRole("region", { name: "Mode enfant" }).count()) === 0, "le mode enfant est quitté après l'appui long", `inert avant: ${before}`);
   const themeNow = await themeLabel();
+  check(themeNow === (await themeLabel()), "le clic fantôme (premier clic après la sortie) est avalé", `sous le doigt: ${hit}; ${themeNow}`);
+  // Le deuxième clic, même dans les 400 ms, est un vrai appui : il passe.
   await page.evaluate(() => {
-    // Clic direct sur le bouton de thème, aussitôt après la sortie.
     [...document.querySelectorAll("button")].find((b) => /^Thème :/.test(b.getAttribute("aria-label") ?? ""))?.click();
   });
-  const themeAfterGhost = await themeLabel();
-  check(themeNow === themeAfterGhost, "le thème ne change pas pendant les 400 ms suivant la sortie", `sous le doigt: ${hit}; ${themeNow}`);
+  check((await themeLabel()) !== themeNow, "le premier vrai appui après le fantôme n'est pas ignoré");
   await page.waitForTimeout(600);
   await page.evaluate(() => {
     [...document.querySelectorAll("button")].find((b) => /^Thème :/.test(b.getAttribute("aria-label") ?? ""))?.click();
@@ -352,6 +352,8 @@ async function keyboard() {
     Object.defineProperty(window, "visualViewport", { value: fake, configurable: true });
     window.__vvFire = () => listeners.forEach((f) => f());
   });
+  // iPhone : la barre d'accessoires (44 pt) s'ajoute au clavier.
+  await page.evaluate(() => Object.defineProperty(navigator, "userAgent", { value: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", configurable: true }));
   // La feuille relit le visualViewport à l'ouverture : on la rouvre.
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /Modifier la vue/ }).click();
@@ -360,10 +362,23 @@ async function keyboard() {
   await page.waitForTimeout(300);
   const box = await page.getByRole("dialog").boundingBox();
   const submit = await page.getByRole("button", { name: "Créer la rubrique" }).boundingBox();
-  check(Math.round(box.y + box.height) <= 424 + 1, "la feuille se pose sur le clavier (bas <= 424 px)", `bas = ${Math.round(box.y + box.height)} px`);
-  check(!!submit && submit.y + submit.height <= 424 && submit.y >= 0, "« Créer la rubrique » reste visible au-dessus du clavier", `bas = ${Math.round(submit.y + submit.height)} px`);
+  check(Math.round(box.y + box.height) <= 424 - 44 + 1, "la feuille se pose au-dessus de la barre d'accessoires iOS (bas <= 380 px)", `bas = ${Math.round(box.y + box.height)} px`);
+  check(!!submit && submit.y + submit.height <= 424 - 44 && submit.y >= 0, "« Créer la rubrique » reste visible au-dessus du clavier", `bas = ${Math.round(submit.y + submit.height)} px`);
   check(box.y >= 0, "l'en-tête de la feuille reste à l'écran", `haut = ${Math.round(box.y)} px (hauteur normale ${Math.round(normal.height)} px)`);
   await page.screenshot({ path: `${SHOTS}/390-keyboard-sheet.png` });
+  // Choix unique, choix vides : Entrée valide, le focus va au premier choix vide, l'erreur est à l'écran.
+  await page.getByRole("radio", { name: /Choix unique/ }).click();
+  await page.getByLabel("Nom du choix 1").focus();
+  await page.keyboard.press("Enter");
+  await page.getByText("Ajoute au moins un choix.").waitFor();
+  await page.waitForTimeout(600);
+  const focusedName = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
+  check(focusedName === "Nom du choix 1", "validation échouée : le focus va au premier choix vide", `focus = ${focusedName}`);
+  const err = await page.getByText("Ajoute au moins un choix.").boundingBox();
+  check(err && err.y >= 0 && err.y + err.height <= 424 - 44, "l'erreur est visible au-dessus du clavier", `bas = ${Math.round(err.y + err.height)} px`);
+  const live = await page.evaluate(() => document.querySelector('[aria-live="assertive"]:not(:empty)')?.textContent);
+  check(live === "Ajoute au moins un choix.", "l'erreur est annoncée (aria-live)");
+  await page.screenshot({ path: `${SHOTS}/390-keyboard-error.png` });
   await browser.close();
 }
 

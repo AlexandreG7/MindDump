@@ -95,6 +95,16 @@ export function TrackerForm({
   const [formError, setFormError] = useState<string | null>(null);
   const radioRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const optionInputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const labelInput = useRef<HTMLInputElement | null>(null);
+
+  /** Met le focus sur le champ en erreur et l'amène à l'écran (au-dessus du clavier). */
+  const focusField = (el: HTMLElement | null | undefined) => {
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Après un tour de rendu : le clavier et le message d'erreur modifient la hauteur disponible.
+    setTimeout(() => el.scrollIntoView({ block: "center", behavior: calm ? "auto" : "smooth" }), 50);
+  };
 
   const visible = options.filter((o) => !o.removed);
   const shown = visible.filter((o) => o.active);
@@ -138,17 +148,25 @@ export function TrackerForm({
     setFormError(null);
 
     const name = label.trim();
-    if (!name) return setLabelError("Donne un nom à la rubrique.");
-    if (len(name) > KID_LABEL_MAX) return setLabelError(`${KID_LABEL_MAX} caractères au plus : raccourcis le nom.`);
+    const labelFail = (msg: string) => {
+      setLabelError(msg);
+      focusField(labelInput.current);
+    };
+    const optionsFail = (msg: string, target?: OptionDraft) => {
+      setOptionsError(msg);
+      focusField(target ? optionInputs.current[target.key] : null);
+    };
+    if (!name) return labelFail("Donne un nom à la rubrique.");
+    if (len(name) > KID_LABEL_MAX) return labelFail(`${KID_LABEL_MAX} caractères au plus : raccourcis le nom.`);
 
     const filled = shown.filter((o) => o.label.trim() !== "");
     if (!isCount) {
-      if (shown.some((o) => o.id && o.label.trim() === "")) return setOptionsError("Un choix n'a plus de nom : nomme-le ou retire-le.");
-      if (filled.length === 0) return setOptionsError("Ajoute au moins un choix.");
-      if (filled.some((o) => len(o.label) > KID_LABEL_MAX)) {
-        return setOptionsError(`Un choix dépasse ${KID_LABEL_MAX} caractères : raccourcis-le.`);
-      }
-      if (filled.length > KID_MAX_ACTIVE_OPTIONS) return setOptionsError(`${KID_MAX_ACTIVE_OPTIONS} choix au plus.`);
+      const unnamed = shown.find((o) => o.id && o.label.trim() === "");
+      if (unnamed) return optionsFail("Un choix n'a plus de nom : nomme-le ou retire-le.", unnamed);
+      if (filled.length === 0) return optionsFail("Ajoute au moins un choix.", shown.find((o) => o.label.trim() === ""));
+      const tooLong = filled.find((o) => len(o.label) > KID_LABEL_MAX);
+      if (tooLong) return optionsFail(`Un choix dépasse ${KID_LABEL_MAX} caractères : raccourcis-le.`, tooLong);
+      if (filled.length > KID_MAX_ACTIVE_OPTIONS) return optionsFail(`${KID_MAX_ACTIVE_OPTIONS} choix au plus.`);
     }
 
     setSaving(true);
@@ -225,6 +243,7 @@ export function TrackerForm({
           <Counter value={label} />
         </div>
         <Input
+          ref={labelInput}
           id={`${uid}-label`}
           value={label}
           onChange={(e) => {
@@ -245,11 +264,9 @@ export function TrackerForm({
           aria-describedby={labelError ? `${uid}-label-err` : undefined}
           className={cn("h-12 rounded-xl text-base", labelError && "border-destructive")}
         />
-        {labelError && (
-          <p id={`${uid}-label-err`} role="alert" className="mt-1.5 text-sm font-semibold text-destructive">
-            {labelError}
-          </p>
-        )}
+        <p id={`${uid}-label-err`} aria-live="assertive" className={cn("text-sm font-semibold text-destructive", labelError && "mt-1.5")}>
+          {labelError}
+        </p>
         {tracker?.needsRename && (
           <p className="mt-1.5 text-sm text-muted-foreground">
             Cette rubrique vient de l&apos;ancien semainier. Choisis le nom que tu veux, ou enregistre pour garder celui-ci.
@@ -331,8 +348,17 @@ export function TrackerForm({
                     setOptionsError(null);
                   }}
                   aria-label={`Nom du choix ${i + 1}`}
+                  aria-invalid={!!optionsError && (o.label.trim() === "" || len(o.label) > KID_LABEL_MAX)}
+                  aria-describedby={optionsError ? `${uid}-opts-err` : undefined}
                   placeholder="Nom du choix"
                   autoComplete="off"
+                  enterKeyHint="done"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    }
+                  }}
                   className={cn("h-12 min-w-0 flex-1 rounded-xl text-base", len(o.label) > KID_LABEL_MAX && "border-destructive")}
                 />
                 <button type="button" className={iconBtn} disabled={i === 0} onClick={() => move(o.key, -1)} aria-label={`Monter le choix ${i + 1}`}>
@@ -374,11 +400,9 @@ export function TrackerForm({
               </ul>
             </div>
           )}
-          {optionsError && (
-            <p role="alert" className="mt-2 text-sm font-semibold text-destructive">
-              {optionsError}
-            </p>
-          )}
+          <p id={`${uid}-opts-err`} aria-live="assertive" className={cn("text-sm font-semibold text-destructive", optionsError && "mt-2")}>
+            {optionsError}
+          </p>
         </fieldset>
       )}
 
