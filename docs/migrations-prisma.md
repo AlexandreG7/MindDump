@@ -103,3 +103,18 @@ CREATE UNIQUE INDEX "User_email_lower_key" ON "User" (lower(email));
 ```
 
 S'il y en a, les fusionner à la main d'abord (ADR 0001 : ne supprimer aucun élément de personne).
+
+## Semainier : rubriques choisies par la famille (expand fait, contract à prévoir)
+
+Migration `20261013100000_kid_trackers` (additive : 2 tables, 1 colonne `values` nullable). Au
+démarrage, `prisma/backfill-kid-trackers.js` (après `backfill-kid-profiles.js`) crée les rubriques
+reprises de chaque enfant qui a des saisies et convertit ses lignes en `values`, sans toucher aux
+anciennes colonnes. Rejouable sans effet ; en attendant, l'app convertit à la lecture une ligne
+dont `values` est nul (`src/lib/kidTrackers.ts`). Les deux partagent `prisma/kid-legacy.js`.
+`scripts/test-kids.sh` (stage `test`) rejoue la reprise sur une base au schéma de production.
+
+**Contract (au moins une semaine après, déploiement distinct)** : vérifier en lecture sur la prod
+`SELECT count(*) FROM "KidDayEntry" WHERE "values" IS NULL AND "profileId" IS NOT NULL;` = 0, puis
+supprimer `weather`, `mood`, `nap`, `accident`, `activities`, `KidTracker.legacyKey` (et son index
+unique), `KidTrackerOption.legacyValue`, le backfill, `prisma/kid-legacy.js`, la lecture tolérante
+et `GET`/`PATCH /api/kids`.
