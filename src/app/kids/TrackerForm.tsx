@@ -233,6 +233,14 @@ export function TrackerForm({
           }}
           placeholder="Par exemple : Météo, Humeur, Sorties"
           autoComplete="off"
+          enterKeyHint="done"
+          onKeyDown={(e) => {
+            // Le bouton d'envoi est dans le pied de la feuille (hors du formulaire) : on relaie Entrée.
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
           aria-invalid={!!labelError}
           aria-describedby={labelError ? `${uid}-label-err` : undefined}
           className={cn("h-12 rounded-xl text-base", labelError && "border-destructive")}

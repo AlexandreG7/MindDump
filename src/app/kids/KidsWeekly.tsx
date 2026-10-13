@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { addDays, addWeeks, format, isSameDay, startOfWeek } from "date-fns";
+import { addDays, addWeeks, format, parseISO, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Maximize2, SlidersHorizontal } from "lucide-react";
 import { KidIcon } from "@/components/kids/icons";
@@ -14,6 +14,7 @@ import { useFeedback } from "@/components/ui/feedback";
 import { HeroChip, HeroIconButton, ModuleHero } from "@/components/ui/module-hero";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
+import { todayInParis } from "@/lib/kidWeek";
 import { cn } from "@/lib/utils";
 import { OutdatedBanner, RenameBanner } from "./Banners";
 import { DaySheet } from "./DaySheet";
@@ -34,8 +35,13 @@ function RainbowIcon({ className }: { className?: string }) {
 
 export function KidsWeekly() {
   const { toast } = useFeedback();
-  const [weekStart, setWeekStart] = useState(() => monday(new Date()));
+  // « Aujourd'hui » (AAAA-MM-JJ, Paris) n'est connu qu'après le montage : le HTML serveur ne
+  // contient aucune date, donc aucun écart d'hydratation. Relu au retour sur l'onglet et à minuit.
+  const [today, setToday] = useState<string | null>(null);
+  // Décalage en semaines par rapport à la semaine en cours : elle avance seule au passage de minuit.
+  const [weekOffset, setWeekOffset] = useState(0);
   const [children, setChildren] = useState<FamilyProfile[] | null>(null);
+  const [childrenError, setChildrenError] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [kidMode, setKidMode] = useState(false);
   const [dayEdit, setDayEdit] = useState<{ date: string; trackerId: string | null } | null>(null);
@@ -44,18 +50,36 @@ export function KidsWeekly() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [outdated, setOutdated] = useState(false);
 
+  useEffect(() => {
+    const refresh = () => setToday((cur) => {
+      const now = todayInParis();
+      return cur === now ? cur : now;
+    });
+    refresh();
+    const onVisible = () => document.visibilityState === "visible" && refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refresh);
+    const timer = setInterval(refresh, 30_000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refresh);
+      clearInterval(timer);
+    };
+  }, []);
+
   const days: WeekDay[] = useMemo(() => {
-    const now = new Date();
+    // Avant le montage : une semaine fictive, jamais lue ni affichée.
+    const weekStart = addWeeks(monday(parseISO(today ?? "1970-01-05")), weekOffset);
     return Array.from({ length: 7 }, (_, i) => {
       const day = addDays(weekStart, i);
-      return { date: iso(day), day, today: isSameDay(day, now) };
+      return { date: iso(day), day, today: iso(day) === today };
     });
-  }, [weekStart]);
+  }, [today, weekOffset]);
   const from = days[0].date;
   const to = days[6].date;
-  const isCurrentWeek = days.some((d) => d.today);
+  const isCurrentWeek = weekOffset === 0;
 
-  const { trackers, values, summary, status, reload, save } = useKidWeek(profileId, from, to);
+  const { trackers, values, summary, status, reload, save } = useKidWeek(today ? profileId : null, from, to);
 
   useEffect(() => {
     const on = () => setOutdated(true);
@@ -65,7 +89,13 @@ export function KidsWeekly() {
 
   const loadChildren = useCallback(async () => {
     const res = await kidsFetch<FamilyProfile[]>("/api/profiles?kind=child");
-    const list = res.ok && res.data ? res.data : [];
+    if (!res.ok || !res.data) {
+      // Échec de lecture : ce n'est pas « pas d'enfant ». On le dit et on propose de réessayer.
+      setChildrenError(true);
+      return;
+    }
+    const list = res.data;
+    setChildrenError(false);
     setChildren(list);
     let saved: string | null = null;
     try {
@@ -107,7 +137,7 @@ export function KidsWeekly() {
   );
 
   const enterKidMode = () => {
-    setWeekStart(monday(new Date()));
+    setWeekOffset(0);
     setDayEdit(null);
     setKidMode(true);
   };
@@ -124,6 +154,20 @@ export function KidsWeekly() {
     setViewStart(startWith);
     setViewOpen(true);
   };
+
+  if (childrenError && !children) {
+    return (
+      <div className="mx-auto w-full max-w-3xl md:mx-0">
+        <Surface className="p-6 text-center" role="alert">
+          <p className="text-base font-bold">Les enfants ne se sont pas chargés.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Vérifie ta connexion, puis réessaie.</p>
+          <Button variant="outline" className="mt-3 h-11 rounded-full px-5" onClick={() => void loadChildren()}>
+            Réessayer
+          </Button>
+        </Surface>
+      </div>
+    );
+  }
 
   if (children && children.length === 0) {
     return (
@@ -146,7 +190,7 @@ export function KidsWeekly() {
     );
   }
 
-  const rangeLabel = `${format(days[0].day, "d MMM", { locale: fr })} – ${format(days[6].day, "d MMM yyyy", { locale: fr })}`;
+  const rangeLabel = today ? `${format(days[0].day, "d MMM", { locale: fr })} – ${format(days[6].day, "d MMM yyyy", { locale: fr })}` : "\u00A0";
   const filledDays = summary?.filledDays ?? 0;
 
   return (
@@ -245,7 +289,7 @@ export function KidsWeekly() {
           <div className="flex items-center justify-between gap-2">
             <button
               type="button"
-              onClick={() => setWeekStart((w) => addWeeks(w, -1))}
+              onClick={() => setWeekOffset((w) => w - 1)}
               aria-label="Semaine précédente"
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] hover:bg-secondary/70 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -258,7 +302,7 @@ export function KidsWeekly() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setWeekStart(monday(new Date()))}
+                  onClick={() => setWeekOffset(0)}
                   className="-my-1 min-h-11 rounded-full px-3 text-sm font-bold text-tone-list-ink underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Revenir à cette semaine
@@ -267,7 +311,7 @@ export function KidsWeekly() {
             </div>
             <button
               type="button"
-              onClick={() => setWeekStart((w) => addWeeks(w, 1))}
+              onClick={() => setWeekOffset((w) => w + 1)}
               aria-label="Semaine suivante"
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] hover:bg-secondary/70 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -352,6 +396,8 @@ export function KidsWeekly() {
             trackers={trackers}
             values={values}
             loading={status === "loading"}
+            error={status === "error"}
+            onRetry={() => reload()}
             rangeLabel={rangeLabel}
             onChange={(date, trackerId, next) => setValue(date, trackerId, next, false)}
             onExit={() => setKidMode(false)}

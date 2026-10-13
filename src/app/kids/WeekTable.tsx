@@ -29,8 +29,8 @@ function describe(tracker: KidTrackerDto, value: KidDayValues[string] | undefine
 }
 
 /**
- * Tableau rubriques × jours. Sur mobile le libellé de la rubrique est au-dessus de
- * sa rangée de 7 cases (aucun défilement horizontal à 375 px) ; à partir de md il
+ * Tableau rubriques × jours. Jusqu'à lg (tablette en portrait comprise) le libellé de la rubrique est au-dessus de
+ * sa rangée de 7 cases (aucun défilement horizontal à 375 px) ; à partir de lg il
  * passe dans une colonne à gauche. Chaque case est un bouton qui ouvre la saisie du
  * jour sur cette rubrique. Aujourd'hui : pastille pleine « auj. » en tête et contour.
  */
@@ -45,11 +45,11 @@ export function WeekTable({
   values: Record<string, KidDayValues>;
   onOpen: (date: string, trackerId?: string) => void;
 }) {
-  const cols = "md:grid md:grid-cols-[13rem_repeat(7,minmax(0,1fr))] md:items-center md:gap-x-1.5";
+  const cols = "lg:grid lg:grid-cols-[13rem_repeat(7,minmax(0,1fr))] lg:items-center lg:gap-x-1.5";
   return (
-    <Surface className="p-3 md:p-5" role="group" aria-label="Semaine, rubrique par rubrique">
-      <div className={cn("grid grid-cols-7 gap-1", cols)}>
-        <span className="hidden md:block" aria-hidden />
+    <Surface className="p-2.5 sm:p-3 lg:p-5" role="group" aria-label="Semaine, rubrique par rubrique">
+      <div className={cn("grid grid-cols-7 gap-0.5 sm:gap-1", cols)}>
+        <span className="hidden lg:block" aria-hidden />
         {days.map((d) => (
           <button
             key={d.date}
@@ -72,15 +72,15 @@ export function WeekTable({
 
       <div className="mt-2 divide-y divide-border/70">
         {trackers.map((t) => (
-          <div key={t.id} role="group" aria-label={t.label} className={cn("py-2.5", cols, "md:gap-y-0")}>
-            <div className="mb-1.5 flex min-w-0 items-center gap-2 md:mb-0 md:pr-2">
+          <div key={t.id} role="group" aria-label={t.label} className={cn("py-2.5", cols, "lg:gap-y-0")}>
+            <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-0 lg:pr-2">
               <TrackerIcon id={t.icon} size={24} className="shrink-0" />
-              <h3 className="min-w-0 truncate text-base font-extrabold md:text-[1.0625rem]" title={t.label}>
+              <h3 className="min-w-0 truncate text-base font-extrabold lg:text-[1.0625rem]" title={t.label}>
                 {t.label}
               </h3>
             </div>
             <div className="contents">
-              <div className="grid grid-cols-7 gap-1 md:contents">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 lg:contents">
                 {days.map((d) => {
                   const v = describe(t, values[d.date]?.[t.id]);
                   const empty = v.text === "non renseigné";
@@ -91,7 +91,7 @@ export function WeekTable({
                       onClick={() => onOpen(d.date, t.id)}
                       aria-label={`${format(d.day, "EEEE d MMMM", { locale: fr })}${d.today ? ", aujourd'hui" : ""}, ${t.label} : ${v.text}`}
                       className={cn(
-                        "relative flex h-12 min-w-0 items-center justify-center rounded-xl text-foreground md:h-14",
+                        "relative flex h-12 min-w-0 items-center justify-center rounded-xl text-foreground lg:h-14",
                         "transition-[transform,background-color] duration-150 ease-out active:scale-95",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         empty

@@ -127,7 +127,9 @@ export function ViewEditor({
   const remove = async (t: KidTrackerDto) => {
     const ok = await confirm({
       title: `Supprimer « ${t.label} » ?`,
-      description: "La rubrique disparaît pour de bon si elle n'a aucune saisie. Sinon, on te proposera de la masquer.",
+      description: t.active
+        ? "La rubrique disparaît pour de bon si elle n'a aucune saisie. Sinon, on te proposera de la masquer."
+        : "La rubrique disparaît pour de bon si elle n'a aucune saisie. Sinon, elle reste masquée.",
       confirmLabel: "Supprimer",
       destructive: true,
     });
@@ -142,6 +144,11 @@ export function ViewEditor({
       return;
     }
     if (res.status === 409 && res.code === "has_entries") {
+      if (!t.active) {
+        // Déjà masquée : rien d'autre à proposer.
+        toast("Elle a des saisies, elle reste masquée.", "info");
+        return;
+      }
       const hideIt = await confirm({
         title: "Elle a des saisies : on la masque ?",
         description: `« ${t.label} » ne peut pas être supprimée, ses saisies sont conservées. Masquée, elle disparaît de la semaine et tu peux la réafficher à tout moment.`,
