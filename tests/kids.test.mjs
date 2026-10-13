@@ -321,7 +321,7 @@ async function verify() {
   const blob = JSON.stringify(all.map((t) => [t.label, t.icon, t.options.map((o) => [o.label, o.icon])])).toLowerCase();
   check(!/pipi|sieste|potty|pee\b/.test(blob), "ni libellé ni image des rubriques reprises ne reprend l'ancien vocabulaire");
   const KID_ICONS = new Set("sun sun-cloud cloud rain storm snow moon star rainbow drop leaf flower tree face-very-happy face-happy face-neutral face-sad face-angry brush book ball music puzzle pan wave people scissors paw mask bike car house backpack cake heart cup check cross bell gift".split(" "));
-  check(all.every((t) => KID_ICONS.has(t.icon) && t.options.every((o) => KID_ICONS.has(o.icon))), "toutes les images reprises sont dans la bibliothèque de 40");
+  check(all.every((t) => KID_ICONS.has(t.icon) && t.options.every((o) => KID_ICONS.has(o.icon))), "toutes les images reprises sont dans la bibliothèque");
 }
 
 async function snapshot() {
@@ -377,7 +377,8 @@ async function isolationCheck(step) {
 
 // ─── Phase api ────────────────────────────────────────────────────────────────
 
-const ICON_COUNT = 40;
+// Nombre d'images : lu dans la source unique, jamais figé en dur.
+const ICON_COUNT = (readFileSync(new URL("../src/lib/kidIconIds.ts", import.meta.url), "utf8").match(/^\s+\{ id: "/gm) ?? []).length;
 
 async function apiPhase() {
   const s = loadState();

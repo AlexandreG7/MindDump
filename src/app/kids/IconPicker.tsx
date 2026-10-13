@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import {
   KID_ICON_CATEGORIES,
@@ -18,7 +18,7 @@ import { KidsSheet } from "./KidsSheet";
 const CATEGORIES = Object.keys(KID_ICON_CATEGORY_LABELS) as KidIconCategory[];
 
 /**
- * Sélecteur d'image : les 40 images de la bibliothèque, rangées par catégorie.
+ * Sélecteur d'image : toutes les images de la bibliothèque, rangées par catégorie.
  * Aucune image n'a de sens propre : c'est le libellé du parent qui lui en donne un.
  */
 export function IconPickerSheet({
@@ -38,6 +38,15 @@ export function IconPickerSheet({
     isKidIconId(value) ? KID_ICON_CATEGORIES[value] : "meteo"
   );
   const ids = KID_ICON_IDS.filter((id) => KID_ICON_CATEGORIES[id] === category);
+  // Onze catégories débordent en largeur : l'onglet actif reste toujours visible.
+  const tabs = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => {
+      tabs.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ inline: "center", block: "nearest" });
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [category, open]);
   return (
     <KidsSheet
       open={open}
@@ -46,7 +55,7 @@ export function IconPickerSheet({
       title={title}
       description="Choisis une image parmi les catégories. Elle n'a pas de sens propre : c'est ton libellé qui lui en donne un."
     >
-      <div role="group" aria-label="Catégories d'images" className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+      <div ref={tabs} role="group" aria-label="Catégories d'images" className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
         {CATEGORIES.map((c) => (
           <button
             key={c}
@@ -56,7 +65,7 @@ export function IconPickerSheet({
             className={cn(
               "h-11 shrink-0 rounded-full px-4 text-sm font-bold transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              c === category ? "bg-ink text-ink-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
+              c === category ? "bg-ink text-ink-foreground ring-2 ring-foreground/40" : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
             )}
           >
             {KID_ICON_CATEGORY_LABELS[c]}

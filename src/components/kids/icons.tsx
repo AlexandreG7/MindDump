@@ -1,5 +1,5 @@
 /**
- * Bibliothèque d'images neutres du Semainier (40 icônes).
+ * Bibliothèque d'images neutres du Semainier (83 icônes).
  *
  * Origine et licence : dessin maison, tracés SVG écrits pour MindDump
  * (aucune icône reprise de Lucide, Phosphor, Tabler ou autre pack ; aucune
@@ -28,14 +28,22 @@ export type { KidIconId };
 /** Tous les identifiants, dans l'ordre de la bibliothèque (source : src/lib/kidIconIds.ts). */
 export const KID_ICON_IDS: readonly KidIconId[] = KID_ICONS.map((i) => i.id);
 
-export type KidIconCategory = "meteo" | "humeur" | "activite" | "objet" | "nature" | "symbole";
+export type KidIconCategory =
+  | "meteo" | "humeur" | "nourriture" | "animaux" | "nature" | "activite"
+  | "jeux" | "transport" | "lieux" | "objet" | "symbole";
 
+/** L'ordre des clés est l'ordre des onglets du sélecteur. */
 export const KID_ICON_CATEGORY_LABELS: Record<KidIconCategory, string> = {
   meteo: "Météo",
   humeur: "Visages",
-  activite: "Activités",
-  objet: "Objets",
+  nourriture: "Nourriture",
+  animaux: "Animaux",
   nature: "Nature",
+  activite: "Activités",
+  jeux: "Jeux",
+  transport: "Transports",
+  lieux: "Lieux",
+  objet: "Objets",
   symbole: "Symboles",
 };
 
@@ -80,20 +88,72 @@ export const KID_ICON_LABELS: Record<KidIconId, string> = {
   cross: "croix",
   bell: "cloche",
   gift: "cadeau",
+  apple: "pomme",
+  carrot: "carotte",
+  plate: "assiette et couverts",
+  sandwich: "sandwich",
+  "ice-cream": "glace à deux boules",
+  glass: "verre avec une paille",
+  cat: "visage de chat",
+  dog: "visage de chien",
+  fish: "poisson",
+  bird: "oiseau",
+  rabbit: "visage de lapin",
+  butterfly: "papillon",
+  school: "bâtiment avec une horloge",
+  slide: "toboggan",
+  beach: "parasol sur le sable",
+  mountain: "montagne",
+  shop: "boutique à store rayé",
+  bus: "bus",
+  train: "train vu de face",
+  plane: "avion",
+  scooter: "trottinette",
+  boat: "bateau à voile",
+  blocks: "cubes de jeu",
+  teddy: "visage d'ours en peluche",
+  football: "ballon de football",
+  racket: "raquette",
+  guitar: "guitare",
+  drum: "tambour et baguettes",
+  camera: "appareil photo",
+  tablet: "tablette",
+  clock: "horloge",
+  umbrella: "parapluie",
+  shoe: "chaussure de sport",
+  hat: "chapeau de paille",
+  crown: "couronne",
+  rocket: "fusée",
+  balloon: "ballons de baudruche",
+  flag: "fanion",
+  pencil: "crayon",
+  trophy: "trophée",
+  bolt: "éclair",
+  flame: "flamme",
+  target: "cible et flèche",
 };
 
 export const KID_ICON_CATEGORIES: Record<KidIconId, KidIconCategory> = {
   sun: "meteo", "sun-cloud": "meteo", cloud: "meteo", rain: "meteo", storm: "meteo",
   snow: "meteo", moon: "meteo", rainbow: "meteo",
-  drop: "nature", leaf: "nature", flower: "nature", tree: "nature", paw: "nature",
   "face-very-happy": "humeur", "face-happy": "humeur", "face-neutral": "humeur",
   "face-sad": "humeur", "face-angry": "humeur",
-  brush: "activite", book: "activite", ball: "activite", music: "activite",
-  puzzle: "activite", pan: "activite", wave: "activite", people: "activite",
-  scissors: "activite", mask: "activite", bike: "activite",
-  car: "objet", house: "objet", backpack: "objet", cake: "objet", cup: "objet",
-  bell: "objet", gift: "objet",
-  star: "symbole", heart: "symbole", check: "symbole", cross: "symbole",
+  apple: "nourriture", carrot: "nourriture", plate: "nourriture", sandwich: "nourriture",
+  "ice-cream": "nourriture", glass: "nourriture", cake: "nourriture", cup: "nourriture",
+  cat: "animaux", dog: "animaux", fish: "animaux", bird: "animaux", rabbit: "animaux",
+  butterfly: "animaux", paw: "animaux",
+  drop: "nature", leaf: "nature", flower: "nature", tree: "nature",
+  brush: "activite", book: "activite", music: "activite", pan: "activite", wave: "activite",
+  people: "activite", scissors: "activite", mask: "activite", pencil: "activite",
+  blocks: "jeux", teddy: "jeux", football: "jeux", racket: "jeux", guitar: "jeux", drum: "jeux",
+  balloon: "jeux", puzzle: "jeux", ball: "jeux", rocket: "jeux",
+  bus: "transport", train: "transport", plane: "transport", scooter: "transport",
+  boat: "transport", bike: "transport", car: "transport",
+  school: "lieux", slide: "lieux", beach: "lieux", mountain: "lieux", shop: "lieux", house: "lieux",
+  camera: "objet", tablet: "objet", clock: "objet", umbrella: "objet", shoe: "objet",
+  hat: "objet", crown: "objet", backpack: "objet", bell: "objet", gift: "objet",
+  star: "symbole", heart: "symbole", check: "symbole", cross: "symbole", trophy: "symbole",
+  bolt: "symbole", flame: "symbole", target: "symbole", flag: "symbole",
 };
 
 // ─── Palette (variables CSS + repli) ─────────────────────
@@ -149,6 +209,15 @@ function starPoints(cx: number, cy: number, R: number, r: number) {
     const a = (-90 + i * 36) * (Math.PI / 180);
     const rad = i % 2 === 0 ? R : r;
     pts.push(`${(cx + rad * Math.cos(a)).toFixed(1)},${(cy + rad * Math.sin(a)).toFixed(1)}`);
+  }
+  return pts.join(" ");
+}
+
+function polyPoints(cx: number, cy: number, R: number, n: number, startDeg: number) {
+  const pts: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (startDeg + (i * 360) / n) * (Math.PI / 180);
+    pts.push(`${(cx + R * Math.cos(a)).toFixed(1)},${(cy + R * Math.sin(a)).toFixed(1)}`);
   }
   return pts.join(" ");
 }
@@ -493,6 +562,476 @@ const DRAW: Record<KidIconId, () => React.ReactNode> = {
       <rect x="11" y="30" width="42" height="26" rx="3" fill={C.red} {...outline} />
       <rect x="7" y="22" width="50" height="11" rx="3" fill={C.orange} {...outline} />
       <rect x="28" y="22" width="8" height="34" fill={C.yellow} {...outline} />
+    </>
+  ),
+  // ── Nourriture ──
+  apple: () => (
+    <>
+      <Line d="M32 21Q32 13 36 8" color={C.brown} w={3} />
+      <path d="M32 21C26 15 12 18 12 34C12 47 21 57 28 56C31 55 33 55 36 56C43 57 52 47 52 34C52 18 38 15 32 21Z" fill={C.red} {...outline} />
+      <path d="M37 15C40 8 48 8 51 11C48 18 41 18 37 15Z" fill={C.green} {...outline} />
+      <path d="M18 31Q19 25 24 24" fill="none" stroke={PAPER} strokeWidth="3.2" strokeLinecap="round" />
+    </>
+  ),
+  carrot: () => (
+    <g transform="rotate(32 32 32)">
+      <path d="M32 21C27 15 24 9 26 4C30 7 32 13 32 21Z" fill={C.green} {...outline} />
+      <path d="M32 21C32 13 35 7 40 5C42 10 38 17 32 21Z" fill={C.green} {...outline} />
+      <path d="M24 22C24 17 40 17 40 22L34 56C33.4 59.5 30.6 59.5 30 56Z" fill={C.orange} {...outline} />
+      <path d="M27.5 29H31M33 37H36.5M29.5 45H32.5" fill="none" stroke={INK} strokeWidth="2.6" strokeLinecap="round" />
+    </g>
+  ),
+  plate: () => (
+    <>
+      <path d="M4 9H6.5V18H8.5V9H11V18H13V9H15.5V20Q15.5 25 12.5 26V56H7V26Q4 25 4 20Z" fill={C.slate} {...outline} strokeWidth="2.6" />
+      <path d="M53 8Q61 12 60 27H56.5V56H53Z" fill={C.slate} {...outline} strokeWidth="2.6" />
+      <circle cx="33" cy="32" r="18.5" fill={PAPER} {...outline} />
+      <circle cx="33" cy="32" r="11.5" fill={C.sky} stroke={INK} strokeWidth="2.4" />
+    </>
+  ),
+  sandwich: () => (
+    <>
+      <path d="M8 30C4 20 12 11 32 11C52 11 60 20 56 30Z" fill={C.orange} {...outline} />
+      <circle cx="22" cy="19" r="1.8" fill={PAPER} />
+      <circle cx="33" cy="16" r="1.8" fill={PAPER} />
+      <circle cx="43" cy="20" r="1.8" fill={PAPER} />
+      <rect x="8" y="40" width="48" height="8" rx="4" fill={C.pink} {...outline} />
+      <path d="M7 30H57V33Q51 40 44 34Q38 40 32 34Q26 40 20 34Q14 40 7 33Z" fill={C.green} {...outline} />
+      <path d="M10 45H54V52Q54 57 49 57H15Q10 57 10 52Z" fill={C.orange} {...outline} />
+    </>
+  ),
+  "ice-cream": () => (
+    <>
+      <path d="M20 34H44L32 60Z" fill={C.orange} {...outline} />
+      <path d="M25.5 39L31 50M38.5 39L33 50" fill="none" stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="32" cy="17" r="9.5" fill={C.yellow} {...outline} />
+      <circle cx="32" cy="31" r="12.5" fill={C.pink} {...outline} />
+      <path d="M23 29Q24 24 29 23" fill="none" stroke={PAPER} strokeWidth="3" strokeLinecap="round" />
+    </>
+  ),
+  glass: () => (
+    <>
+      <Line d="M38 30L45 4" color={C.red} w={3.4} />
+      <path d="M17.4 26H46.6L44 55Q43.8 57 42 57H22Q20.2 57 20 55Z" fill={C.blue} />
+      <path d="M16 10H48L44.4 55.5Q44.2 58 42 58H22Q19.8 58 19.6 55.5Z" fill="none" {...outline} />
+      <path d="M23 32V47" fill="none" stroke={PAPER} strokeWidth="3" strokeLinecap="round" />
+    </>
+  ),
+  // ── Animaux ──
+  cat: () => (
+    <>
+      <path d="M12 26L14 6L27 15Q32 14 37 15L50 6L52 26Q54 33 52 40Q48 54 32 54Q16 54 12 40Q10 33 12 26Z" fill={C.orange} {...outline} />
+      <path d="M17.5 14.5L18 21L23 17.5ZM46.5 14.5L46 21L41 17.5Z" fill={C.pink} />
+      <Eyes y={31} />
+      <path d="M29.2 38.5H34.8L32 42Z" fill={C.pink} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M32 42V44.5M32 44.5Q29 48 26 45.5M32 44.5Q35 48 38 45.5" fill="none" stroke={INK} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 37L16 39M3 45L16 43M61 37L48 39M61 45L48 43" fill="none" stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+    </>
+  ),
+  dog: () => (
+    <>
+      <path d="M32 9C43 9 49 18 49 30C49 45 42 56 32 56C22 56 15 45 15 30C15 18 21 9 32 9Z" fill={C.yellow} {...outline} />
+      <path d="M17 14C8 13 4 28 8 42C14 43 19 35 20 24Z" fill={C.brown} {...outline} />
+      <path d="M47 14C56 13 60 28 56 42C50 43 45 35 44 24Z" fill={C.brown} {...outline} />
+      <ellipse cx="32" cy="43" rx="11.5" ry="9" fill={PAPER} stroke={INK} strokeWidth="2.6" />
+      <circle cx="24.5" cy="28" r="3" fill={INK} />
+      <circle cx="39.5" cy="28" r="3" fill={INK} />
+      <ellipse cx="32" cy="38.5" rx="4.3" ry="3.2" fill={INK} />
+      <path d="M32 41.5V46M32 46Q28 50 25 47M32 46Q36 50 39 47" fill="none" stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+    </>
+  ),
+  fish: () => (
+    <>
+      <path d="M43 32L59 18Q55 32 59 46Z" fill={C.red} {...outline} />
+      <path d="M22 20Q29 8 38 20Z" fill={C.red} {...outline} />
+      <path d="M22 44Q28 54 36 44Z" fill={C.red} {...outline} />
+      <ellipse cx="27" cy="32" rx="20" ry="14" fill={C.orange} {...outline} />
+      <path d="M33 21Q38 32 33 43" fill="none" stroke={INK} strokeWidth="2.4" strokeLinecap="round" />
+      <circle cx="15.5" cy="28" r="4" fill={PAPER} stroke={INK} strokeWidth="2.2" />
+      <circle cx="14.7" cy="28" r="1.7" fill={INK} />
+    </>
+  ),
+  bird: () => (
+    <>
+      <path d="M44 30L61 21L57 35L62 47L44 41Z" fill={C.violet} {...outline} />
+      <Line d="M26 50V57M26 57H21M35 50V57M35 57H30" color={C.orange} w={2.4} />
+      <circle cx="29" cy="33" r="18.5" fill={C.blue} {...outline} />
+      <path d="M12 27L2 31L12.5 36Z" fill={C.orange} {...outline} />
+      <path d="M22 38Q33 27 45 38Q40 49 29 46Z" fill={C.sky} {...outline} strokeWidth="2.6" />
+      <circle cx="21" cy="26.5" r="3.2" fill={INK} />
+      <circle cx="22" cy="25.5" r="1" fill={PAPER} />
+    </>
+  ),
+  rabbit: () => (
+    <>
+      <path d="M20 32C13 16 15 3 21.5 3C28 3 30 17 28.5 32Z" fill={PAPER} {...outline} />
+      <path d="M22 26C19.5 17 19 11 21.5 9.5C24 11 25.5 17 25.5 26Z" fill={C.pink} />
+      <g transform="translate(64 0) scale(-1 1)">
+        <path d="M20 32C13 16 15 3 21.5 3C28 3 30 17 28.5 32Z" fill={PAPER} {...outline} />
+        <path d="M22 26C19.5 17 19 11 21.5 9.5C24 11 25.5 17 25.5 26Z" fill={C.pink} />
+      </g>
+      <circle cx="32" cy="41" r="19" fill={PAPER} {...outline} />
+      <circle cx="24.5" cy="38" r="3" fill={INK} />
+      <circle cx="39.5" cy="38" r="3" fill={INK} />
+      <circle cx="19.5" cy="46" r="3.2" fill={C.pink} />
+      <circle cx="44.5" cy="46" r="3.2" fill={C.pink} />
+      <path d="M29.3 43.5H34.7L32 46.5Z" fill={C.pink} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M32 46.5V49M32 49Q29 52 26.5 50M32 49Q35 52 37.5 50" fill="none" stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+    </>
+  ),
+  butterfly: () => (
+    <>
+      <path d="M29 33C20 33 9 39 13 50C17 58 27 53 29 41Z" fill={C.pink} {...outline} />
+      <path d="M35 33C44 33 55 39 51 50C47 58 37 53 35 41Z" fill={C.pink} {...outline} />
+      <path d="M29 30C21 8 5 10 7 25C8 33 19 35 29 32Z" fill={C.violet} {...outline} />
+      <path d="M35 30C43 8 59 10 57 25C56 33 45 35 35 32Z" fill={C.violet} {...outline} />
+      <circle cx="18" cy="23" r="4.2" fill={PAPER} />
+      <circle cx="46" cy="23" r="4.2" fill={PAPER} />
+      <circle cx="21" cy="46" r="2.8" fill={PAPER} />
+      <circle cx="43" cy="46" r="2.8" fill={PAPER} />
+      <path d="M30.5 17Q27 8 23 6M33.5 17Q37 8 41 6" fill="none" stroke={INK} strokeWidth="2.4" strokeLinecap="round" />
+      <rect x="28.5" y="15" width="7" height="39" rx="3.5" fill={INK} />
+    </>
+  ),
+  // ── Lieux ──
+  school: () => (
+    <>
+      <rect x="5" y="31" width="54" height="25" rx="2" fill={C.red} {...outline} />
+      <rect x="23" y="15" width="18" height="18" rx="2" fill={C.red} {...outline} />
+      <polygon points="20,16 32,4 44,16" fill={C.blue} {...outline} />
+      <circle cx="32" cy="24" r="5.2" fill={PAPER} stroke={INK} strokeWidth="2.2" />
+      <path d="M32 21V24H34.5" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="26.5" y="42" width="11" height="14" rx="2" fill={C.brown} {...outline} strokeWidth="2.6" />
+      <rect x="10" y="38" width="10" height="8" rx="1.5" fill={C.sky} stroke={INK} strokeWidth="2.2" />
+      <rect x="44" y="38" width="10" height="8" rx="1.5" fill={C.sky} stroke={INK} strokeWidth="2.2" />
+    </>
+  ),
+  slide: () => (
+    <>
+      <Line d="M27 17C38 19 40 40 54 53" color={C.red} w={5} />
+      <rect x="5" y="17" width="19" height="41" rx="2" fill={C.blue} {...outline} />
+      <path d="M5 30H24M5 38H24M5 46H24M5 54H24" fill="none" stroke={INK} strokeWidth="2.4" />
+      <rect x="2" y="11" width="28" height="7" rx="2.5" fill={C.yellow} {...outline} />
+    </>
+  ),
+  beach: () => (
+    <>
+      <Line d="M32 28V56" color={C.brown} w={3} />
+      <path d="M6 30C6 15 19 6 32 6C45 6 58 15 58 30Q51.5 36 45 30Q38.5 36 32 30Q25.5 36 19 30Q12.5 36 6 30Z" fill={C.red} {...outline} />
+      <path d="M32 6C27 12 24 20 24 31Q28 35 32 30Q36 35 40 31C40 20 37 12 32 6Z" fill={PAPER} stroke={INK} strokeWidth="2.4" strokeLinejoin="round" />
+      <path d="M2 53Q16 46 32 52T62 51V62H2Z" fill={C.yellow} {...outline} />
+    </>
+  ),
+  mountain: () => (
+    <>
+      <circle cx="51" cy="14" r="6.5" fill={C.yellow} {...outline} />
+      <polygon points="30,57 46,30 62,57" fill={C.green} {...outline} />
+      <polygon points="2,57 26,11 50,57" fill={C.slate} {...outline} />
+      <path d="M26 11L17 28L22 25L26 29L31 25L35.5 28Z" fill={PAPER} {...outline} strokeWidth="2.4" />
+    </>
+  ),
+  shop: () => (
+    <>
+      <rect x="9" y="26" width="46" height="30" rx="2" fill={C.yellow} {...outline} />
+      <rect x="14" y="37" width="20" height="14" rx="1.5" fill={C.sky} stroke={INK} strokeWidth="2.4" />
+      <rect x="40" y="35" width="10" height="21" rx="1.5" fill={C.brown} stroke={INK} strokeWidth="2.4" />
+      {[0, 1, 2, 3].map((i) => (
+        <path key={i} d={`M${6 + i * 13} 9H${19 + i * 13}V26A6.5 6.5 0 0 1 ${6 + i * 13} 26Z`} fill={i % 2 === 0 ? C.red : PAPER} {...outline} />
+      ))}
+    </>
+  ),
+  // ── Transports ──
+  bus: () => (
+    <>
+      <rect x="3" y="13" width="58" height="38" rx="7" fill={C.yellow} {...outline} />
+      <rect x="8" y="19" width="11" height="11" rx="2" fill={C.sky} stroke={INK} strokeWidth="2.2" />
+      <rect x="22" y="19" width="11" height="11" rx="2" fill={C.sky} stroke={INK} strokeWidth="2.2" />
+      <rect x="36" y="19" width="11" height="11" rx="2" fill={C.sky} stroke={INK} strokeWidth="2.2" />
+      <path d="M50 19H56Q58 19 58 21V30H50Z" fill={C.sky} stroke={INK} strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M3 38H61" fill="none" stroke={INK} strokeWidth="2.4" />
+      <circle cx="17" cy="51" r="7.5" fill={INK} />
+      <circle cx="17" cy="51" r="2.8" fill={C.grey} />
+      <circle cx="47" cy="51" r="7.5" fill={INK} />
+      <circle cx="47" cy="51" r="2.8" fill={C.grey} />
+    </>
+  ),
+  train: () => (
+    <>
+      <path d="M8 60L16 50M56 60L48 50" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />
+      <rect x="13" y="5" width="38" height="46" rx="11" fill={C.blue} {...outline} />
+      <rect x="19" y="12" width="26" height="15" rx="4" fill={C.sky} stroke={INK} strokeWidth="2.4" />
+      <path d="M32 12V27" fill="none" stroke={INK} strokeWidth="2.4" />
+      <circle cx="22" cy="39" r="4" fill={C.yellow} stroke={INK} strokeWidth="2.4" />
+      <circle cx="42" cy="39" r="4" fill={C.yellow} stroke={INK} strokeWidth="2.4" />
+      <rect x="17" y="47" width="30" height="7" rx="2.5" fill={C.slate} {...outline} strokeWidth="2.6" />
+    </>
+  ),
+  plane: () => (
+    <>
+      <path d="M10 33L5 14H14L25 33Z" fill={C.red} {...outline} />
+      <path d="M4 34Q4 26 18 26H46Q61 26 61 34Q61 41 46 41H18Q4 41 4 34Z" fill={PAPER} {...outline} />
+      <path d="M52 27.5Q59 28 59.5 33H51Z" fill={C.sky} />
+      <circle cx="18" cy="33.5" r="2.2" fill={C.sky} />
+      <circle cx="26" cy="33.5" r="2.2" fill={C.sky} />
+      <circle cx="34" cy="33.5" r="2.2" fill={C.sky} />
+      <circle cx="42" cy="33.5" r="2.2" fill={C.sky} />
+      <path d="M27 38H43L33 59H23Z" fill={C.blue} {...outline} />
+    </>
+  ),
+  scooter: () => (
+    <>
+      <circle cx="13" cy="52" r="7.5" fill={INK} />
+      <circle cx="13" cy="52" r="2.8" fill={C.grey} />
+      <circle cx="53" cy="52" r="7.5" fill={INK} />
+      <circle cx="53" cy="52" r="2.8" fill={C.grey} />
+      <Line d="M47 44L52 11" color={C.slate} w={3.4} />
+      <Line d="M12 44H49" color={C.red} w={5} />
+      <Line d="M44 10H59" color={C.blue} w={4} />
+    </>
+  ),
+  boat: () => (
+    <>
+      <path d="M30 17L10 40H30Z" fill={C.yellow} {...outline} />
+      <path d="M35 8L56 40H35Z" fill={PAPER} {...outline} />
+      <Line d="M32.5 6V41" color={C.brown} w={3} />
+      <path d="M5 40H59L51 53Q50 55 48 55H16Q14 55 13 53Z" fill={C.red} {...outline} />
+      <path d="M2 54Q10 49 18 54T34 54T50 54T62 54V60Q62 62 60 62H4Q2 62 2 60Z" fill={C.blue} {...outline} />
+    </>
+  ),
+  // ── Jeux et objets ──
+  blocks: () => (
+    <>
+      <rect x="5" y="34" width="25" height="25" rx="3.5" fill={C.red} {...outline} />
+      <circle cx="17.5" cy="46.5" r="6" fill={PAPER} />
+      <rect x="34" y="34" width="25" height="25" rx="3.5" fill={C.blue} {...outline} />
+      <polygon points="46.5,40.5 40.5,52.5 52.5,52.5" fill={PAPER} />
+      <g transform="rotate(-9 32 22)">
+        <rect x="19.5" y="9" width="25" height="25" rx="3.5" fill={C.yellow} {...outline} />
+        <rect x="27.5" y="17" width="9" height="9" rx="1.5" fill={C.orange} />
+      </g>
+    </>
+  ),
+  teddy: () => (
+    <>
+      <circle cx="14" cy="15" r="9" fill={C.brown} {...outline} />
+      <circle cx="14" cy="15" r="4" fill={C.pink} />
+      <circle cx="50" cy="15" r="9" fill={C.brown} {...outline} />
+      <circle cx="50" cy="15" r="4" fill={C.pink} />
+      <circle cx="32" cy="33" r="22" fill={C.brown} {...outline} />
+      <ellipse cx="32" cy="41" rx="10.5" ry="8.5" fill={PAPER} stroke={INK} strokeWidth="2.6" />
+      <circle cx="23.5" cy="29" r="3" fill={INK} />
+      <circle cx="40.5" cy="29" r="3" fill={INK} />
+      <ellipse cx="32" cy="37.8" rx="4" ry="3" fill={INK} />
+      <path d="M32 40.5V44M32 44Q28.5 47.5 25.5 45M32 44Q35.5 47.5 38.5 45" fill="none" stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M32 56L21 50.5V61.5ZM32 56L43 50.5V61.5Z" fill={C.red} {...outline} strokeWidth="2.6" />
+      <circle cx="32" cy="56" r="3.4" fill={C.red} {...outline} strokeWidth="2.4" />
+    </>
+  ),
+  football: () => (
+    <>
+      <defs>
+        <clipPath id="ki-fb-clip"><circle cx="32" cy="32" r="24" /></clipPath>
+      </defs>
+      <circle cx="32" cy="32" r="24" fill={PAPER} />
+      <g clipPath="url(#ki-fb-clip)">
+        {[0, 1, 2, 3, 4].map((k) => {
+          const a = (-90 + k * 72) * (Math.PI / 180);
+          const x1 = 32 + 8.5 * Math.cos(a), y1 = 32 + 8.5 * Math.sin(a);
+          const x2 = 32 + 17 * Math.cos(a), y2 = 32 + 17 * Math.sin(a);
+          const cx = 32 + 27 * Math.cos(a + 0.0), cy = 32 + 27 * Math.sin(a);
+          const pts = [0, 1, 2, 3, 4].map((j) => {
+            const b = a + Math.PI + (j * 72 * Math.PI) / 180;
+            return `${(cx + 9 * Math.cos(b)).toFixed(1)},${(cy + 9 * Math.sin(b)).toFixed(1)}`;
+          }).join(" ");
+          return (
+            <g key={k}>
+              <line x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)} stroke={INK} strokeWidth="2.4" strokeLinecap="round" />
+              <polygon points={pts} fill={INK} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+            </g>
+          );
+        })}
+      </g>
+      <polygon points={polyPoints(32, 32, 9, 5, -90)} fill={INK} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+      <circle cx="32" cy="32" r="24" fill="none" {...outline} />
+    </>
+  ),
+  racket: () => (
+    <g transform="rotate(38 32 32)">
+      <defs>
+        <clipPath id="ki-rk-clip"><ellipse cx="32" cy="22" rx="12.5" ry="16.5" /></clipPath>
+      </defs>
+      <rect x="28.5" y="36" width="7" height="23" rx="3.5" fill={C.brown} {...outline} />
+      <ellipse cx="32" cy="22" rx="12.5" ry="16.5" fill={PAPER} stroke={INK} strokeWidth="8" />
+      <g clipPath="url(#ki-rk-clip)" stroke={INK} strokeWidth="1.5">
+        <path d="M23 4V40M32 4V40M41 4V40M16 14H48M16 22H48M16 30H48" fill="none" />
+      </g>
+      <ellipse cx="32" cy="22" rx="12.5" ry="16.5" fill="none" stroke={C.red} strokeWidth="2.8" />
+    </g>
+  ),
+  guitar: () => (
+    <g transform="rotate(40 32 32)">
+      <rect x="29.3" y="7" width="5.4" height="24" fill={C.brown} {...outline} strokeWidth="2.6" />
+      <rect x="27" y="1" width="10" height="9" rx="2.5" fill={C.brown} {...outline} strokeWidth="2.6" />
+      <Blob fill={C.orange}>
+        <circle cx="32" cy="47" r="13" />
+        <circle cx="32" cy="30.5" r="8.5" />
+      </Blob>
+      <circle cx="32" cy="42" r="4.8" fill={INK} />
+      <rect x="27" y="52" width="10" height="3.4" rx="1.2" fill={INK} />
+      <path d="M32 7V42" fill="none" stroke={PAPER} strokeWidth="1.2" />
+    </g>
+  ),
+  drum: () => (
+    <>
+      <path d="M9 24V46Q9 55 32 55Q55 55 55 46V24Z" fill={C.red} {...outline} />
+      <path d="M12 31L22 49L32 31L42 49L52 31" fill="none" stroke={PAPER} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+      <ellipse cx="32" cy="24" rx="23" ry="9" fill={PAPER} {...outline} />
+      <Line d="M12 4L29 21" color={C.yellow} w={3.4} />
+      <Line d="M52 4L35 21" color={C.yellow} w={3.4} />
+    </>
+  ),
+  camera: () => (
+    <>
+      <rect x="21" y="9" width="22" height="12" rx="3" fill={C.slate} {...outline} />
+      <rect x="5" y="16" width="54" height="40" rx="8" fill={C.slate} {...outline} />
+      <rect x="9" y="21" width="10" height="5" rx="1.8" fill={C.yellow} />
+      <circle cx="51" cy="24" r="3" fill={C.red} />
+      <circle cx="32" cy="37" r="14" fill={PAPER} {...outline} />
+      <circle cx="32" cy="37" r="8" fill={C.blue} stroke={INK} strokeWidth="2.4" />
+      <circle cx="29" cy="34" r="2.2" fill={PAPER} />
+    </>
+  ),
+  tablet: () => (
+    <>
+      <rect x="9" y="4" width="46" height="56" rx="8" fill={C.slate} {...outline} />
+      <rect x="14" y="10" width="36" height="38" rx="2.5" fill={C.sky} stroke={INK} strokeWidth="2.4" />
+      <rect x="19" y="15" width="12" height="12" rx="3" fill={C.orange} />
+      <rect x="34" y="15" width="12" height="12" rx="3" fill={C.green} />
+      <rect x="19" y="31" width="12" height="12" rx="3" fill={C.pink} />
+      <rect x="34" y="31" width="12" height="12" rx="3" fill={C.yellow} />
+      <circle cx="32" cy="54" r="2.4" fill={PAPER} />
+    </>
+  ),
+  clock: () => (
+    <>
+      <circle cx="32" cy="32" r="25" fill={C.red} {...outline} />
+      <circle cx="32" cy="32" r="18.5" fill={PAPER} stroke={INK} strokeWidth="2.4" />
+      <path d="M32 17.5V21M32 43V46.5M17.5 32H21M43 32H46.5" fill="none" stroke={INK} strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M32 32L26.5 22.5" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M32 32L43 26" fill="none" stroke={INK} strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="2.4" fill={INK} />
+    </>
+  ),
+  umbrella: () => (
+    <>
+      <Line d="M32 34V51Q32 58 25.5 58Q21.5 58 21.5 54" color={C.brown} w={3} />
+      <Line d="M32 8V4" color={C.slate} w={2.6} />
+      <path d="M6 34C6 18 19 8 32 8C45 8 58 18 58 34Q51.5 40 45 34Q38.5 40 32 34Q25.5 40 19 34Q12.5 40 6 34Z" fill={C.red} {...outline} />
+      <path d="M32 8Q23 20 19 34Q25.5 40 32 34Q38.5 40 45 34Q41 20 32 8Z" fill={PAPER} />
+      <path d="M32 8Q22 19 19 34M32 8Q42 19 45 34" fill="none" stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+    </>
+  ),
+  shoe: () => (
+    <>
+      <path d="M6 46V21C6 17.5 8 16 11.5 16H20C22 24 28 28 36 29.5C49 32 57 37 59 46Z" fill={C.red} {...outline} />
+      <path d="M24 22.5L21 28M29 26.5L26 32M34 29.5L32 35" fill="none" stroke={PAPER} strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M44 33Q50 37 51 46" fill="none" stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+      <rect x="3" y="43" width="58" height="12" rx="6" fill={PAPER} {...outline} />
+    </>
+  ),
+  hat: () => (
+    <>
+      <ellipse cx="32" cy="42" rx="29" ry="10.5" fill={C.yellow} {...outline} />
+      <path d="M16 40C16 12 48 12 48 40Q32 47 16 40Z" fill={C.yellow} {...outline} />
+      <path d="M16.5 34.5Q32 41.5 47.5 34.5L48 40Q32 47 16 40Z" fill={C.red} {...outline} />
+    </>
+  ),
+  crown: () => (
+    <>
+      <path d="M8 52L5 19L20 32L32 12L44 32L59 19L56 52Z" fill={C.yellow} {...outline} />
+      <rect x="7" y="44" width="50" height="13" rx="3" fill={C.orange} {...outline} />
+      <circle cx="19" cy="50.5" r="2.7" fill={C.blue} />
+      <circle cx="32" cy="50.5" r="2.7" fill={C.red} />
+      <circle cx="45" cy="50.5" r="2.7" fill={C.green} />
+      <circle cx="5" cy="17" r="3.4" fill={C.red} {...outline} strokeWidth="2.4" />
+      <circle cx="32" cy="10" r="3.4" fill={C.red} {...outline} strokeWidth="2.4" />
+      <circle cx="59" cy="17" r="3.4" fill={C.red} {...outline} strokeWidth="2.4" />
+    </>
+  ),
+  rocket: () => (
+    <g transform="rotate(35 32 32)">
+      <path d="M26 44Q32 62 38 44Z" fill={C.orange} {...outline} />
+      <path d="M22 35L10 49L22.5 46.5ZM42 35L54 49L41.5 46.5Z" fill={C.red} {...outline} />
+      <path d="M32 3C42 11 44 26 42 44H22C20 26 22 11 32 3Z" fill={PAPER} {...outline} />
+      <path d="M32 3C37 7 40 12 41.2 19H22.8C24 12 27 7 32 3Z" fill={C.red} {...outline} />
+      <circle cx="32" cy="31" r="5.5" fill={C.sky} stroke={INK} strokeWidth="2.4" />
+    </g>
+  ),
+  balloon: () => (
+    <>
+      <g transform="translate(22 9) scale(0.74)">
+        <path d="M32 47Q38 53 32 58Q27 62 32 67" fill="none" stroke={C.slate} strokeWidth="3.4" strokeLinecap="round" />
+        <path d="M32 4C46 4 52 16 50 26C48 36 38 42 32 42C26 42 16 36 14 26C12 16 18 4 32 4Z" fill={C.yellow} {...outline} />
+        <path d="M32 42L26.5 49.5H37.5Z" fill={C.yellow} {...outline} />
+      </g>
+      <g transform="translate(-3 4) scale(0.92)">
+        <path d="M32 47Q26 52 32 57Q38 61 32 64" fill="none" stroke={C.slate} strokeWidth="3.4" strokeLinecap="round" />
+        <path d="M32 4C46 4 52 16 50 26C48 36 38 42 32 42C26 42 16 36 14 26C12 16 18 4 32 4Z" fill={C.red} {...outline} />
+        <path d="M32 42L26.5 49.5H37.5Z" fill={C.red} {...outline} />
+        <path d="M21 17Q24 11 30 10" fill="none" stroke={PAPER} strokeWidth="3.4" strokeLinecap="round" />
+      </g>
+    </>
+  ),
+  flag: () => (
+    <>
+      <path d="M15 9L58 21L15 33Z" fill={C.red} {...outline} />
+      <circle cx="26" cy="21" r="3.8" fill={C.yellow} />
+      <rect x="8" y="8" width="7" height="51" rx="3" fill={C.brown} {...outline} strokeWidth="2.6" />
+      <circle cx="11.5" cy="7" r="4.2" fill={C.yellow} {...outline} strokeWidth="2.6" />
+    </>
+  ),
+  pencil: () => (
+    <g transform="rotate(40 32 32)">
+      <rect x="25" y="3" width="14" height="10" rx="3.5" fill={C.pink} {...outline} />
+      <rect x="25" y="12" width="14" height="6" fill={C.grey} {...outline} />
+      <rect x="25" y="17" width="14" height="28" fill={C.yellow} {...outline} />
+      <path d="M25 45H39L32 59Z" fill={PAPER} {...outline} />
+      <path d="M29.6 52.4H34.4L32 59Z" fill={INK} />
+      <path d="M29.5 22V41" fill="none" stroke={PAPER} strokeWidth="2.6" strokeLinecap="round" />
+    </g>
+  ),
+  // ── Symboles ──
+  trophy: () => (
+    <>
+      <Line d="M18 13H11Q8 13 8 16Q8 27 21 29" color={C.yellow} w={3} />
+      <Line d="M46 13H53Q56 13 56 16Q56 27 43 29" color={C.yellow} w={3} />
+      <path d="M17 6H47V25Q47 40 32 42Q17 40 17 25Z" fill={C.yellow} {...outline} />
+      <polygon points={starPoints(32, 22, 7.5, 3.4)} fill={PAPER} />
+      <rect x="27.5" y="41" width="9" height="9" fill={C.orange} {...outline} />
+      <rect x="16" y="49" width="32" height="10" rx="3" fill={C.orange} {...outline} />
+    </>
+  ),
+  bolt: () => (
+    <>
+      <polygon points="37,4 14,36 28,36 24,60 50,26 35,26" fill={C.yellow} {...outline} />
+      <path d="M30 14L21 28" fill="none" stroke={PAPER} strokeWidth="3" strokeLinecap="round" />
+    </>
+  ),
+  flame: () => (
+    <>
+      <path d="M32 4C34 14 48 20 48 38C48 50 41 58 32 58C23 58 16 50 16 38C16 30 20 24 24 20C25 26 28 28 30 28C30 18 28 10 32 4Z" fill={C.red} {...outline} />
+      <path d="M32 54C26.5 54 23 50.5 23 46C23 40 29 36.5 32 30C35 36.5 41 40 41 46C41 50.5 37.5 54 32 54Z" fill={C.orange} />
+      <path d="M32 54C29.2 54 27.5 52 27.5 49.5C27.5 46.5 30.5 45 32 41C33.5 45 36.5 46.5 36.5 49.5C36.5 52 34.8 54 32 54Z" fill={C.yellow} />
+    </>
+  ),
+  target: () => (
+    <>
+      <circle cx="30" cy="34" r="24" fill={C.red} {...outline} />
+      <circle cx="30" cy="34" r="17" fill={PAPER} stroke={INK} strokeWidth="2.6" />
+      <circle cx="30" cy="34" r="10" fill={C.red} stroke={INK} strokeWidth="2.6" />
+      <circle cx="30" cy="34" r="3.8" fill={C.yellow} stroke={INK} strokeWidth="2.2" />
+      <Line d="M31 33L53 11" color={C.brown} w={2.6} />
+      <path d="M50 14L51 4L53 7L61 7L56 12L58 20Z" fill={C.blue} {...outline} strokeWidth="2.4" />
     </>
   ),
 };

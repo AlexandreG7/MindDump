@@ -256,15 +256,19 @@ existent ; un outil pourra s'y brancher plus tard).
 - Format : composants SVG inline (pattern actuel), registre `KID_ICONS[id]` dans
   `src/components/kids/icons.tsx`, chargé seulement sur `/kids`. Couleurs par
   variables CSS pour les thèmes clair et sombre. Sprite écarté : thème plus
-  difficile, gain nul à cette taille (~40 icônes, quelques Ko gzip).
+  difficile, gain nul à cette taille (83 icônes, une quinzaine de Ko gzip).
 - Origine : dessin maison, comme les 29 icônes actuelles (historique git du
   fichier). Si un tracé externe est repris : Lucide (ISC) ou Tabler (MIT)
   seulement, mention dans un `NOTICE` ; pas de CC BY-SA ni de pack non libre.
-- 40 identifiants, figés pour que les lots 1 et 2 avancent en parallèle :
+- 40 identifiants d'origine, figés (déjà en base : jamais renommés ni réordonnés) :
   `sun, sun-cloud, cloud, rain, storm, snow, moon, star, rainbow, drop, leaf,
   flower, tree, face-very-happy, face-happy, face-neutral, face-sad, face-angry,
   brush, book, ball, music, puzzle, pan, wave, people, scissors, paw, mask, bike,
   car, house, backpack, cake, heart, cup, check, cross, bell, gift`.
+- Extension à 83 : 43 identifiants ajoutés en fin de `src/lib/kidIconIds.ts`
+  (nourriture, animaux, lieux, transports, jeux et objets, symboles), mêmes
+  règles de neutralité. La liste du code fait foi ; rien ne fige le nombre en dur
+  (l'API renvoie la liste acceptée, le test la lit dans la source).
 - Exclus : tout objet médical ou corporel (pilule, thermomètre, seringue,
   pansement, toilettes, pot, couche, biberon, partie du corps). Libellés
   accessibles purement descriptifs (« goutte », « lune »).
