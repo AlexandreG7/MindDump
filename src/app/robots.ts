@@ -35,6 +35,7 @@ export default function robots(): MetadataRoute.Robots {
           "/groups",
           "/admin",
           "/confidentialite",
+          "/cgu",
           "/consentement",
           "/shared/",
           "/wall/",

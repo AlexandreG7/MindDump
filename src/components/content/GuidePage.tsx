@@ -188,6 +188,9 @@ export function GuidePage({ guide }: { guide: Guide }) {
           <Link href="/confidentialite" className="hover:text-foreground transition-colors">
             Confidentialité
           </Link>
+          <Link href="/cgu" className="hover:text-foreground transition-colors">
+            CGU
+          </Link>
         </div>
       </footer>
     </div>

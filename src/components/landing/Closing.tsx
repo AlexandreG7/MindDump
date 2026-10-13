@@ -37,6 +37,7 @@ export function Closing() {
             ))}
             <Link href="/docs">Documentation</Link>
             <Link href="/confidentialite">Confidentialité</Link>
+            <Link href="/cgu">CGU</Link>
           </nav>
           <p className="flex items-center gap-2 text-sm text-[hsl(var(--mute))]">
             <LogoMark size={20} /> MindDump, vide ta charge mentale.
