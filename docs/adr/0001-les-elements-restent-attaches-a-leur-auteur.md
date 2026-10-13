@@ -2,6 +2,10 @@
 
 - Statut : accepté
 - Date : 2026-09-27
+- Note (2026-10-13) : le semainier (`KidDayEntry`, `KidTracker`) fait exception à
+  cette règle : il appartient au profil enfant, donc au groupe. Voir
+  [ADR 0002](0002-semainier-profil-enfant-rubriques-familiales.md), qui en fixe le
+  périmètre exact. Le reste de cette décision ne change pas.
 
 ## Contexte
 

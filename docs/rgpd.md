@@ -17,6 +17,31 @@
   du groupe, **pas un compte** : il ne peut pas se connecter, seuls les membres du groupe gèrent son
   profil et son semainier. Données : prénom, couleur, emoji, date de naissance facultative. Le
   profil disparaît avec le groupe ou quand un membre le retire (avec son semainier).
+- **Semainier** (`KidDayEntry`, `KidTracker`, `KidTrackerOption` ; décision dans
+  `docs/adr/0002-semainier-profil-enfant-rubriques-familiales.md`) : rattaché au
+  profil de l'enfant, donc au groupe. Les membres le lisent et le remplissent. Les
+  **rubriques** sont définies par la famille : libellé saisi (30 caractères au plus),
+  image choisie dans une bibliothèque neutre fournie par l'app, type (choix unique,
+  choix multiples ou compteur) et choix. Une saisie par jour et par enfant ne contient
+  que les valeurs de ces rubriques, sans texte libre. L'app ne fournit aucune rubrique,
+  aucun libellé et aucune image à connotation de santé. Données : libellés et choix,
+  valeurs du jour, auteur de la rubrique (`createdById`, mis à `NULL` si son compte
+  est supprimé). Conservation : tant que le profil existe ; la suppression du groupe
+  ou du profil efface le semainier. Un membre retiré du groupe perd l'accès à ce qu'il
+  y a saisi (exception à l'ADR 0001). Export : les saisies figurent dans l'export du
+  compte. **Base légale : non tranchée** dans les documents du chantier, à compléter
+  avant l'ouverture large.
+  - **Rappel et CGU** : à la création d'une rubrique, l'app affiche « N'y note pas de
+    données de santé. » avec un lien vers `/cgu`. La page `/cgu` contient la clause
+    « ne pas saisir de données de santé ». Les comptes existants n'ont pas à
+    accepter à nouveau : `CONSENT_VERSION` reste inchangée.
+  - **Reprise** : le semainier actuel a cinq rubriques fixes (météo, humeur, pipi,
+    sieste, activités). Le lot L1 (`docs/semainier/02-plan-technique.md`) les remplace :
+    les catégories sieste et propreté (pipi) ne sont plus proposées. Leurs saisies sont
+    reprises dans les rubriques « Lune » et « Goutte » (Oui / Non), renommables, et
+    masquées s'il n'y a aucune saisie.
+  - Ce paragraphe décrit la cible du chantier (lots L1, L3 et L5). Les points « Rappel
+    et CGU » et « Reprise » ne sont vrais qu'après leur déploiement.
 - **Écrans muraux** (`WallDevice`) : lien secret `/wall/<jeton>` créé par un admin du groupe ; seule
   l'empreinte SHA-256 du jeton est stockée. L'écran ne montre que les éléments du groupe (jamais les
   éléments personnels des membres) et ne permet que de cocher tâches et courses. Supprimer l'écran
