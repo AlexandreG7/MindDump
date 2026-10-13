@@ -125,3 +125,8 @@ La reprise est écrite pour ne pas bloquer un démarrage : une transaction par e
 propre `try/catch` (un enfant en échec est ignoré et repris au démarrage suivant ; le journal ne
 contient ni nom ni identifiant), les lignes verrouillées dans l'ordre des `id` puis converties par
 un seul UPDATE ensembliste. Verrous du semainier : voir l'ADR 0002, section Risques.
+
+**Pas de retour arrière après cette migration (décision d'Alexandre, 13/10/2026)** : en cas de
+problème, on corrige en avant. Redéployer l'ancienne image rendrait invisibles (sans les perdre)
+les rubriques et les saisies faites depuis, et ses écritures sur une ligne déjà convertie seraient
+ignorées au déploiement suivant.

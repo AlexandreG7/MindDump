@@ -62,8 +62,9 @@ export function DeleteAccountDialog({ trigger }: { trigger: React.ReactNode }) {
             <p>
               Cette action est <strong className="text-foreground">définitive</strong>. Seront
               supprimés : tout ce que tu n&apos;as partagé avec personne (todos, événements, listes,
-              recettes et leurs photos), ton semainier, tes abonnements calendrier, tes clés API et
-              ton historique de connexion.
+              recettes et leurs photos), tes abonnements calendrier, tes clés API et ton historique de
+              connexion. Le semainier d&apos;un enfant du foyer reste au foyer : ce que tu y as
+              noté est transmis au propriétaire du groupe.
             </p>
             <p>
               Tes groupes qui ont encore des membres sont transmis à l&apos;un d&apos;eux ; les
@@ -87,7 +88,7 @@ export function DeleteAccountDialog({ trigger }: { trigger: React.ReactNode }) {
               {
                 value: false,
                 label: "Tout supprimer",
-                hint: "Ces éléments disparaissent aussi pour les autres membres.",
+                hint: "Ces éléments disparaissent aussi pour les autres membres (sauf le semainier des enfants, qui reste au foyer).",
               },
             ].map((option) => (
               <label
