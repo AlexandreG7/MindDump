@@ -1,150 +1,90 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { addDays, addWeeks, startOfWeek, format, isToday } from "date-fns";
-import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, X, Maximize2, Lock, BarChart3, Pencil, Check } from "lucide-react";
-import { ProfileDialog, type ProfileDraft } from "@/components/profiles/ProfileDialog";
-import { cn } from "@/lib/utils";
-import {
-  NapYes,
-  NapNo,
-  DryDay,
-  AccidentDay,
-  WEATHER_OPTIONS,
-  MOOD_OPTIONS,
-  ACTIVITY_OPTIONS,
-} from "./legacyIcons";
-import { KidsStats } from "./KidsStats";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { addDays, addWeeks, format, isSameDay, startOfWeek } from "date-fns";
+import { fr } from "date-fns/locale";
+import { ChevronLeft, ChevronRight, Maximize2, SlidersHorizontal } from "lucide-react";
+import { KidIcon } from "@/components/kids/icons";
+import { ProfileDialog, type ProfileDraft } from "@/components/profiles/ProfileDialog";
 import { ProfileAvatar, textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useFeedback } from "@/components/ui/feedback";
+import { HeroChip, HeroIconButton, ModuleHero } from "@/components/ui/module-hero";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Surface } from "@/components/ui/surface";
+import { cn } from "@/lib/utils";
+import { OutdatedBanner, RenameBanner } from "./Banners";
+import { DaySheet } from "./DaySheet";
+import { KidMode } from "./KidMode";
+import { ViewEditor, type ViewEditorStart } from "./ViewEditor";
+import { WeekTable, type WeekDay } from "./WeekTable";
+import { KIDS_OUTDATED_EVENT, kidsFetch, plural } from "./kidsApi";
+import { TRACKER_TEMPLATES } from "./templates";
+import { useKidWeek } from "./useKidWeek";
 
 const SELECTED_KEY = "kids:selectedProfile";
+const iso = (d: Date) => format(d, "yyyy-MM-dd");
+const monday = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
 
-interface DayEntry {
-  date: string;
-  weather: string | null;
-  mood: string | null;
-  nap: boolean | null;
-  accident: boolean | null;
-  activities: string[];
-}
-
-const DAY_THEMES = [
-  { color: "#FF6B6B", bg: "#FFF0F0" },
-  { color: "#FF9F43", bg: "#FFF5EC" },
-  { color: "#FECA57", bg: "#FFFBEB" },
-  { color: "#48C774", bg: "#EDFFF4" },
-  { color: "#54A0FF", bg: "#EEF5FF" },
-  { color: "#A29BFE", bg: "#F3F1FF" },
-  { color: "#FF6B9D", bg: "#FFF0F5" },
-];
-
-// Un double appui rapide d'enfant ne doit pas annuler l'activité qu'il vient de choisir.
-const DOUBLE_TAP_MS = 450;
-
-/**
- * Bouton de choix du semainier. Un appui sur un choix déjà pris ne l'annule
- * pas (les enfants tapent souvent deux fois) : on efface avec « Effacer ».
- */
-function Choice({
-  label,
-  selected,
-  onPick,
-  large,
-  showLabel,
-  children,
-}: {
-  label: string;
-  selected: boolean;
-  onPick: () => void;
-  large?: boolean;
-  showLabel?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      aria-pressed={selected}
-      aria-label={label}
-      title={label}
-      className={cn("kids-icon-btn", large && "kids-icon-lg", selected && "kids-icon-selected")}
-    >
-      {children}
-      {showLabel && <span className="kids-icon-label">{label}</span>}
-      {selected && (
-        <span className="kids-icon-check" aria-hidden>
-          <Check size={14} strokeWidth={3} />
-        </span>
-      )}
-    </button>
-  );
-}
-
-function SectionHead({ label, canClear, onClear }: { label: string; canClear?: boolean; onClear?: () => void }) {
-  return (
-    <div className="kids-section-head">
-      <p className="kids-section-label">{label}</p>
-      {canClear && (
-        <button type="button" onClick={onClear} className="kids-clear-btn" aria-label={`Effacer ${label.toLowerCase()}`}>
-          Effacer
-        </button>
-      )}
-    </div>
-  );
+function RainbowIcon({ className }: { className?: string }) {
+  return <KidIcon id="rainbow" size={40} decorative className={className} />;
 }
 
 export function KidsWeekly() {
-  const [weekStart, setWeekStart] = useState(() =>
-    startOfWeek(new Date(), { weekStartsOn: 1 })
-  );
-  const [entries, setEntries] = useState<Record<string, DayEntry>>({});
+  const { toast } = useFeedback();
+  const [weekStart, setWeekStart] = useState(() => monday(new Date()));
   const [children, setChildren] = useState<FamilyProfile[] | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
-  const [editingDay, setEditingDay] = useState<string | null>(null);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [exitProgress, setExitProgress] = useState(false);
-  const exitTimer = useRef<ReturnType<typeof setTimeout>>();
-  const lastActivityTap = useRef<Record<string, number>>({});
+  const [kidMode, setKidMode] = useState(false);
+  const [dayEdit, setDayEdit] = useState<{ date: string; trackerId: string | null } | null>(null);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewStart, setViewStart] = useState<ViewEditorStart>({ mode: "list" });
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [outdated, setOutdated] = useState(false);
 
-  const startExit = () => {
-    setExitProgress(true);
-    exitTimer.current = setTimeout(() => {
-      setFullscreen(false);
-      setExitProgress(false);
-    }, 1000);
-  };
+  const days: WeekDay[] = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = addDays(weekStart, i);
+      return { date: iso(day), day, today: isSameDay(day, now) };
+    });
+  }, [weekStart]);
+  const from = days[0].date;
+  const to = days[6].date;
+  const isCurrentWeek = days.some((d) => d.today);
 
-  const cancelExit = () => {
-    clearTimeout(exitTimer.current);
-    setExitProgress(false);
-  };
+  const { trackers, values, summary, status, reload, save } = useKidWeek(profileId, from, to);
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  useEffect(() => {
+    const on = () => setOutdated(true);
+    window.addEventListener(KIDS_OUTDATED_EVENT, on);
+    return () => window.removeEventListener(KIDS_OUTDATED_EVENT, on);
+  }, []);
 
-  const [editOpen, setEditOpen] = useState(false);
-
-  const loadChildren = useCallback(() => {
-    fetch("/api/profiles?kind=child")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: FamilyProfile[]) => {
-        setChildren(list);
-        let saved: string | null = null;
-        try {
-          saved = localStorage.getItem(SELECTED_KEY);
-        } catch {}
-        setProfileId((current) => list.find((c) => c.id === (current ?? saved))?.id ?? list[0]?.id ?? null);
-      })
-      .catch(() => setChildren([]));
+  const loadChildren = useCallback(async () => {
+    const res = await kidsFetch<FamilyProfile[]>("/api/profiles?kind=child");
+    const list = res.ok && res.data ? res.data : [];
+    setChildren(list);
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(SELECTED_KEY);
+    } catch {}
+    setProfileId((current) => list.find((c) => c.id === (current ?? saved))?.id ?? list[0]?.id ?? null);
   }, []);
 
   useEffect(() => {
     loadChildren();
   }, [loadChildren]);
 
-  // Renommer l'enfant (ex. « Mon enfant », créé à la reprise des anciens semainiers) sans passer par Groupes.
+  const selectChild = (id: string) => {
+    setProfileId(id);
+    try {
+      localStorage.setItem(SELECTED_KEY, id);
+    } catch {}
+  };
+
   const saveChild = async (draft: ProfileDraft) => {
     if (!profileId) return;
     const res = await fetch(`/api/profiles/${profileId}`, {
@@ -156,191 +96,101 @@ export function KidsWeekly() {
     loadChildren();
   };
 
-  const selectChild = (id: string) => {
-    setProfileId(id);
-    try {
-      localStorage.setItem(SELECTED_KEY, id);
-    } catch {}
+  /** Écrit une rubrique d'un jour. En mode enfant l'échec est dit dans la fenêtre du jour (les notifications passent derrière). */
+  const setValue = useCallback(
+    async (date: string, trackerId: string, next: string[] | number | null, notify = true) => {
+      const ok = await save(date, { [trackerId]: next });
+      if (!ok && notify) toast("L'enregistrement a échoué. Réessaie.", "error");
+      return ok;
+    },
+    [save, toast]
+  );
+
+  const enterKidMode = () => {
+    setWeekStart(monday(new Date()));
+    setDayEdit(null);
+    setKidMode(true);
   };
-
-  const fetchWeek = useCallback(async () => {
-    setEntries({});
-    if (!profileId) return;
-    const from = format(weekStart, "yyyy-MM-dd");
-    const to = format(addDays(weekStart, 6), "yyyy-MM-dd");
-    try {
-      const res = await fetch(`/api/kids?from=${from}&to=${to}&profileId=${profileId}`);
-      if (res.ok) {
-        const data = await res.json();
-        const mapped: Record<string, DayEntry> = {};
-        for (const e of data) mapped[e.date] = e;
-        setEntries(mapped);
-      }
-    } catch {}
-  }, [weekStart, profileId]);
-
-  useEffect(() => {
-    fetchWeek();
-  }, [fetchWeek]);
-
-  const updateEntry = async (date: string, updates: Partial<DayEntry>) => {
-    if (!profileId) return;
-    setEntries((prev) => {
-      const existing = prev[date] || {
-        date,
-        weather: null,
-        mood: null,
-        nap: null,
-        accident: null,
-        activities: [],
-      };
-      return { ...prev, [date]: { ...existing, ...updates } };
-    });
-
-    const res = await fetch("/api/kids", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, profileId, ...updates }),
-    }).catch(() => null);
-    // En cas d'échec, on revient à l'état enregistré plutôt que d'afficher un choix perdu.
-    if (!res?.ok) fetchWeek();
-  };
-
-  /** Choix unique : un nouvel appui sur la même réponse ne l'efface pas. */
-  const pick = (date: string, field: "weather" | "mood" | "nap" | "accident", value: string | boolean) => {
-    if (entries[date]?.[field] === value) return;
-    updateEntry(date, { [field]: value });
-  };
-
-  const toggleActivity = (date: string, activityId: string) => {
-    const now = Date.now();
-    const key = `${date}:${activityId}`;
-    if (now - (lastActivityTap.current[key] ?? 0) < DOUBLE_TAP_MS) return;
-    lastActivityTap.current[key] = now;
-    const current = entries[date]?.activities || [];
-    const next = current.includes(activityId)
-      ? current.filter((a) => a !== activityId)
-      : [...current, activityId];
-    updateEntry(date, { activities: next });
-  };
-
-  const editingIndex = editingDay
-    ? days.findIndex((d) => format(d, "yyyy-MM-dd") === editingDay)
-    : -1;
-  const editingTheme = editingIndex >= 0 ? DAY_THEMES[editingIndex] : null;
-  const editingEntry = editingDay ? entries[editingDay] || null : null;
 
   const child = children?.find((c) => c.id === profileId) ?? null;
   const sameNames = new Set(
     (children ?? []).filter((c, i, all) => all.findIndex((o) => o.name === c.name) !== i).map((c) => c.name)
   );
+  const toRename = trackers.filter((t) => t.needsRename);
+  const loading = status === "loading" && trackers.length === 0;
+  const empty = status === "ready" && trackers.length === 0;
+
+  const openViewEditor = (startWith: ViewEditorStart = { mode: "list" }) => {
+    setViewStart(startWith);
+    setViewOpen(true);
+  };
 
   if (children && children.length === 0) {
     return (
-      <div className="kids-page">
-        <div className="text-center py-16 space-y-3 max-w-sm mx-auto">
-          <h1 className="kids-title">Semainier</h1>
-          <p className="text-sm text-muted-foreground">
-            Ajoute d&apos;abord ton enfant aux personnes de ton foyer. Les membres du groupe
-            pourront remplir son semainier avec toi.
-          </p>
-          <Link href="/groups" className="inline-block text-sm font-medium text-primary hover:underline">
-            Ajouter un enfant dans Groupes
-          </Link>
-        </div>
+      <div className="mx-auto w-full max-w-3xl md:mx-0">
+        <Surface className="p-6">
+          <EmptyState
+            icon={RainbowIcon}
+            tone="list"
+            title="Ajoute d'abord ton enfant"
+            action={
+              <Button asChild className="h-12 rounded-full px-6 text-base">
+                <Link href="/groups">Ajouter un enfant dans Groupes</Link>
+              </Button>
+            }
+          >
+            Les membres du groupe pourront remplir son semainier avec toi.
+          </EmptyState>
+        </Surface>
       </div>
     );
   }
 
+  const rangeLabel = `${format(days[0].day, "d MMM", { locale: fr })} – ${format(days[6].day, "d MMM yyyy", { locale: fr })}`;
+  const filledDays = summary?.filledDays ?? 0;
+
   return (
-    <div className={cn("kids-page", fullscreen && "kids-fullscreen")}>
-      {fullscreen && (
-        <button
-          className={cn("kids-fs-exit", exitProgress && "kids-fs-exit-active")}
-          onPointerDown={startExit}
-          onPointerUp={cancelExit}
-          onPointerLeave={cancelExit}
-          onContextMenu={(e) => e.preventDefault()}
-          aria-label="Maintenir appuyé pour quitter le mode enfant"
-          title="Maintenir appuyé pour quitter le mode enfant"
-        >
-          <Lock size={16} />
-        </button>
-      )}
-      {/* Header */}
-      <div className={cn("flex items-center mb-6", fullscreen ? "justify-center" : "justify-between")}>
-        {/* En mode enfant, pas de changement de semaine : on remplit la semaine en cours. */}
-        {!fullscreen && (
-          <button
-            onClick={() => setWeekStart((w) => addWeeks(w, -1))}
-            className="kids-nav-btn"
-            aria-label="Semaine précédente"
-          >
-            <ChevronLeft size={24} />
-          </button>
-        )}
-        <div className="text-center">
-          <h1 className="kids-title inline-flex items-center gap-2">
-            {child ? `Semainier de ${child.name}` : "Semainier"}
-            {child && !fullscreen && (
-              <button
-                onClick={() => setEditOpen(true)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                title="Renommer"
-                aria-label={`Renommer ${child.name}`}
-              >
-                <Pencil size={16} />
-              </button>
-            )}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {format(days[0], "d MMM", { locale: fr })} —{" "}
-            {format(days[6], "d MMM yyyy", { locale: fr })}
-          </p>
-        </div>
-        {!fullscreen && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowStats(true)}
-              className="kids-fs-enter"
-              title="Récap de la semaine"
-              aria-label="Récap de la semaine"
-            >
-              <BarChart3 size={18} />
-            </button>
-            <button
-              onClick={() => {
-                setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
-                setFullscreen(true);
-              }}
-              className="kids-fs-enter"
+    <div className="mx-auto w-full max-w-5xl space-y-5 md:mx-0">
+      {outdated && !kidMode && <OutdatedBanner />}
+
+      <ModuleHero
+        tone="list"
+        kicker="Semainier"
+        title={child?.name ?? "Semainier"}
+        count={child && summary ? (empty ? trackers.length : filledDays) : null}
+        countLabel={empty ? "rubrique" : plural(filledDays, "jour rempli", "jours remplis")}
+        action={
+          <>
+            <HeroIconButton onClick={() => openViewEditor()} title="Modifier la vue" aria-label="Modifier la vue : rubriques et images" disabled={!child}>
+              <SlidersHorizontal className="h-5 w-5" />
+            </HeroIconButton>
+            <HeroIconButton
+              onClick={enterKidMode}
               title="Mode enfant"
               aria-label="Passer en mode enfant"
+              disabled={!child}
+              className="bg-on-tone text-tone-list hover:bg-on-tone/90"
             >
-              <Maximize2 size={18} />
-            </button>
-            <button
-              onClick={() => setWeekStart((w) => addWeeks(w, 1))}
-              className="kids-nav-btn"
-              aria-label="Semaine suivante"
-            >
-              <ChevronRight size={24} />
-            </button>
-          </div>
-        )}
-      </div>
+              <Maximize2 className="h-5 w-5" />
+            </HeroIconButton>
+          </>
+        }
+      >
+        {summary && summary.countedDays > 0 && !empty && <HeroChip>sur {summary.countedDays} {plural(summary.countedDays, "jour écoulé", "jours écoulés")}</HeroChip>}
+      </ModuleHero>
 
-      {!fullscreen && children && children.length > 1 && (
-        <div className="flex flex-wrap justify-center gap-2 -mt-2 mb-5">
+      {children && children.length > 1 && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Enfant">
           {children.map((c) => (
             <button
               key={c.id}
+              type="button"
               onClick={() => selectChild(c.id)}
+              aria-pressed={c.id === profileId}
               className={cn(
-                "flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border text-sm transition-colors",
-                c.id === profileId
-                  ? "border-transparent font-medium"
-                  : "border-border text-muted-foreground hover:bg-secondary"
+                "flex min-h-11 items-center gap-2 rounded-full border py-1 pl-1.5 pr-4 text-base transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                c.id === profileId ? "border-transparent font-bold" : "border-border text-muted-foreground hover:bg-secondary"
               )}
               style={c.id === profileId ? { backgroundColor: c.color, color: textOn(c.color) } : undefined}
             >
@@ -352,236 +202,166 @@ export function KidsWeekly() {
         </div>
       )}
 
-      {/* Week grid */}
-      <div className="kids-week-grid">
-        {days.map((day, i) => {
-          const dateStr = format(day, "yyyy-MM-dd");
-          const entry = entries[dateStr];
-          const theme = DAY_THEMES[i];
-          const today = isToday(day);
-
-          const weatherOpt = WEATHER_OPTIONS.find(
-            (w) => w.id === entry?.weather
-          );
-          const moodOpt = MOOD_OPTIONS.find((m) => m.id === entry?.mood);
-          const actCount = entry?.activities?.length || 0;
-          const filled =
-            !!entry?.weather ||
-            !!entry?.mood ||
-            entry?.nap != null ||
-            entry?.accident != null ||
-            actCount > 0;
-
-          return (
-            <button
-              key={dateStr}
-              onClick={() => setEditingDay(dateStr)}
-              aria-label={`${format(day, "EEEE d MMMM", { locale: fr })}${today ? ", aujourd'hui" : ""}${filled ? "" : ", à remplir"}`}
-              className={cn("kids-day-card", today && "kids-day-today")}
-              style={{
-                backgroundColor: theme.bg,
-                borderColor: today ? theme.color : "transparent",
-                "--day-color": theme.color,
-              } as React.CSSProperties}
-            >
-              <div
-                className="kids-day-header"
-                style={{ backgroundColor: theme.color, color: textOn(theme.color) }}
-              >
-                <span className="kids-day-name">
-                  {format(day, "EEE", { locale: fr })}
-                </span>
-                <span className="kids-day-number">{format(day, "d")}</span>
-              </div>
-              <div className="kids-day-preview">
-                {weatherOpt && <weatherOpt.Icon size={28} />}
-                {moodOpt && <moodOpt.Icon size={28} />}
-                {entry?.nap === true && <NapYes size={24} />}
-                {entry?.accident === true && <AccidentDay size={24} />}
-                {actCount > 0 && (
-                  <span
-                    className="kids-activity-badge"
-                    style={{ backgroundColor: theme.color, color: textOn(theme.color) }}
-                  >
-                    {actCount}
-                  </span>
-                )}
-                {!filled && (
-                  <span className="kids-day-empty" style={{ color: theme.color }}>
-                    +
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Day editor overlay */}
-      {editingDay && editingTheme && (
-        <div
-          className="kids-editor-overlay"
-          onClick={(e) => {
-            // En mode enfant, toucher le fond ne ferme pas : un doigt qui déborde ne doit pas tout perdre.
-            if (!fullscreen && e.target === e.currentTarget) setEditingDay(null);
-          }}
-        >
-          <div className="kids-editor">
-            <div
-              className="kids-editor-header"
-              style={{ backgroundColor: editingTheme.color }}
-            >
-              <button
-                onClick={() => setEditingDay(null)}
-                className="kids-editor-close"
-                aria-label="Fermer"
-              >
-                <X size={22} color={textOn(editingTheme.color)} />
-              </button>
-              <h2 className="kids-editor-title" style={{ color: textOn(editingTheme.color) }}>
-                {format(days[editingIndex], "EEEE d MMMM", { locale: fr })}
-              </h2>
-            </div>
-
-            <div className="kids-editor-body">
-              {/* Weather */}
-              <section className="kids-section">
-                <SectionHead
-                  label="Météo"
-                  canClear={!fullscreen && !!editingEntry?.weather}
-                  onClear={() => updateEntry(editingDay, { weather: null })}
-                />
-                <div className="kids-section-row">
-                  {WEATHER_OPTIONS.map((opt) => (
-                    <Choice
-                      key={opt.id}
-                      label={opt.label}
-                      selected={editingEntry?.weather === opt.id}
-                      onPick={() => pick(editingDay, "weather", opt.id)}
-                    >
-                      <opt.Icon size={52} />
-                    </Choice>
-                  ))}
-                </div>
-              </section>
-
-              {/* Mood */}
-              <section className="kids-section">
-                <SectionHead
-                  label="Humeur"
-                  canClear={!fullscreen && !!editingEntry?.mood}
-                  onClear={() => updateEntry(editingDay, { mood: null })}
-                />
-                <div className="kids-section-row">
-                  {MOOD_OPTIONS.map((opt) => (
-                    <Choice
-                      key={opt.id}
-                      label={opt.label}
-                      selected={editingEntry?.mood === opt.id}
-                      onPick={() => pick(editingDay, "mood", opt.id)}
-                    >
-                      <opt.Icon size={52} />
-                    </Choice>
-                  ))}
-                </div>
-              </section>
-
-              {/* Pipi */}
-              <section className="kids-section">
-                <SectionHead
-                  label="Pipi"
-                  canClear={!fullscreen && editingEntry?.accident != null}
-                  onClear={() => updateEntry(editingDay, { accident: null })}
-                />
-                <div className="kids-section-row kids-section-binary">
-                  <Choice
-                    large
-                    showLabel
-                    label="Au sec"
-                    selected={editingEntry?.accident === false}
-                    onPick={() => pick(editingDay, "accident", false)}
-                  >
-                    <DryDay size={56} />
-                  </Choice>
-                  <Choice
-                    large
-                    showLabel
-                    label="Accident"
-                    selected={editingEntry?.accident === true}
-                    onPick={() => pick(editingDay, "accident", true)}
-                  >
-                    <AccidentDay size={56} />
-                  </Choice>
-                </div>
-              </section>
-
-              {/* Nap */}
-              <section className="kids-section">
-                <SectionHead
-                  label="Sieste"
-                  canClear={!fullscreen && editingEntry?.nap != null}
-                  onClear={() => updateEntry(editingDay, { nap: null })}
-                />
-                <div className="kids-section-row kids-section-binary">
-                  <Choice
-                    large
-                    showLabel
-                    label="Sieste"
-                    selected={editingEntry?.nap === true}
-                    onPick={() => pick(editingDay, "nap", true)}
-                  >
-                    <NapYes size={56} />
-                  </Choice>
-                  <Choice
-                    large
-                    showLabel
-                    label="Pas de sieste"
-                    selected={editingEntry?.nap === false}
-                    onPick={() => pick(editingDay, "nap", false)}
-                  >
-                    <NapNo size={56} />
-                  </Choice>
-                </div>
-              </section>
-
-              {/* Activities */}
-              <section className="kids-section">
-                <SectionHead label="Activités" />
-                <div className="kids-activity-grid">
-                  {ACTIVITY_OPTIONS.map((opt) => (
-                    <Choice
-                      key={opt.id}
-                      label={opt.label}
-                      selected={editingEntry?.activities?.includes(opt.id) ?? false}
-                      onPick={() => toggleActivity(editingDay, opt.id)}
-                    >
-                      <opt.Icon size={48} />
-                    </Choice>
-                  ))}
-                </div>
-              </section>
-            </div>
-
-            <div className="kids-editor-footer">
-              <button
-                onClick={() => setEditingDay(null)}
-                className="kids-done-btn"
-                style={{ backgroundColor: editingTheme.color, color: textOn(editingTheme.color) }}
-              >
-                Fini !
-              </button>
-            </div>
-          </div>
-        </div>
+      {toRename.length > 0 && (
+        <RenameBanner
+          names={toRename.map((t) => t.label)}
+          onRename={() => openViewEditor({ mode: "edit", trackerId: toRename[0].id })}
+        />
       )}
 
-      {showStats && (
-        <KidsStats entries={entries} days={days} onClose={() => setShowStats(false)} />
+      {empty ? (
+        <Surface className="px-4 py-6">
+          <EmptyState
+            icon={RainbowIcon}
+            tone="list"
+            title="Crée ta première rubrique"
+            action={
+              <Button onClick={() => openViewEditor({ mode: "create" })} className="h-12 rounded-full px-7 text-base">
+                Créer une rubrique
+              </Button>
+            }
+          >
+            Tu choisis le nom et l&apos;image : ce que tu veux suivre pour {child?.name ?? "ton enfant"}, à ta façon.
+          </EmptyState>
+          <div className="mx-auto max-w-sm text-center">
+            <p className="mb-2 text-sm font-bold text-muted-foreground">Ou pars d&apos;une idée</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {TRACKER_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => openViewEditor({ mode: "create", template: tpl })}
+                  className="flex h-11 items-center gap-2 rounded-full bg-secondary pl-2 pr-4 text-sm font-bold transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <KidIcon id={tpl.icon} size={28} decorative />
+                  {tpl.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </Surface>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setWeekStart((w) => addWeeks(w, -1))}
+              aria-label="Semaine précédente"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] hover:bg-secondary/70 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <div className="min-w-0 text-center">
+              <p className="text-lg font-extrabold leading-tight" aria-live="polite">{rangeLabel}</p>
+              {isCurrentWeek ? (
+                <p className="text-sm font-bold text-muted-foreground">Cette semaine</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setWeekStart(monday(new Date()))}
+                  className="-my-1 min-h-11 rounded-full px-3 text-sm font-bold text-tone-list-ink underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Revenir à cette semaine
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setWeekStart((w) => addWeeks(w, 1))}
+              aria-label="Semaine suivante"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] hover:bg-secondary/70 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          </div>
+
+          {status === "error" ? (
+            <Surface className="p-6 text-center" role="alert">
+              <p className="text-base font-bold">La semaine ne s&apos;est pas chargée.</p>
+              <Button variant="outline" className="mt-3 h-11 rounded-full px-5" onClick={() => reload()}>
+                Réessayer
+              </Button>
+            </Surface>
+          ) : loading || !child ? (
+            <Surface className="space-y-3 p-4" aria-busy="true" aria-label="Chargement de la semaine">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-12 w-full rounded-xl" />
+                </div>
+              ))}
+            </Surface>
+          ) : (
+            <>
+              <WeekTable
+                trackers={trackers}
+                days={days}
+                values={values}
+                onOpen={(date, trackerId) => setDayEdit({ date, trackerId: trackerId ?? null })}
+              />
+              {summary && summary.lines.length > 0 && (
+                <Surface className="p-4 md:p-5" aria-labelledby="kid-summary">
+                  <h2 id="kid-summary" className="mb-2 text-lg font-extrabold">
+                    Bilan de la semaine
+                  </h2>
+                  <ul className="space-y-1.5 text-base">
+                    {summary.lines.map((line) => (
+                      <li key={line} className="flex gap-2.5">
+                        <span aria-hidden className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-tone-list-ink" />
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Surface>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      <DaySheet
+        date={dayEdit?.date ?? null}
+        focusTrackerId={dayEdit?.trackerId ?? null}
+        weekFrom={from}
+        weekTo={to}
+        trackers={trackers}
+        values={values}
+        onChange={(date, trackerId, next) => void setValue(date, trackerId, next)}
+        onDateChange={(date) => setDayEdit({ date, trackerId: null })}
+        onClose={() => setDayEdit(null)}
+      />
+
+      {child && (
+        <ViewEditor
+          open={viewOpen}
+          start={viewStart}
+          profileId={child.id}
+          childName={child.name}
+          onClose={() => setViewOpen(false)}
+          onChanged={() => reload(true)}
+          onRenameChild={() => setRenameOpen(true)}
+        />
+      )}
+
+      {kidMode && child && (
+        <>
+          {outdated && <OutdatedBanner className="fixed inset-x-4 top-4 z-[10002] mx-auto max-w-xl" />}
+          <KidMode
+            childName={child.name}
+            days={days}
+            trackers={trackers}
+            values={values}
+            loading={status === "loading"}
+            rangeLabel={rangeLabel}
+            onChange={(date, trackerId, next) => setValue(date, trackerId, next, false)}
+            onExit={() => setKidMode(false)}
+          />
+        </>
       )}
 
       <ProfileDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
         profile={child}
         defaultColor={child?.color ?? "#ec4899"}
         onSave={saveChild}
