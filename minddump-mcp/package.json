@@ -10,7 +10,8 @@
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "dev:sse": "MCP_TRANSPORT=sse tsx watch src/index.ts",
-    "test:safe-fetch": "tsx --test src/safeFetch.test.ts"
+    "test:safe-fetch": "tsx --test src/safeFetch.test.ts",
+    "test:kids-integration": "tsx --test src/kids.integration.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

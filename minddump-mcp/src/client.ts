@@ -11,6 +11,31 @@ interface RequestOptions {
   params?: Record<string, string | undefined>;
 }
 
+/** Erreur de l'API : garde le statut, le code et la liste `accepted` (valeurs acceptables). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string,
+    public accepted?: string[]
+  ) {
+    super(message);
+  }
+}
+
+function apiError(method: string, path: string, response: Response, data: unknown): ApiError {
+  const body = (data ?? {}) as { error?: string; code?: string; accepted?: unknown };
+  const accepted = Array.isArray(body.accepted) ? body.accepted.map(String) : undefined;
+  const msg = body.error || response.statusText;
+  const list = accepted?.length ? ` Valeurs acceptées : ${accepted.join(", ")}.` : "";
+  return new ApiError(
+    `API ${method} ${path} failed (${response.status}): ${msg}${list}`,
+    response.status,
+    typeof body.code === "string" ? body.code : undefined,
+    accepted
+  );
+}
+
 export class MindDumpClient {
   private baseUrl: string;
   private apiKey: string;
@@ -51,12 +76,9 @@ export class MindDumpClient {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      const errorMsg = (data as { error?: string }).error || response.statusText;
-      throw new Error(`API ${method} ${path} failed (${response.status}): ${errorMsg}`);
-    }
+    if (!response.ok) throw apiError(method, path, response, data);
 
     return data as T;
   }
@@ -89,10 +111,7 @@ export class MindDumpClient {
     const response = await fetch(this.buildUrl(path), { method: "POST", headers, body: form });
     const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      const errorMsg = (data as { error?: string }).error || response.statusText;
-      throw new Error(`API POST ${path} failed (${response.status}): ${errorMsg}`);
-    }
+    if (!response.ok) throw apiError("POST", path, response, data);
 
     return data as T;
   }

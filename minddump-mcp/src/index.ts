@@ -12,6 +12,7 @@ import { registerShoppingTools } from "./tools/shopping.js";
 import { registerGroupTools } from "./tools/groups.js";
 import { registerCalendarTools } from "./tools/calendar.js";
 import { registerMealTools } from "./tools/meals.js";
+import { registerKidTools } from "./tools/kids.js";
 
 // ─── Création du serveur MCP ─────────────────────────────────
 
@@ -29,6 +30,7 @@ function createMcpServer(): McpServer {
   registerGroupTools(server);
   registerCalendarTools(server);
   registerMealTools(server);
+  registerKidTools(server);
 
   return server;
 }
