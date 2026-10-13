@@ -15,21 +15,18 @@
  * (`--ki-*`) avec des valeurs de repli, ce qui permet le thème sombre
  * (voir `.dark` dans globals.css).
  *
- * Les identifiants sont figés avec le lot L1 (`src/lib/kidIconIds.ts`). Une fois
- * les deux lots fusionnés, ce fichier pourra importer la liste depuis la lib.
+ * Les identifiants viennent d'une seule source, `src/lib/kidIconIds.ts` (partagée
+ * avec l'API) : ajouter une image commence là, le compilateur signale ici le
+ * dessin et la catégorie manquants.
  */
 import React from "react";
+import { KID_ICONS, isKidIconId, type KidIconId } from "@/lib/kidIconIds";
 
-export const KID_ICON_IDS = [
-  "sun", "sun-cloud", "cloud", "rain", "storm", "snow", "moon", "star", "rainbow",
-  "drop", "leaf", "flower", "tree",
-  "face-very-happy", "face-happy", "face-neutral", "face-sad", "face-angry",
-  "brush", "book", "ball", "music", "puzzle", "pan", "wave", "people", "scissors",
-  "paw", "mask", "bike", "car", "house", "backpack", "cake", "heart", "cup",
-  "check", "cross", "bell", "gift",
-] as const;
+export { isKidIconId };
+export type { KidIconId };
 
-export type KidIconId = (typeof KID_ICON_IDS)[number];
+/** Tous les identifiants, dans l'ordre de la bibliothèque (source : src/lib/kidIconIds.ts). */
+export const KID_ICON_IDS: readonly KidIconId[] = KID_ICONS.map((i) => i.id);
 
 export type KidIconCategory = "meteo" | "humeur" | "activite" | "objet" | "nature" | "symbole";
 
@@ -98,10 +95,6 @@ export const KID_ICON_CATEGORIES: Record<KidIconId, KidIconCategory> = {
   bell: "objet", gift: "objet",
   star: "symbole", heart: "symbole", check: "symbole", cross: "symbole",
 };
-
-export function isKidIconId(value: unknown): value is KidIconId {
-  return typeof value === "string" && (KID_ICON_IDS as readonly string[]).includes(value);
-}
 
 // ─── Palette (variables CSS + repli) ─────────────────────
 
@@ -358,11 +351,11 @@ const DRAW: Record<KidIconId, () => React.ReactNode> = {
   ),
   pan: () => (
     <>
-      <Line d="M41 42L58 57" color={C.brown} w={8} />
-      <circle cx="26" cy="30" r="20" fill={C.slate} {...outline} />
-      <circle cx="26" cy="30" r="14" fill={C.grey} {...outline} />
-      <circle cx="26" cy="30" r="9" fill={PAPER} {...outline} />
-      <circle cx="26" cy="30" r="4" fill={C.yellow} />
+      <Line d="M41 36H58" color={C.brown} w={8} />
+      <ellipse cx="24" cy="36" rx="21" ry="16" fill={C.slate} {...outline} />
+      <ellipse cx="24" cy="34" rx="15" ry="10.5" fill={C.grey} {...outline} />
+      <path d="M13 34C13 28 19 25 26 26C32 27 36 30 33 36C30 41 17 42 13 34Z" fill={PAPER} {...outline} />
+      <circle cx="23" cy="33" r="4.4" fill={C.yellow} stroke={INK} strokeWidth="2" />
     </>
   ),
   wave: () => (
@@ -381,13 +374,13 @@ const DRAW: Record<KidIconId, () => React.ReactNode> = {
   ),
   scissors: () => (
     <>
-      <Line d="M24 41L44 8" color={C.grey} w={4} />
-      <Line d="M40 41L20 8" color={C.grey} w={4} />
-      <circle cx="20" cy="48" r="8" fill="none" stroke={INK} strokeWidth="10" />
-      <circle cx="20" cy="48" r="8" fill="none" stroke={C.red} strokeWidth="4" />
-      <circle cx="44" cy="48" r="8" fill="none" stroke={INK} strokeWidth="10" />
-      <circle cx="44" cy="48" r="8" fill="none" stroke={C.red} strokeWidth="4" />
-      <circle cx="32" cy="28" r="2.4" fill={INK} />
+      <Line d="M25 40L45 7" color={C.grey} w={6} />
+      <Line d="M39 40L19 7" color={C.grey} w={6} />
+      <circle cx="19" cy="48" r="8" fill="none" stroke={INK} strokeWidth="11" />
+      <circle cx="19" cy="48" r="8" fill="none" stroke={C.red} strokeWidth="5.5" />
+      <circle cx="45" cy="48" r="8" fill="none" stroke={INK} strokeWidth="11" />
+      <circle cx="45" cy="48" r="8" fill="none" stroke={C.red} strokeWidth="5.5" />
+      <circle cx="32" cy="27" r="2.8" fill={INK} stroke={PAPER} strokeWidth="1.2" />
     </>
   ),
   paw: () => (
@@ -411,10 +404,13 @@ const DRAW: Record<KidIconId, () => React.ReactNode> = {
   ),
   bike: () => (
     <>
-      <circle cx="14" cy="43" r="10" fill={PAPER} {...outline} />
-      <circle cx="50" cy="43" r="10" fill={PAPER} {...outline} />
-      <Line d="M14 43L25 26L42 26L50 43M25 26L30 43L42 26M14 43L30 43M42 26L40 18H47" color={C.red} w={3.2} />
-      <Line d="M21 21H29" color={C.blue} w={3.4} />
+      <circle cx="14" cy="43" r="9.5" fill="none" stroke={INK} strokeWidth="9.5" />
+      <circle cx="14" cy="43" r="9.5" fill="none" stroke={C.slate} strokeWidth="4.2" />
+      <circle cx="50" cy="43" r="9.5" fill="none" stroke={INK} strokeWidth="9.5" />
+      <circle cx="50" cy="43" r="9.5" fill="none" stroke={C.slate} strokeWidth="4.2" />
+      <Line d="M14 43L25 26L42 26L50 43M25 26L30 43L42 26M14 43L30 43M42 26L40 18H47" color={C.red} w={4.6} />
+      <Line d="M20 21H30" color={C.blue} w={4.8} />
+      <circle cx="30" cy="43" r="3" fill={C.yellow} stroke={INK} strokeWidth="1.8" />
     </>
   ),
   car: () => (
