@@ -14,7 +14,7 @@ import {
   WEATHER_OPTIONS,
   MOOD_OPTIONS,
   ACTIVITY_OPTIONS,
-} from "@/components/kids/icons";
+} from "./legacyIcons";
 import { KidsStats } from "./KidsStats";
 import Link from "next/link";
 import { ProfileAvatar, textOn, type FamilyProfile } from "@/components/profiles/ProfileAvatar";
