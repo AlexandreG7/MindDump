@@ -216,12 +216,23 @@ l'ancienne version) ; PATCH renvoie 409 « Nouvelle version, recharge la page »
 pour qu'aucune saisie n'aille dans les colonnes legacy. Supprimée au contract.
 
 ### MCP (`minddump-mcp/src/tools/kids.ts`, enregistré dans `src/index.ts`)
-- `list_kid_trackers(profileId)` : rubriques actives, type, choix (id et libellé).
-- `get_kid_week(profileId, from?, to?)` : semaine en cours par défaut, 31 jours
-  maximum, valeurs en libellés, plus le `summary` de l'API.
-- `set_kid_day(profileId, date, values)` : écriture partielle ; les erreurs de
-  l'API (valeur inconnue avec liste acceptée, rubrique masquée, profil inaccessible)
-  remontent telles quelles.
+- `kids_list_trackers(child, includeHidden?)` : rubriques actives, type, choix (libellés).
+- `kids_read_week(child, date?)` : semaine (lundi au dimanche) contenant `date`, semaine
+  en cours par défaut (Europe/Paris) ; valeurs en libellés, plus le bilan de l'API.
+- `kids_fill_day(child, date?, values)` : écriture partielle, rubriques et choix par
+  libellé (casse et accents ignorés), `null` efface ; les erreurs de l'API (valeur
+  inconnue avec liste acceptée, rubrique masquée, profil inaccessible) remontent telles
+  quelles.
+- Écart assumé avec la première version du plan (`list_kid_trackers`, `get_kid_week`,
+  `set_kid_day`, `profileId`, `from`/`to`) : préfixe `kids_` pour regrouper les trois
+  outils, et `child` accepte le prénom (comme `list_groups` le montre) ou l'id, plus
+  simple pour l'assistant. Les autres outils du MCP n'ont pas de préfixe de module
+  (`verbe_nom`), donc ce préfixe est propre au semainier. La semaine se choisit par un
+  jour, pas par `from`/`to` (l'API garde la limite de 31 jours).
+- Libellés = données : tout libellé saisi par la famille (rubriques, choix, prénoms,
+  lignes du bilan, messages d'erreur) est renvoyé entre guillemets, sans `* _ \` # [ ] < >`
+  ni retour à la ligne, borné à 80 caractères ; chaque description d'outil précise que
+  ce sont des données, jamais des instructions (retour secops, test `npm run test:kids`).
 La création ou modification de rubriques par l'assistant est hors MVP (les routes
 existent ; un outil pourra s'y brancher plus tard).
 
