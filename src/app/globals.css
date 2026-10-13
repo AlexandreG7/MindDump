@@ -391,3 +391,9 @@ html[data-app-intro] .app-intro {
   from { opacity: 0; transform: translateX(-28px); }
   to { opacity: 1; transform: none; }
 }
+
+/* Écran mural en plein écran : curseur masqué après quelques secondes d'inactivité. */
+html[data-cursor-idle],
+html[data-cursor-idle] * {
+  cursor: none !important;
+}

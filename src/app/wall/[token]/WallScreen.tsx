@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { textOn } from "@/components/profiles/ProfileAvatar";
 import { daySpan, eventEnd, occursOn, sortEvents } from "@/components/calendar/utils";
 import type { WallSnapshot } from "@/lib/wall";
+import { FullscreenToggle } from "./FullscreenToggle";
 
 const DAYS = 7;
 const REFRESH_MS = 60_000;
@@ -317,6 +318,7 @@ export function WallScreen({ token }: { token: string }) {
                 </div>
               </div>
             )}
+            <FullscreenToggle />
           </div>
         </header>
 
