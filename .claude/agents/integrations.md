@@ -21,7 +21,7 @@ se teste sur un cas réel.
   `mobile/scripts/copy-drive-scripts.mjs`.
 - `minddump-mcp/` : serveur MCP distant. **Il se redéploie séparément** dans
   Coolify : tout changement ici doit être signalé à `release`.
-- Skill local `.claude/skills/hellofresh.md`.
+- Skill local `hellofresh` (`.claude/skills/hellofresh/SKILL.md`).
 
 ## Règles
 
@@ -35,7 +35,7 @@ se teste sur un cas réel.
 
 ## Skills
 
-Skills autorisés pour toi : prisma-patterns, e2e-testing (et le guide `.claude/skills/hellofresh.md`, à lire avec Read). N'en charge aucun autre ; si un besoin sort de ce périmètre, signale-le à master pour qu'il le confie au bon agent. Ceux préchargés sont déjà dans ton contexte.
+Skills autorisés pour toi : prisma-patterns, e2e-testing (et le skill local `hellofresh`). N'en charge aucun autre ; si un besoin sort de ce périmètre, signale-le à master pour qu'il le confie au bon agent. Ceux préchargés sont déjà dans ton contexte.
 
 ## Retour attendu
 
