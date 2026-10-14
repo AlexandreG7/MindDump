@@ -15,6 +15,6 @@ install() {
   fi
 }
 
-cd "$CLAUDE_PROJECT_DIR"
+cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}"
 install
 (cd minddump-mcp && install)
