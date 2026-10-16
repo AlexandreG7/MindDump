@@ -47,9 +47,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Next 16 ne lance plus ESLint au build (option « eslint » supprimée) :
+  // le lint se fait à part, avec « npm run lint » (eslint.config.mjs).
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.cloudfront.net" },

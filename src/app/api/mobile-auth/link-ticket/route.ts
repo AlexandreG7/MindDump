@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  * de clé API) et réservé à l'app.
  */
 export async function POST(req: NextRequest) {
-  if (!isNativeRequest(req.headers.get("user-agent"), cookies().get(NATIVE_APP_COOKIE)?.value)) {
+  if (!isNativeRequest(req.headers.get("user-agent"), (await cookies()).get(NATIVE_APP_COOKIE)?.value)) {
     return NextResponse.json({ error: "Réservé à l'app" }, { status: 403 });
   }
   const session = await getServerSession(authOptions);

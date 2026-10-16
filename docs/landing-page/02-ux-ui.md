@@ -187,7 +187,7 @@ Doublé d'une garde CSS (`@media (prefers-reduced-motion: reduce)`) qui neutrali
 - **Pas de session** → landing page
 - **Chargement** → écran neutre
 
-`"/"` est retiré du matcher de `src/middleware.ts` ; toutes les autres routes restent protégées. Le dashboard n'est pas modifié fonctionnellement — uniquement déplacé.
+`"/"` est retiré du matcher de `src/middleware.ts` (devenu `src/proxy.ts` avec Next 16) ; toutes les autres routes restent protégées. Le dashboard n'est pas modifié fonctionnellement — uniquement déplacé.
 
 ### Connexion
 

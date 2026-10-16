@@ -12,10 +12,8 @@ import {
 } from "@/lib/profiles";
 
 // GET — personnes du foyer : un profil par membre, plus les profils sans compte
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -26,10 +24,8 @@ export async function GET(
 }
 
 // POST — ajouter une personne sans compte (un enfant, le plus souvent)
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

@@ -3,7 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { findWallDevice } from "@/lib/wall";
 
 // Cocher un article d'une liste de courses du groupe depuis l'écran mural.
-export async function POST(req: NextRequest, { params }: { params: { token: string; id: string } }) {
+export async function POST(
+  req: NextRequest,
+  props: { params: Promise<{ token: string; id: string }> }
+) {
+  const params = await props.params;
   const device = await findWallDevice(params.token);
   if (!device) return NextResponse.json({ error: "Écran inconnu ou révoqué" }, { status: 404 });
 

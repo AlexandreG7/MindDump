@@ -14,10 +14,8 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 // Sert les fichiers envoyés après le build (atteint via la rewrite /uploads/*).
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { path: string[] } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ path: string[] }> }) {
+  const params = await props.params;
   const url = `/uploads/${params.path.join("/")}`;
   const contentType = CONTENT_TYPES[path.extname(url).toLowerCase()];
   if (!contentType) {

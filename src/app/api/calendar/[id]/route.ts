@@ -6,10 +6,8 @@ import { readDueDate, readEventDate, readNotifyBefore } from "@/lib/dateInput";
 import { isEventColor, isRecurrence } from "@/lib/recurrence";
 import { sanitizeAssigneeIds } from "@/lib/profiles";
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -82,10 +80,8 @@ export async function PATCH(
   return NextResponse.json({ success: true });
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

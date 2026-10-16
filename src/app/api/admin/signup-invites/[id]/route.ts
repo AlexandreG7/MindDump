@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 // DELETE /api/admin/signup-invites/:id : efface les liens directs (sans demande) de l'adresse
 // de cette invitation. Ne touche jamais à un compte existant.
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const denied = assertSameOrigin(req);
   if (denied) return denied;
   const admin = await requireAdmin();

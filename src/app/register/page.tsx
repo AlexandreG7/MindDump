@@ -9,11 +9,12 @@ import { RequestAccessForm } from "./RequestAccessForm";
 // Le jeton d'invitation est vérifié à chaque affichage : pas de rendu figé au build.
 export const dynamic = "force-dynamic";
 
-export default async function RegisterPage({
-  searchParams,
-}: {
-  searchParams: { invite?: string | string[]; groupInvite?: string | string[]; direct?: string | string[] };
-}) {
+export default async function RegisterPage(
+  props: {
+    searchParams: Promise<{ invite?: string | string[]; groupInvite?: string | string[]; direct?: string | string[] }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const token = first(searchParams.invite);
   const groupToken = first(searchParams.groupInvite);

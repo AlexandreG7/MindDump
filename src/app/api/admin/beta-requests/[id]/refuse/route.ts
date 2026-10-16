@@ -6,7 +6,8 @@ import { refuseBetaRequest } from "@/lib/betaAccess";
 export const dynamic = "force-dynamic";
 
 // POST /api/admin/beta-requests/:id/refuse : refuse et invalide les liens en cours.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const denied = assertSameOrigin(req);
   if (denied) return denied;
   const admin = await requireAdmin();

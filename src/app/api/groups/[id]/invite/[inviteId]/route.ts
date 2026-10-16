@@ -8,8 +8,9 @@ import { groupInviteAccess } from "@/lib/groupInvites";
 // Une invitation déjà utilisée n'est pas touchée : l'adhésion est faite, le lien n'y change rien.
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string; inviteId: string } }
+  props: { params: Promise<{ id: string; inviteId: string }> }
 ) {
+  const params = await props.params;
   const denied = assertSameOrigin(req);
   if (denied) return denied;
   const user = await getSessionUser();

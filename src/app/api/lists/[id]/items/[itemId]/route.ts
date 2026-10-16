@@ -5,8 +5,9 @@ import { buildItemAccessWhere } from "@/lib/groupAuth";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; itemId: string } }
+  props: { params: Promise<{ id: string; itemId: string }> }
 ) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -41,8 +42,9 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string; itemId: string } }
+  props: { params: Promise<{ id: string; itemId: string }> }
 ) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

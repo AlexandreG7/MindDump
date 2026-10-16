@@ -17,7 +17,8 @@ const clearChallengeCookieHeader = `${CHALLENGE_COOKIE.name}=; Path=${CHALLENGE_
   CHALLENGE_COOKIE.options.secure ? "; Secure; SameSite=None" : "; SameSite=Lax"
 }`;
 
-type Context = { params: { nextauth: string[] } };
+// Next 15+ : params est une promesse (NextAuth l'attend aussi de son côté).
+type Context = { params: Promise<{ nextauth: string[] }> };
 
 const isSessionCookie = (name: string) => name.includes("next-auth.session-token");
 
@@ -25,7 +26,7 @@ const isSessionCookie = (name: string) => name.includes("next-auth.session-token
 // depuis le profil) rattache ce fournisseur au compte existant au lieu d'en
 // créer un nouveau. Voir src/lib/accountLinking.ts.
 async function handler(req: NextRequest, context: Context) {
-  const [action, providerId] = context.params.nextauth ?? [];
+  const [action, providerId] = (await context.params).nextauth ?? [];
 
   // Refus chez le fournisseur (access_denied…) pendant une liaison depuis l'app :
   // NextAuth redirige vers /api/auth/signin?error=… ou /api/auth/error?error=…

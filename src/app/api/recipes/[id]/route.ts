@@ -10,10 +10,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -33,10 +31,8 @@ export async function GET(
   return NextResponse.json({ ...rest, favorite: favorites.length > 0 });
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -131,10 +127,8 @@ export async function PATCH(
   return NextResponse.json({ success: true });
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -147,10 +141,8 @@ export async function DELETE(
 
 // ── Enrichment from HelloFresh ──
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const user = await getSessionUser();
     if (!user) return unauthorized();

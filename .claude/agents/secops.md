@@ -15,7 +15,7 @@ l'agent propriétaire du code.
 ## Surface d'attaque à connaître
 
 - NextAuth 4 (identifiants + OAuth, connexion mobile par navigateur système,
-  appareils connectés), `src/middleware.ts`, routes `src/app/api/**`.
+  appareils connectés), `src/proxy.ts`, routes `src/app/api/**`.
 - Filtres d'accès par utilisateur/groupe/foyer (ADR 0001 + isolation entre
   foyers : un membre d'un foyer ne doit jamais lire ceux d'un autre).
 - Uploads de photos (`/app/data/uploads`), imports de contenus tiers (HTML,

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildWallSnapshot, findWallDevice, parseWallRange } from "@/lib/wall";
 
 // Tableau de l'écran mural : pas de session, le jeton du lien fait foi.
-export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const device = await findWallDevice(params.token);
   if (!device) return NextResponse.json({ error: "Écran inconnu ou révoqué" }, { status: 404 });
 

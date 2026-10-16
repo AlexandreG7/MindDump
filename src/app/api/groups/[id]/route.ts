@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 
 // GET — détail d'un groupe
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -30,10 +28,8 @@ export async function GET(
 }
 
 // PATCH — renommer (propriétaire seulement)
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -76,10 +72,8 @@ export async function PATCH(
 }
 
 // DELETE — supprimer le groupe (propriétaire seulement)
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

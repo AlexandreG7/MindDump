@@ -38,7 +38,7 @@ export default async function Home() {
 
   // Dans l'app native, la page de présentation n'a pas de sens : on a déjà
   // installé MindDump, on veut se connecter.
-  if (isNativeRequest(headers().get("user-agent"), cookies().get(NATIVE_APP_COOKIE)?.value)) {
+  if (isNativeRequest((await headers()).get("user-agent"), (await cookies()).get(NATIVE_APP_COOKIE)?.value)) {
     redirect("/login");
   }
 

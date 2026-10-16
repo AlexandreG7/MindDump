@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, unauthorized } from "@/lib/session";
 import { buildItemAccessWhere, resolveGroupId } from "@/lib/groupAuth";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

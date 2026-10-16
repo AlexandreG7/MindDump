@@ -4,7 +4,8 @@ import { KidError, deleteTracker, kidErrorResponse, requireKidTracker, updateTra
 
 // Une rubrique inaccessible (autre foyer) est introuvable : 404, jamais 403.
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
   try {
@@ -21,7 +22,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 /** Supprime une rubrique sans saisie ; avec des saisies : 409, la masquer (PATCH active:false). */
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
   try {

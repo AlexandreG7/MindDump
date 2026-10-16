@@ -6,10 +6,8 @@ import { normalizeEmail } from "@/lib/email";
 import { isSignupGroupInviteToken } from "@/lib/groupInviteSignup";
 
 // POST — rejoindre un groupe via token
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -53,10 +51,8 @@ export async function POST(
 }
 
 // GET — infos sur l'invitation (sans auth, pour afficher avant connexion)
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   // Route publique qui confirme l'existence d'un jeton : limite par adresse IP.
   if (!rateLimit(`group-join-info:${clientIp(req.headers)}`, 60, 15 * 60 * 1000)) {
     return NextResponse.json({ error: "Trop de tentatives. Réessaie dans quelques minutes." }, { status: 429 });

@@ -19,11 +19,12 @@ function safeCallback(value: string | undefined) {
   return path.startsWith("/consentement") ? "/" : path;
 }
 
-export default async function ConsentPage({
-  searchParams,
-}: {
-  searchParams: { callbackUrl?: string };
-}) {
+export default async function ConsentPage(
+  props: {
+    searchParams: Promise<{ callbackUrl?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login?callbackUrl=/consentement");
 

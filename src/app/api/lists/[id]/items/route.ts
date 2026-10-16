@@ -4,10 +4,8 @@ import { getSessionUser, unauthorized } from "@/lib/session";
 import { buildItemAccessWhere } from "@/lib/groupAuth";
 import { CLIENT_ID_PATTERN } from "@/lib/offlineLists";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

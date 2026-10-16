@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 // DELETE /api/admin/allowed-emails/:id : retire l'adresse de la liste. Ne touche JAMAIS à un
 // compte existant (ADR 0001) : seule la création d'un nouveau compte sans lien disparaît.
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const denied = assertSameOrigin(req);
   if (denied) return denied;
   const admin = await requireAdmin();

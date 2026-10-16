@@ -9,7 +9,8 @@ import { getSessionUser, unauthorized } from "@/lib/session";
  * `current` désigne l'appareil de la session en cours (déconnexion dans l'app) ;
  * sur le web, il n'y en a pas et rien n'est fait.
  */
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

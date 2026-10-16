@@ -17,7 +17,8 @@ export function generateStaticParams() {
   return Object.keys(ICONS).map((name) => ({ name }));
 }
 
-export function GET(_req: Request, { params }: { params: { name: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ name: string }> }) {
+  const params = await props.params;
   const icon = ICONS[params.name as IconName];
   if (!icon) notFound();
   return renderAppIcon(icon.size, icon.shape);

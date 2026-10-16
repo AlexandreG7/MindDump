@@ -33,10 +33,8 @@ function foldLine(line: string): string {
   return parts.join("\r\n");
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const user = await prisma.user.findUnique({
     where: { calendarToken: params.token },
     select: { id: true, name: true },

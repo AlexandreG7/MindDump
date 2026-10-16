@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useGroupContext } from "@/components/GroupContext";
 import { Users, CheckCircle, XCircle, Loader, LogIn, UserPlus } from "lucide-react";
 
-export default function JoinGroupPage({ params }: { params: { token: string } }) {
+export default function JoinGroupPage(props: { params: Promise<{ token: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const { status } = useSession();
   const { activateGroup } = useGroupContext();

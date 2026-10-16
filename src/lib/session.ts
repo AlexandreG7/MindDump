@@ -38,7 +38,7 @@ async function ensureDevUser() {
  */
 async function getApiKeyUser() {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authorization = headersList.get("authorization");
     if (!authorization?.startsWith("Bearer ")) return null;
 

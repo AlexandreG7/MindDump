@@ -5,7 +5,11 @@ import { createNextOccurrence } from "@/lib/todos";
 
 // Cocher une tâche du groupe depuis l'écran mural (et recréer l'occurrence
 // suivante d'une tâche récurrente, comme dans l'app).
-export async function POST(req: NextRequest, { params }: { params: { token: string; id: string } }) {
+export async function POST(
+  req: NextRequest,
+  props: { params: Promise<{ token: string; id: string }> }
+) {
+  const params = await props.params;
   const device = await findWallDevice(params.token);
   if (!device) return NextResponse.json({ error: "Écran inconnu ou révoqué" }, { status: 404 });
 

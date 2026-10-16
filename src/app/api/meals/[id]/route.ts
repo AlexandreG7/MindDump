@@ -5,7 +5,8 @@ import { buildItemAccessWhere } from "@/lib/groupAuth";
 import { isDay, isMealSlot, mealSelect } from "@/lib/meals";
 
 // PATCH — déplacer un repas (jour, créneau) ou changer ses portions / sa note
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -28,7 +29,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE — retirer un repas du planning (la recette, elle, reste)
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

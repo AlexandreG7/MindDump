@@ -8,7 +8,7 @@ L'accès repose sur `User.role === "admin"`.
 
 | Couche | Protection |
 |---|---|
-| `src/middleware.ts` | `/admin` exige une session (sinon redirection `/login`). |
+| `src/proxy.ts` | `/admin` exige une session (sinon redirection `/login`). |
 | `src/app/admin/page.tsx` | Relit le rôle **en base** ; un non-admin reçoit une **404** (la page ne révèle pas son existence). |
 | `src/app/api/admin/*` | Chaque route commence par `requireAdmin()` (`src/lib/admin.ts`) : 401 sans session, 403 si non admin. |
 

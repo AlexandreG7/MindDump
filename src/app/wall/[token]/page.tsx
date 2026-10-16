@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function WallPage({ params }: { params: { token: string } }) {
+export default async function WallPage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   return <WallScreen token={params.token} />;
 }

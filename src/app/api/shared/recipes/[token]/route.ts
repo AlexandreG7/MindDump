@@ -27,10 +27,8 @@ async function duplicateImage(image: string | null, recipeId: string) {
 }
 
 // Ajoute une recette partagée aux recettes de l'utilisateur connecté.
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

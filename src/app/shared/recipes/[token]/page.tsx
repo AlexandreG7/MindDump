@@ -5,11 +5,12 @@ import { SharedRecipe } from "./SharedRecipe";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { token: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ token: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const recipe = await findSharedRecipe(params.token);
   if (!recipe) return { title: "Recette introuvable" };
   // metadataBase et le suffixe « · MindDump » du titre viennent du layout racine.
@@ -26,11 +27,12 @@ export async function generateMetadata({
   };
 }
 
-export default async function SharedRecipePage({
-  params,
-}: {
-  params: { token: string };
-}) {
+export default async function SharedRecipePage(
+  props: {
+    params: Promise<{ token: string }>;
+  }
+) {
+  const params = await props.params;
   const recipe = await findSharedRecipe(params.token);
   if (!recipe) notFound();
 

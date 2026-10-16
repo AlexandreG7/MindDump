@@ -12,7 +12,7 @@ fichier : ton livrable est un plan que master découpe et délègue.
 ## Architecture à connaître (vérifie dans le code, ne suppose pas)
 
 - **Web** : Next.js 14 App Router (`src/app/`), composants dans
-  `src/components/`, logique dans `src/lib/`, `src/middleware.ts`, NextAuth 4,
+  `src/components/`, logique dans `src/lib/`, `src/proxy.ts`, NextAuth 4,
   Prisma 5 + PostgreSQL, PWA Serwist (`src/app/sw.ts`), cron (`cron.sh`,
   node-cron), Web Push, e-mails.
 - **Mobile** : la coque Capacitor (`mobile/`) **charge minddump.fr** ; le site

@@ -14,10 +14,8 @@ const notFound = () => NextResponse.json({ error: "Profil introuvable" }, { stat
 
 // PATCH — modifier une personne du foyer. Tout membre gère les profils sans
 // compte ; le profil d'un membre se modifie par lui-même ou par un admin.
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -53,10 +51,8 @@ export async function PATCH(
 
 // DELETE — retirer une personne sans compte, avec son semainier. Le profil
 // d'un membre disparaît seulement quand il quitte le groupe.
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

@@ -26,7 +26,9 @@ const authMiddleware = withAuth(
   }
 );
 
-function middleware(req: NextRequest) {
+// Next 16 : l'ancien « middleware » s'appelle « proxy » (src/proxy.ts) et
+// s'exécute dans le runtime Node.js ; withAuth (getToken, jose) y fonctionne.
+function proxy(req: NextRequest) {
   // Skip auth entirely in dev mode (jamais actif en production, voir devAuth.ts)
   if (isAuthBypassEnabled) {
     return NextResponse.next();
@@ -35,7 +37,7 @@ function middleware(req: NextRequest) {
   return (authMiddleware as unknown as (req: NextRequest) => Promise<NextResponse>)(req);
 }
 
-export default middleware;
+export default proxy;
 
 export const config = {
   matcher: [

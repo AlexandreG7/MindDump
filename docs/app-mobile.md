@@ -77,7 +77,9 @@ thème sombre correct.
 **Objectif** : l'app démarre sans réseau et affiche une page claire au lieu de
 l'erreur du navigateur.
 
-- [x] `@serwist/next` (compatible Next 14). `next.config.js` → `next.config.mjs`
+- [x] `@serwist/next` (Next 14, puis Next 16 : il passe par webpack, d'où
+      `next build --webpack` / `next dev --webpack` dans package.json, Turbopack
+      étant le bundler par défaut depuis Next 16). `next.config.js` → `next.config.mjs`
       (Serwist n'est publié qu'en ESM). `public/sw.js` est généré au build et
       ignoré par git.
 - [x] `src/app/sw.ts` : précache des assets du build et de `/hors-ligne` ;

@@ -14,10 +14,8 @@ const joinUrlOf = (token: string) => `${process.env.NEXTAUTH_URL || "http://loca
 // POST — générer un lien d'invitation (valide 7 jours, 5 en attente au plus par groupe).
 // Avec `email` (nominatif), la personne pourra aussi créer son compte ; sans, le lien sert
 // seulement à rejoindre le foyer avec un compte existant (src/lib/groupInviteSignup.ts).
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const denied = assertSameOrigin(req);
   if (denied) return denied;
   const user = await getSessionUser();
@@ -70,10 +68,8 @@ export async function POST(
 // GET — lister les invitations en attente. Le jeton (donc le lien) n'est renvoyé qu'au
 // propriétaire ou à un admin du groupe, comme pour la création ; un simple membre ne voit que
 // le nombre et les échéances.
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 

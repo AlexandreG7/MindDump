@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 // POST /api/admin/beta-requests/:id/invite : « Accepter » ET « Régénérer le lien ».
 // Crée un lien d'inscription à usage unique (14 jours) lié à l'e-mail de la demande,
 // invalide les précédents, et renvoie le lien EN CLAIR, une seule fois.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const denied = assertSameOrigin(req);
   if (denied) return denied;
   const admin = await requireAdmin();

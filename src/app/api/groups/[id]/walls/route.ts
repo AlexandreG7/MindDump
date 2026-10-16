@@ -8,7 +8,8 @@ const forbidden = () =>
   NextResponse.json({ error: "Réservé aux admins du groupe" }, { status: 403 });
 
 // GET — écrans muraux du groupe (admins)
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
   if (!(await isGroupAdmin(params.id, user.id))) return forbidden();
@@ -22,7 +23,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 // POST — nouvel écran : le lien secret n'est renvoyé qu'ici, une seule fois.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
   if (!(await isGroupAdmin(params.id, user.id))) return forbidden();

@@ -7,8 +7,9 @@ import { isGroupAdmin } from "@/lib/groupAuth";
 // DELETE — retirer un membre
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string; userId: string } }
+  props: { params: Promise<{ id: string; userId: string }> }
 ) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
@@ -54,8 +55,9 @@ export async function DELETE(
 // PATCH — changer le rôle d'un membre (admin seulement)
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; userId: string } }
+  props: { params: Promise<{ id: string; userId: string }> }
 ) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return unauthorized();
 
