@@ -14,7 +14,7 @@ résultat sur captures.
 ## Contexte à lire d'abord
 
 - `PRODUCT.md` (utilisateurs, positionnement, ton) et `docs/landing-page/02-ux-ui.md`.
-- `DESIGN.md` s'il existe, sinon les tokens dans `tailwind.config.ts` et
+- `DESIGN.md` s'il existe, sinon les tokens Tailwind v4 (`@theme` dans `src/app/globals.css`) et
   `src/app/globals.css`.
 - `.impeccable/critique/` : dernières critiques Impeccable.
 

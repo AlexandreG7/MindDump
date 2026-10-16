@@ -61,7 +61,7 @@ export function AgendaList({
             <div
               aria-hidden
               className={cn(
-                "flex h-[3.75rem] w-[3.25rem] flex-col items-center justify-center rounded-2xl",
+                "flex h-15 w-13 flex-col items-center justify-center rounded-2xl",
                 today ? "bg-tone-agenda text-on-tone" : "bg-tone-agenda-soft text-tone-agenda-ink"
               )}
             >
@@ -71,7 +71,7 @@ export function AgendaList({
               <span className="font-display mt-1 text-[1.625rem] leading-none tabular-nums">{format(day, "d")}</span>
             </div>
             <div className="min-w-0">
-              <h3 className="mb-2 flex min-h-[1.75rem] flex-wrap items-baseline gap-x-2 pt-0.5">
+              <h3 className="mb-2 flex min-h-7 flex-wrap items-baseline gap-x-2 pt-0.5">
                 <span className={cn("text-lg font-extrabold leading-tight first-letter:uppercase", today && "text-tone-agenda-ink")}>{dayTitle(day)}</span>
                 <span className="text-sm text-muted-foreground">
                   {format(day, "d MMMM", { locale: fr })} · {dayEvents.length} {dayEvents.length > 1 ? "événements" : "événement"}

@@ -33,7 +33,7 @@ export const CheckCircle = React.forwardRef<
         onCheckedChange?.(value);
       }}
       className={cn(
-        "group/check relative -my-2 flex h-12 w-12 shrink-0 items-center justify-center rounded-full outline-none",
+        "group/check relative -my-2 flex h-12 w-12 shrink-0 items-center justify-center rounded-full outline-hidden",
         "focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
         className
       )}
@@ -53,7 +53,7 @@ export const CheckCircle = React.forwardRef<
       >
         <CheckboxPrimitive.Indicator forceMount>
           <Check
-            className="h-[1.125rem] w-[1.125rem] scale-0 opacity-0 transition-[transform,opacity] duration-200 group-data-[state=checked]/check:scale-100 group-data-[state=checked]/check:opacity-100"
+            className="h-4.5 w-4.5 scale-0 opacity-0 transition-[transform,opacity] duration-200 group-data-[state=checked]/check:scale-100 group-data-[state=checked]/check:opacity-100"
             strokeWidth={3.5}
           />
         </CheckboxPrimitive.Indicator>

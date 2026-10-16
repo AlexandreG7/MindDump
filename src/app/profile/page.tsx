@@ -631,7 +631,7 @@ export default function ProfilePage() {
         )}
 
         {allGroups.map((group) => (
-          <div key={group.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+          <div key={group.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-xs">
             {/* Group header */}
             <div className="p-4 flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -873,12 +873,12 @@ export default function ProfilePage() {
                 role="switch"
                 aria-checked={flags[key]}
                 onClick={() => toggleFeature(key, !flags[key])}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 ${
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring shrink-0 ${
                   flags[key] ? "bg-primary" : "bg-input"
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                  className={`inline-block h-4 w-4 rounded-full bg-white shadow-xs transition-transform ${
                     flags[key] ? "translate-x-4" : "translate-x-0.5"
                   }`}
                 />

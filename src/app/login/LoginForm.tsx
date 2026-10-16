@@ -62,7 +62,7 @@ export function LoginForm() {
         </div>
 
         {/* Card */}
-        <div className="bg-card rounded-2xl border border-border shadow-sm p-8 space-y-6">
+        <div className="bg-card rounded-2xl border border-border shadow-xs p-8 space-y-6">
           <div>
             <h2 className="text-xl font-semibold">Connexion</h2>
             {/* Bêta privée : on demande un accès, on ne crée pas de compte directement. */}

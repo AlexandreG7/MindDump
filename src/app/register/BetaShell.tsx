@@ -21,14 +21,14 @@ export function BetaShell({
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 pt-4 sm:px-8">
         <Link
           href="/"
-          className="-mx-2 inline-flex min-h-11 items-center rounded-lg px-2 text-lg font-extrabold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="-mx-2 inline-flex min-h-11 items-center rounded-lg px-2 text-lg font-extrabold tracking-tight focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         >
           MindDump
         </Link>
         {loginLink && (
           <Link
             href="/login"
-            className="-mx-3 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="-mx-3 inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           >
             Se connecter
           </Link>
@@ -42,7 +42,7 @@ export function BetaShell({
 
 export function BetaBadge({ children }: { children: React.ReactNode }) {
   return (
-    <p className="beta-rise inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 text-xs font-semibold text-foreground backdrop-blur">
+    <p className="beta-rise inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 text-xs font-semibold text-foreground backdrop-blur-sm">
       <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
       {children}
     </p>

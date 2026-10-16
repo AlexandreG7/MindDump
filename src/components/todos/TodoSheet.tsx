@@ -163,7 +163,7 @@ export function TodoSheet({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[92dvh] flex-col gap-0 p-0 outline-none max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:rounded-t-2xl max-sm:border-x-0 max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom"
+        className="flex max-h-[92dvh] flex-col gap-0 p-0 outline-hidden max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:rounded-t-2xl max-sm:border-x-0 max-sm:data-[state=open]:slide-in-from-bottom max-sm:data-[state=closed]:slide-out-to-bottom"
         aria-describedby={undefined}
         // En consultation, pas de focus automatique : sur téléphone il ouvrirait le clavier.
         onOpenAutoFocus={todo ? (e) => e.preventDefault() : undefined}

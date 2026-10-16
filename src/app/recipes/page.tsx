@@ -79,7 +79,7 @@ function FilterChip({ on, onClick, children }: { on: boolean; onClick: () => voi
       aria-pressed={on}
       onClick={onClick}
       className={cn(
-        "inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-bold shadow-surface transition-[background-color,color,transform] duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-bold shadow-surface transition-[background-color,color,transform] duration-150 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
         on ? "bg-ink text-ink-foreground" : "bg-card text-foreground/80 hover:bg-accent"
       )}
     >
@@ -89,7 +89,7 @@ function FilterChip({ on, onClick, children }: { on: boolean; onClick: () => voi
 }
 
 const roundBtn =
-  "flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-surface transition-[background-color,color,transform] duration-150 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-surface transition-[background-color,color,transform] duration-150 active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring";
 
 export default function RecipesPage() {
   const { confirm, toast } = useFeedback();
@@ -600,7 +600,7 @@ export default function RecipesPage() {
       {/* Recherche, tri, affichage */}
       <div className="flex items-start gap-2">
         <div className="relative min-w-0 flex-1" ref={searchRef}>
-          <div className="flex min-h-12 flex-wrap items-center gap-1.5 rounded-[1.5rem] bg-card px-4 py-1 shadow-surface focus-within:ring-2 focus-within:ring-ring">
+          <div className="flex min-h-12 flex-wrap items-center gap-1.5 rounded-3xl bg-card px-4 py-1 shadow-surface focus-within:ring-2 focus-within:ring-ring">
             {filters.map((f) => (
               <span key={f} className="inline-flex h-8 items-center gap-1 rounded-full bg-tone-meal-soft pl-3 pr-1 text-sm font-bold text-tone-meal-ink">
                 {f}
@@ -614,7 +614,7 @@ export default function RecipesPage() {
                 </button>
               </span>
             ))}
-            <div className="relative min-w-[7rem] flex-1">
+            <div className="relative min-w-28 flex-1">
               <Search className={`pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground ${filters.length > 0 ? "hidden" : ""}`} />
               <input
                 placeholder={filters.length > 0 ? "Autre ingrédient…" : "Titre ou ingrédient…"}
@@ -632,7 +632,7 @@ export default function RecipesPage() {
                     addFilter(suggestions[0]);
                   }
                 }}
-                className={`h-10 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground ${filters.length > 0 ? "pl-1" : "pl-6"}`}
+                className={`h-10 w-full bg-transparent text-base outline-hidden placeholder:text-muted-foreground ${filters.length > 0 ? "pl-1" : "pl-6"}`}
               />
             </div>
             {(searchQuery || filters.length > 0) && (
@@ -704,7 +704,7 @@ export default function RecipesPage() {
       </div>
 
       {/* Filtres */}
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none md:mx-0 md:flex-wrap md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
         <FilterChip on={favoritesOnly} onClick={() => setFavoritesOnly(!favoritesOnly)}>
           <Heart className={cn("h-4 w-4", favoritesOnly && "fill-current")} />
           Favoris

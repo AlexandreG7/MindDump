@@ -79,7 +79,7 @@ export function KidsSheet({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
-          className={cn("fixed inset-0 bg-black/50 animate-[fade-in_150ms_ease-out]", level === 0 ? "z-50" : "z-[55]")}
+          className={cn("fixed inset-0 bg-black/50 animate-[fade-in_150ms_ease-out]", level === 0 ? "z-50" : "z-55")}
         />
         <DialogPrimitive.Content
           data-keyboard={kb > 0 ? "open" : undefined}
@@ -96,12 +96,12 @@ export function KidsSheet({
             (e.currentTarget as HTMLElement).querySelector<HTMLElement>("[data-sheet-title]")?.focus();
           }}
           className={cn(
-            "fixed flex max-h-[92dvh] flex-col bg-card text-card-foreground shadow-xl outline-none",
-            "inset-x-0 bottom-[var(--sheet-bottom,0px)] rounded-t-[1.75rem] pb-[env(safe-area-inset-bottom)] data-[keyboard=open]:pb-0",
+            "fixed flex max-h-[92dvh] flex-col bg-card text-card-foreground shadow-xl outline-hidden",
+            "inset-x-0 bottom-(--sheet-bottom,0px) rounded-t-[1.75rem] pb-[env(safe-area-inset-bottom)] data-[keyboard=open]:pb-0",
             "max-md:data-[keyboard=open]:max-h-[calc(var(--sheet-max)-env(safe-area-inset-top)-0.5rem)]",
             "md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[85dvh] md:w-full md:max-w-xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[1.75rem] md:pb-0",
             "animate-[sheet-in_200ms_ease-out] md:animate-[fade-in_150ms_ease-out]",
-            level === 0 ? "z-50" : "z-[56]",
+            level === 0 ? "z-50" : "z-56",
             className
           )}
         >
@@ -110,7 +110,7 @@ export function KidsSheet({
             <DialogPrimitive.Title
               data-sheet-title
               tabIndex={-1}
-              className="min-w-0 flex-1 truncate px-2 text-xl font-extrabold outline-none first-letter:uppercase"
+              className="min-w-0 flex-1 truncate px-2 text-xl font-extrabold outline-hidden first-letter:uppercase"
             >
               {title}
             </DialogPrimitive.Title>
@@ -118,7 +118,7 @@ export function KidsSheet({
             {!hideClose && (
               <DialogPrimitive.Close
                 aria-label="Fermer"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="h-5 w-5" />
               </DialogPrimitive.Close>

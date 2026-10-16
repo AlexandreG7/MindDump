@@ -502,7 +502,7 @@ function AddItemRow({
           placeholder="Ajouter un article…"
           aria-label="Article"
           enterKeyHint="done"
-          className="h-full min-w-0 flex-1 bg-transparent text-[1.0625rem] font-medium outline-none placeholder:text-ink-foreground/60"
+          className="h-full min-w-0 flex-1 bg-transparent text-[1.0625rem] font-medium outline-hidden placeholder:text-ink-foreground/60"
         />
         <input
           value={quantity}
@@ -510,7 +510,7 @@ function AddItemRow({
           placeholder="Qté"
           aria-label="Quantité"
           enterKeyHint="done"
-          className="h-10 w-16 shrink-0 rounded-full bg-ink-foreground/10 px-3 text-center text-base font-semibold outline-none placeholder:text-ink-foreground/60 focus:bg-ink-foreground/20"
+          className="h-10 w-16 shrink-0 rounded-full bg-ink-foreground/10 px-3 text-center text-base font-semibold outline-hidden placeholder:text-ink-foreground/60 focus:bg-ink-foreground/20"
         />
         <button
           type="submit"
@@ -526,7 +526,7 @@ function AddItemRow({
       </div>
       {type === "ONLINE" && (
         <div className="flex flex-wrap gap-2">
-          <Input placeholder="URL" aria-label="Lien" value={url} onChange={(e) => setUrl(e.target.value)} className="h-12 min-w-[10rem] flex-1 rounded-full px-4" />
+          <Input placeholder="URL" aria-label="Lien" value={url} onChange={(e) => setUrl(e.target.value)} className="h-12 min-w-40 flex-1 rounded-full px-4" />
           <Input placeholder="Prix" aria-label="Prix" type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="h-12 w-24 rounded-full px-4" />
           <Input placeholder="Magasin" aria-label="Magasin" value={store} onChange={(e) => setStore(e.target.value)} className="h-12 w-32 rounded-full px-4" />
         </div>
@@ -589,7 +589,7 @@ function ListGroup({
   }
 
   const headBtn =
-    "flex h-12 w-12 items-center justify-center rounded-full transition-[transform,background-color] hover:bg-on-tone/[0.14] active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-tone";
+    "flex h-12 w-12 items-center justify-center rounded-full transition-[transform,background-color] hover:bg-on-tone/[0.14] active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-on-tone";
 
   return (
     <div className="space-y-5">
@@ -607,7 +607,7 @@ function ListGroup({
         const hasRecipeItems = unchecked.some((i) => i.recipeId);
 
         return (
-          <div key={list.id} className="overflow-hidden rounded-[2rem] bg-card shadow-surface">
+          <div key={list.id} className="overflow-hidden rounded-4xl bg-card shadow-surface">
             {/* En-tête à l'aplat vert */}
             <div className="flex items-center gap-3 bg-tone-list py-4 pl-4 pr-2 text-on-tone">
               {list.items.length > 0 && (
@@ -616,7 +616,7 @@ function ListGroup({
                 </ProgressRing>
               )}
               <div className="min-w-0 flex-1">
-                <h2 className="font-display line-clamp-2 break-words text-[1.5rem] leading-[1.02]">{list.name}</h2>
+                <h2 className="font-display line-clamp-2 wrap-break-word text-[1.5rem] leading-[1.02]">{list.name}</h2>
                 {list.items.length > 0 && (
                   <p className="mt-0.5 text-sm font-bold tabular-nums">
                     {uniqueCount > 0 ? `${uniqueCount} ${uniqueCount > 1 ? "articles" : "article"} à prendre` : "Tout est pris"}
@@ -672,7 +672,7 @@ function ListGroup({
                 )}
                 {hasRecipeItems && (
                   <button
-                    className={cn(headBtn, showRecipeTags && "bg-on-tone/[0.18]")}
+                    className={cn(headBtn, showRecipeTags && "bg-on-tone/18")}
                     onClick={() => setShowRecipeTags(!showRecipeTags)}
                     title={showRecipeTags ? "Masquer les recettes" : "Voir les recettes"}
                     aria-label={showRecipeTags ? "Masquer les recettes" : "Voir les recettes"}

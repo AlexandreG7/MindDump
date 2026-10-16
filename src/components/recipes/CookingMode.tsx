@@ -343,7 +343,7 @@ export default function CookingMode({
       aria-modal="true"
       aria-label={`Mode cuisine : ${title}`}
       tabIndex={-1}
-      className="fixed inset-0 z-[9999] flex flex-col bg-background text-foreground outline-none"
+      className="fixed inset-0 z-9999 flex flex-col bg-background text-foreground outline-hidden"
     >
       {/* Annonce stable pour les lecteurs d'écran : le conteneur n'est jamais remonté, seul son texte change. */}
       <p aria-live="polite" aria-atomic="true" className="sr-only">
@@ -491,7 +491,7 @@ export default function CookingMode({
           role="tabpanel"
           aria-labelledby="cook-tab-ingredients"
           className={cn(
-            "min-w-0 overflow-y-auto overscroll-contain px-4 pb-4 pt-2 lg:w-[26rem] lg:shrink-0 lg:border-l lg:border-border lg:px-6",
+            "min-w-0 overflow-y-auto overscroll-contain px-4 pb-4 pt-2 lg:w-104 lg:shrink-0 lg:border-l lg:border-border lg:px-6",
             panel === "ingredients" ? "flex-1" : "max-lg:hidden"
           )}
         >

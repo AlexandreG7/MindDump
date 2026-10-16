@@ -58,7 +58,7 @@ export function WeekTable({
             aria-label={`Saisir ${format(d.day, "EEEE d MMMM", { locale: fr })}${d.today ? ", aujourd'hui" : ""}`}
             className={cn(
               "flex min-h-11 flex-col items-center justify-center rounded-xl px-0.5 py-1 leading-none transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
               d.today ? "bg-ink text-ink-foreground" : "text-muted-foreground hover:bg-secondary"
             )}
           >
@@ -93,7 +93,7 @@ export function WeekTable({
                       className={cn(
                         "relative flex h-12 min-w-0 items-center justify-center rounded-xl text-foreground lg:h-14",
                         "transition-[transform,background-color] duration-150 ease-out active:scale-95",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                         empty
                           ? "border border-dashed border-muted-foreground/35 bg-transparent text-muted-foreground/60 hover:bg-secondary"
                           : "bg-tone-list-soft hover:brightness-95",
@@ -110,7 +110,7 @@ export function WeekTable({
                           {v.extra > 0 && (
                             <span
                               aria-hidden
-                              className="absolute -right-0.5 -top-1 min-w-[1.125rem] rounded-full bg-tone-list-ink px-1 text-center text-[0.6875rem] font-extrabold leading-[1.125rem] text-card tabular-nums"
+                              className="absolute -right-0.5 -top-1 min-w-4.5 rounded-full bg-tone-list-ink px-1 text-center text-[0.6875rem] font-extrabold leading-4.5 text-card tabular-nums"
                             >
                               +{v.extra}
                             </span>

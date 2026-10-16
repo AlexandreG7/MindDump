@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
           <p className="text-muted-foreground text-sm">Vide ta charge mentale</p>
         </div>
 
-        <div className="bg-card rounded-2xl border border-border shadow-sm p-8 space-y-6">
+        <div className="bg-card rounded-2xl border border-border shadow-xs p-8 space-y-6">
           {done ? (
             <div className="space-y-4" role="status">
               <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" aria-hidden="true" />

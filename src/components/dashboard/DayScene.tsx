@@ -37,18 +37,18 @@ export function DayScene({
   const sunLift = night ? 96 : Math.sin(t * Math.PI) * 78;
 
   return (
-    <section aria-label="Aperçu de la journée" className="relative isolate overflow-hidden rounded-[2rem] bg-ink text-ink-foreground">
+    <section aria-label="Aperçu de la journée" className="relative isolate overflow-hidden rounded-4xl bg-ink text-ink-foreground">
       <div className="relative z-10 px-5 pb-16 pt-4 md:px-8 md:pb-32 md:pt-6">
         <p className="text-sm font-bold text-ink-foreground/75 first-letter:uppercase md:text-base">{dateLabel}</p>
         <div className="mt-1 flex items-end justify-between gap-4">
           <h1 className="font-display min-w-0 text-[2.25rem] md:text-[3.5rem]">{greeting}</h1>
           <div className="shrink-0 text-right">
             {count === null ? (
-              <span className="block h-[3.5rem] w-12 rounded-2xl bg-ink-foreground/10 md:h-[5rem]" aria-hidden="true" />
+              <span className="block h-14 w-12 rounded-2xl bg-ink-foreground/10 md:h-20" aria-hidden="true" />
             ) : (
               <AnimatedNumber value={count} className="font-display text-[3.5rem] leading-none text-tone-todo md:text-[5rem]" />
             )}
-            <p className="mt-0.5 text-sm font-bold leading-tight text-ink-foreground/85 md:text-base">{countLabel}</p>
+            <p className="mt-0.5 text-sm font-bold leading-tight text-ink-foreground/85 md:text-base md:leading-6">{countLabel}</p>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">

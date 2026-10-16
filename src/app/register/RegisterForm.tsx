@@ -97,7 +97,7 @@ export function RegisterForm({
       <div className="text-center">
         <BetaBadge>{groupInviteToken ? "Invitation de foyer" : direct ? "Bêta privée" : "Invitation à la bêta privée"}</BetaBadge>
         <h1
-          className="beta-rise mt-5 text-balance text-3xl font-extrabold leading-[1.08] tracking-tight sm:text-4xl"
+          className="beta-rise mt-5 text-balance text-3xl font-extrabold leading-[1.08] tracking-tight sm:text-4xl sm:leading-10"
           style={{ ["--d" as string]: "60ms" }}
         >
           {groupInviteToken ? (

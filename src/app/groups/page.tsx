@@ -247,7 +247,7 @@ export default function GroupsPage() {
       {/* Group cards */}
       <div className="space-y-4">
         {allGroups.map((group) => (
-          <div key={group.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+          <div key={group.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-xs">
             {/* Group header */}
             <div className="p-5 pb-4 flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">

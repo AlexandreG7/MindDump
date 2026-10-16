@@ -69,7 +69,7 @@ export function RequestAccessForm() {
           <BetaBadge>Bêta privée · accès sur invitation</BetaBadge>
           <h1
             id="beta-title"
-            className="beta-rise mt-5 text-balance text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
+            className="beta-rise mt-5 text-balance text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl sm:leading-none lg:text-6xl"
             style={{ ["--d" as string]: "60ms" }}
           >
             Vide ta <span className="beta-mark">charge mentale</span>, en famille.
@@ -108,7 +108,7 @@ export function RequestAccessForm() {
                 </svg>
               </span>
               <div className="space-y-2">
-                <h2 ref={successRef} tabIndex={-1} className="text-2xl font-extrabold tracking-tight outline-none">
+                <h2 ref={successRef} tabIndex={-1} className="text-2xl font-extrabold tracking-tight outline-hidden">
                   Merci{name.trim() ? `, ${name.trim()}` : ""}, on revient vers toi
                 </h2>
                 <p className="text-pretty text-sm text-muted-foreground">
@@ -122,13 +122,13 @@ export function RequestAccessForm() {
               <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-center">
                 <Link
                   href="/"
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   Retour à l&apos;accueil
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg px-5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg px-5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Se connecter
                 </Link>

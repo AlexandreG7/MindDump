@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
           <p className="text-muted-foreground text-sm">Vide ta charge mentale</p>
         </div>
 
-        <div className="bg-card rounded-2xl border border-border shadow-sm p-8 space-y-6">
+        <div className="bg-card rounded-2xl border border-border shadow-xs p-8 space-y-6">
           {sent ? (
             <div className="space-y-4" role="status">
               <MailCheck className="h-8 w-8 text-primary" aria-hidden="true" />

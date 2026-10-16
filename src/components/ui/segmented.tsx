@@ -27,7 +27,7 @@ export const SegmentedTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       "group/seg flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-base font-bold text-muted-foreground sm:flex-none",
-      "transition-[background-color,color,transform] duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]",
+      "transition-[background-color,color,transform] duration-200 outline-hidden focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]",
       "data-[state=active]:bg-ink data-[state=active]:text-ink-foreground",
       className
     )}
@@ -38,7 +38,7 @@ export const SegmentedTrigger = React.forwardRef<
     {count !== undefined && (
       <span
         className={cn(
-          "min-w-[1.75rem] rounded-full bg-foreground/10 px-2 text-center text-sm font-extrabold leading-7 tabular-nums",
+          "min-w-7 rounded-full bg-foreground/10 px-2 text-center text-sm font-extrabold leading-7 tabular-nums",
           "group-data-[state=active]/seg:text-on-tone",
           tone === "todo" && "group-data-[state=active]/seg:bg-tone-todo",
           tone === "list" && "group-data-[state=active]/seg:bg-tone-list",

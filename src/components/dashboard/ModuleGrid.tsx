@@ -202,9 +202,9 @@ export function ModuleGrid({
                         title={SIZE_LABELS[size].long}
                         onClick={() => update(slot.id, { size })}
                         className={cn(
-                          "h-7 min-w-[2.25rem] px-1.5 rounded-md text-xs tabular-nums transition-colors",
+                          "h-7 min-w-9 px-1.5 rounded-md text-xs tabular-nums transition-colors",
                           slot.size === size
-                            ? "bg-card text-foreground font-semibold shadow-sm"
+                            ? "bg-card text-foreground font-semibold shadow-xs"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >

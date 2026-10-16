@@ -91,7 +91,7 @@ export function Chaos() {
             {d.t}
           </span>
         ))}
-        <div className="lp2-shell relative z-[1] w-full">
+        <div className="lp2-shell relative z-1 w-full">
           <p className="lp2-eyebrow">Le problème</p>
           <h2 id="lp2-chaos-h" className="lp2-h2 mt-4 max-w-[15ch] sm:max-w-[19ch] lg:max-w-[24ch]">
             <span data-chaos-lead>Une semaine dans ta tête.</span>{" "}

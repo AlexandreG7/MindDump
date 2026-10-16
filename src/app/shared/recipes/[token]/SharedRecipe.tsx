@@ -45,7 +45,7 @@ export function SharedRecipe({ token, recipe }: { token: string; recipe: RecipeV
           <button
             onClick={saveToMyRecipes}
             disabled={saving || saved}
-            className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-black/30 backdrop-blur-sm text-white text-sm font-medium hover:bg-black/50 transition-colors"
+            className="flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-black/30 backdrop-blur-xs text-white text-sm font-medium hover:bg-black/50 transition-colors"
           >
             {saved ? (
               <Check className="h-4 w-4" />

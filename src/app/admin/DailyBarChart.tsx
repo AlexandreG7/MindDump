@@ -98,7 +98,7 @@ export function DailyBarChart({ data, unit }: { data: DayPoint[]; unit: string }
 
         {hovered && hover !== null && (
           <div
-            className={`pointer-events-none absolute -top-2 -translate-y-full rounded-md ${tooltipAlign}  border border-border bg-popover px-2 py-1 text-xs shadow-sm whitespace-nowrap`}
+            className={`pointer-events-none absolute -top-2 -translate-y-full rounded-md ${tooltipAlign}  border border-border bg-popover px-2 py-1 text-xs shadow-xs whitespace-nowrap`}
             style={{ left: `${((PAD.left + (hover + 0.5) * slot) / WIDTH) * 100}%` }}
           >
             <span className="text-muted-foreground">{formatDay(hovered.day)} · </span>

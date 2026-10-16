@@ -145,8 +145,8 @@ export function Navbar() {
       <nav
         aria-label="Navigation principale"
         className={cn(
-          "hidden md:flex md:flex-col m-3 mr-0 mt-[calc(0.75rem+env(safe-area-inset-top))] rounded-[2rem] bg-ink text-ink-foreground overflow-y-auto shrink-0 transition-[width,padding] duration-200",
-          collapsed ? "md:w-[4.5rem] p-2.5" : "md:w-64 p-4"
+          "hidden md:flex md:flex-col m-3 mr-0 mt-[calc(0.75rem+env(safe-area-inset-top))] rounded-4xl bg-ink text-ink-foreground overflow-y-auto shrink-0 transition-[width,padding] duration-200",
+          collapsed ? "md:w-18 p-2.5" : "md:w-64 p-4"
         )}
       >
         <div className={cn("mb-8 flex items-center", collapsed ? "flex-col gap-3" : "justify-between")}>
@@ -326,7 +326,7 @@ export function Navbar() {
         </div>
         <div className="flex items-center gap-1">
           {currentGroup && groups.length > 1 && (
-            <span className="max-w-[8.5rem] truncate rounded-full bg-ink px-3.5 py-2 text-xs font-bold text-ink-foreground">
+            <span className="max-w-34 truncate rounded-full bg-ink px-3.5 py-2 text-xs font-bold text-ink-foreground">
               <span className="sr-only">Groupe actif : </span>
               {currentGroup.name}
             </span>
@@ -364,7 +364,7 @@ export function Navbar() {
                       active ? a.fg : "text-ink-foreground/75"
                     )}
                   >
-                    <item.icon className="h-[1.375rem] w-[1.375rem] transition-transform duration-150 group-active/tab:scale-90" strokeWidth={active ? 2.5 : 2} />
+                    <item.icon className="h-5.5 w-5.5 transition-transform duration-150 group-active/tab:scale-90" strokeWidth={active ? 2.5 : 2} />
                     {item.shortLabel ?? item.label}
                   </Link>
                 </li>
@@ -380,7 +380,7 @@ export function Navbar() {
                   moreActive && activeTab < 0 ? "text-ink-foreground" : "text-ink-foreground/75"
                 )}
               >
-                <MoreHorizontal className="h-[1.375rem] w-[1.375rem] transition-transform duration-150 group-active/tab:scale-90" strokeWidth={moreActive ? 2.5 : 2} />
+                <MoreHorizontal className="h-5.5 w-5.5 transition-transform duration-150 group-active/tab:scale-90" strokeWidth={moreActive ? 2.5 : 2} />
                 Plus
               </button>
             </li>
@@ -392,7 +392,7 @@ export function Navbar() {
       <DialogPrimitive.Root open={mobileOpen} onOpenChange={setMobileOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="md:hidden fixed inset-0 z-50 bg-black/50 animate-[fade-in_150ms_ease-out]" />
-          <DialogPrimitive.Content className="md:hidden fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-[2rem] bg-card pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] shadow-xl animate-[sheet-in_200ms_ease-out]">
+          <DialogPrimitive.Content className="md:hidden fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-4xl bg-card pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] shadow-xl animate-[sheet-in_200ms_ease-out]">
             <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-border" aria-hidden />
             <DialogPrimitive.Title className="font-display mb-3 px-2 text-[1.75rem]">Plus</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">Autres rubriques et réglages</DialogPrimitive.Description>

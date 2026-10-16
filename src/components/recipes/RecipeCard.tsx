@@ -89,10 +89,10 @@ export function FavoriteButton({
       onClick={onClick}
       aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
       aria-pressed={favorite}
-      className={cn("group/fav flex h-11 w-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}
+      className={cn("group/fav flex h-11 w-11 items-center justify-center rounded-full outline-hidden focus-visible:ring-2 focus-visible:ring-ring", className)}
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-card/90 shadow-surface backdrop-blur-sm transition-transform duration-150 group-active/fav:scale-90">
-        <Heart className={cn("h-[1.125rem] w-[1.125rem] transition-colors", favorite ? "fill-rose-500 text-rose-500" : "text-foreground/70")} />
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-card/90 shadow-surface backdrop-blur-xs transition-transform duration-150 group-active/fav:scale-90">
+        <Heart className={cn("h-4.5 w-4.5 transition-colors", favorite ? "fill-rose-500 text-rose-500" : "text-foreground/70")} />
       </span>
     </button>
   );
@@ -140,7 +140,7 @@ function TimePill({ recipe, className }: { recipe: CatalogRecipe; className?: st
 }
 
 const iconBtn =
-  "flex h-9 w-9 touch:h-11 touch:w-11 items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-secondary hover:text-foreground active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex h-9 w-9 touch:h-11 touch:w-11 items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-secondary hover:text-foreground active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * Actions secondaires d'une recette (planifier, courses, modifier, enrichir,
@@ -269,7 +269,7 @@ export function RecipeCard({
           prefetch={false}
           tabIndex={-1}
           aria-hidden
-          className="block aspect-[4/3] overflow-hidden rounded-[1.5rem] bg-tone-meal-soft shadow-surface"
+          className="block aspect-4/3 overflow-hidden rounded-3xl bg-tone-meal-soft shadow-surface"
         >
           <RecipePhoto recipe={recipe} width={800} priority={priority} className="transition-transform duration-500 ease-out motion-safe:group-hover/card:scale-[1.03]" iconClassName="h-12 w-12" />
         </Link>
@@ -297,7 +297,7 @@ export function RecipeCard({
           aria-label={recipe.image ? "Changer la photo" : "Ajouter une photo"}
           className="absolute bottom-1.5 right-1.5 flex h-11 w-11 items-center justify-center rounded-full text-white opacity-0 transition-opacity focus-visible:opacity-100 group-hover/card:opacity-100 touch:opacity-100"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/45 backdrop-blur-sm">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/45 backdrop-blur-xs">
             <Camera className="h-3.5 w-3.5" />
           </span>
         </button>
@@ -305,7 +305,7 @@ export function RecipeCard({
 
       <div className="min-w-0 px-1 pt-3">
         <h2 className="font-display text-[1.5rem] leading-[1.04]">
-          <Link href={href} prefetch={false} className="-my-2.5 line-clamp-2 rounded-md py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Link href={href} prefetch={false} className="-my-2.5 line-clamp-2 rounded-md py-2.5 outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
             {recipe.title}
           </Link>
         </h2>
@@ -320,7 +320,7 @@ export function RecipeCard({
             <Link
               href={`${href}?cook=1`}
               prefetch={false}
-              className="ml-auto mr-1 inline-flex h-11 items-center gap-2 rounded-full bg-tone-meal-soft px-4 text-sm font-extrabold text-tone-meal-ink transition-[filter,transform] duration-150 hover:brightness-95 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ml-auto mr-1 inline-flex h-11 items-center gap-2 rounded-full bg-tone-meal-soft px-4 text-sm font-extrabold text-tone-meal-ink transition-[filter,transform] duration-150 hover:brightness-95 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ChefHat className="h-4 w-4" aria-hidden />
               Cuisiner
@@ -339,12 +339,12 @@ export function RecipeRow({ recipe, h }: { recipe: CatalogRecipe; h: CardHandler
   const href = `/recipes/${recipe.id}`;
   return (
     <li className="group/row relative flex items-center gap-3 rounded-[1.25rem] bg-card p-2 pr-1 shadow-surface">
-      <Link href={href} prefetch={false} aria-hidden tabIndex={-1} className="h-[5.5rem] w-[5.5rem] shrink-0 overflow-hidden rounded-2xl bg-tone-meal-soft">
+      <Link href={href} prefetch={false} aria-hidden tabIndex={-1} className="h-22 w-22 shrink-0 overflow-hidden rounded-2xl bg-tone-meal-soft">
         <RecipePhoto recipe={recipe} width={240} iconClassName="h-7 w-7" />
       </Link>
       <div className="min-w-0 flex-1">
         <h2 className="text-[1.0625rem] font-extrabold leading-tight tracking-tight">
-          <Link href={href} prefetch={false} className="line-clamp-2 rounded-md outline-none after:absolute after:inset-0 after:rounded-[1.25rem] focus-visible:ring-2 focus-visible:ring-ring">
+          <Link href={href} prefetch={false} className="line-clamp-2 rounded-md outline-hidden after:absolute after:inset-0 after:rounded-[1.25rem] focus-visible:ring-2 focus-visible:ring-ring">
             {recipe.title}
           </Link>
         </h2>
@@ -383,7 +383,7 @@ export function RecipeTile({ recipe, h }: { recipe: CatalogRecipe; h: CardHandle
         <TimePill recipe={recipe} className="absolute bottom-2 left-2 h-7 text-xs" />
       </div>
       <h2 className="mt-2 px-0.5 text-[0.9375rem] font-bold leading-snug tracking-tight">
-        <Link href={href} prefetch={false} className="-my-2.5 line-clamp-2 rounded-md py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href={href} prefetch={false} className="-my-2.5 line-clamp-2 rounded-md py-2.5 outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
           {recipe.title}
         </Link>
       </h2>

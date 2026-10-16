@@ -233,7 +233,7 @@ export function KidsWeekly() {
               aria-pressed={c.id === profileId}
               className={cn(
                 "flex min-h-11 items-center gap-2 rounded-full border py-1 pl-1.5 pr-4 text-base transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                 c.id === profileId ? "border-transparent font-bold" : "border-border text-muted-foreground hover:bg-secondary"
               )}
               style={c.id === profileId ? { backgroundColor: c.color, color: textOn(c.color) } : undefined}
@@ -275,7 +275,7 @@ export function KidsWeekly() {
                   key={tpl.id}
                   type="button"
                   onClick={() => openViewEditor({ mode: "create", template: tpl })}
-                  className="flex h-11 items-center gap-2 rounded-full bg-secondary pl-2 pr-4 text-sm font-bold transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-11 items-center gap-2 rounded-full bg-secondary pl-2 pr-4 text-sm font-bold transition-colors hover:bg-secondary/70 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <KidIcon id={tpl.icon} size={28} decorative />
                   {tpl.label}
@@ -291,7 +291,7 @@ export function KidsWeekly() {
               type="button"
               onClick={() => setWeekOffset((w) => w - 1)}
               aria-label="Semaine précédente"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] hover:bg-secondary/70 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] hover:bg-secondary/70 active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ChevronLeft className="h-6 w-6" />
             </button>
@@ -303,7 +303,7 @@ export function KidsWeekly() {
                 <button
                   type="button"
                   onClick={() => setWeekOffset(0)}
-                  className="-my-1 min-h-11 rounded-full px-3 text-sm font-bold text-tone-list-ink underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="-my-1 min-h-11 rounded-full px-3 text-sm font-bold text-tone-list-ink underline underline-offset-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Revenir à cette semaine
                 </button>
@@ -313,7 +313,7 @@ export function KidsWeekly() {
               type="button"
               onClick={() => setWeekOffset((w) => w + 1)}
               aria-label="Semaine suivante"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] hover:bg-secondary/70 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] hover:bg-secondary/70 active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ChevronRight className="h-6 w-6" />
             </button>
@@ -389,7 +389,7 @@ export function KidsWeekly() {
 
       {kidMode && child && (
         <>
-          {outdated && <OutdatedBanner className="fixed inset-x-4 top-4 z-[10002] mx-auto max-w-xl" />}
+          {outdated && <OutdatedBanner className="fixed inset-x-4 top-4 z-10002 mx-auto max-w-xl" />}
           <KidMode
             childName={child.name}
             days={days}

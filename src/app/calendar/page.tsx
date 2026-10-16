@@ -491,7 +491,7 @@ export default function CalendarPage() {
   const openDay = (day: Date) => changeViewTo("day", day);
 
   const iconBtn =
-    "grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-[transform,background-color,color] duration-150 hover:bg-secondary hover:text-foreground active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+    "grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-[transform,background-color,color] duration-150 hover:bg-secondary hover:text-foreground active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 md:mx-0">
@@ -586,13 +586,13 @@ export default function CalendarPage() {
           <button type="button" onClick={() => shift(1)} aria-label="Période suivante" className={iconBtn}>
             <ChevronRight className="h-5 w-5" />
           </button>
-          <h2 className="font-display min-w-0 flex-1 px-2 text-lg leading-tight first-letter:uppercase sm:text-xl">
+          <h2 className="font-display min-w-0 flex-1 px-2 text-lg leading-tight first-letter:uppercase sm:text-xl sm:leading-7">
             {titleForView(view, anchor)}
           </h2>
           <button
             type="button"
             onClick={goToday}
-            className="h-11 shrink-0 rounded-full border border-border bg-card px-4 text-sm font-bold transition-[transform,background-color] duration-150 hover:bg-secondary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-11 shrink-0 rounded-full border border-border bg-card px-4 text-sm font-bold transition-[transform,background-color] duration-150 hover:bg-secondary active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           >
             Aujourd&apos;hui
           </button>

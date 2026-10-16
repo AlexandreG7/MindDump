@@ -60,7 +60,7 @@ export function ConsentForm({
 
   return (
     <div className="min-h-full flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-card rounded-2xl border border-border shadow-sm p-8 space-y-6">
+      <div className="w-full max-w-md bg-card rounded-2xl border border-border shadow-xs p-8 space-y-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <ShieldCheck className="h-5 w-5 text-primary" />

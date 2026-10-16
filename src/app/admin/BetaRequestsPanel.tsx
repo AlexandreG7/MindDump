@@ -333,7 +333,7 @@ export function BetaRequestsPanel({
                     </Button>
                   </div>
                 </div>
-                {r.message && <p className="text-sm whitespace-pre-wrap break-words">{r.message}</p>}
+                {r.message && <p className="text-sm whitespace-pre-wrap wrap-break-word">{r.message}</p>}
                 {r.status !== "registered" && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {r.status === "invited" ? (

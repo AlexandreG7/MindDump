@@ -125,7 +125,7 @@ export function FullscreenToggle() {
           "h-11 w-11 -m-1 flex items-center justify-center rounded-full text-muted-foreground",
           "opacity-60 hover:opacity-100 hover:bg-secondary focus-visible:opacity-100 touch:opacity-70",
           "transition-[opacity,background-color,transform] duration-150 active:scale-95 motion-reduce:transition-none",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         )}
       >
         <Icon className="h-5 w-5" aria-hidden />

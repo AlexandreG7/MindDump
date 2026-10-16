@@ -17,7 +17,7 @@ type Screen = { name: "list" } | { name: "form"; tracker?: KidTrackerDto; templa
 export type ViewEditorStart = { mode: "list" } | { mode: "create"; template?: TrackerTemplate } | { mode: "edit"; trackerId: string };
 
 const rowBtn =
-  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-70 transition-[opacity,background-color] hover:bg-secondary hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-25 disabled:hover:bg-transparent touch:opacity-100 touch:disabled:opacity-25";
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-70 transition-[opacity,background-color] hover:bg-secondary hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-25 disabled:hover:bg-transparent touch:opacity-100 touch:disabled:opacity-25";
 
 /**
  * Éditeur de vue : la liste des rubriques de l'enfant (créer, renommer, réordonner,
@@ -192,7 +192,7 @@ export function ViewEditor({
             type="button"
             onClick={() => setScreen({ name: "list" })}
             aria-label="Retour à la liste des rubriques"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -205,7 +205,7 @@ export function ViewEditor({
             onClick={onRenameChild}
             aria-label={`Renommer ${childName}`}
             title={`Renommer ${childName}`}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-70 transition-[opacity,background-color] hover:bg-secondary hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring touch:opacity-100"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-70 transition-[opacity,background-color] hover:bg-secondary hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring touch:opacity-100"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -262,7 +262,7 @@ export function ViewEditor({
                   type="button"
                   onClick={() => setScreen({ name: "form", tracker: t })}
                   aria-label={`Modifier ${t.label}`}
-                  className="flex min-h-12 w-full min-w-0 items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-1"
+                  className="flex min-h-12 w-full min-w-0 items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-secondary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring md:flex-1"
                 >
                   <TrackerIcon id={t.icon} size={36} className="shrink-0" />
                   <span className="min-w-0 flex-1">
@@ -315,7 +315,7 @@ export function ViewEditor({
                     key={tpl.id}
                     type="button"
                     onClick={() => setScreen({ name: "form", template: tpl })}
-                    className="flex h-11 items-center gap-2 rounded-full bg-secondary pl-2 pr-4 text-sm font-bold transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex h-11 items-center gap-2 rounded-full bg-secondary pl-2 pr-4 text-sm font-bold transition-colors hover:bg-secondary/70 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <TrackerIcon id={tpl.icon} size={28} />
                     {tpl.label}

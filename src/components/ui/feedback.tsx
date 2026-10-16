@@ -84,10 +84,10 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
 
       <DialogPrimitive.Root open={!!pending} onOpenChange={(open) => !open && settle(false)}>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/50 animate-[fade-in_150ms_ease-out]" />
+          <DialogPrimitive.Overlay className="fixed inset-0 z-60 bg-black/50 animate-[fade-in_150ms_ease-out]" />
           <DialogPrimitive.Content
             className={cn(
-              "fixed z-[60] bg-card text-card-foreground shadow-xl border",
+              "fixed z-60 bg-card text-card-foreground shadow-xl border",
               "inset-x-0 bottom-0 rounded-t-2xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
               "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-6",
               "animate-[sheet-in_200ms_ease-out] sm:animate-[fade-in_150ms_ease-out]"
@@ -120,7 +120,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
 
       <div
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 z-[70] flex flex-col items-center gap-2 px-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 md:items-end md:px-6"
+        className="pointer-events-none fixed inset-x-0 z-70 flex flex-col items-center gap-2 px-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 md:items-end md:px-6"
       >
         {toasts.map((t) => (
           <div

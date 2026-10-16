@@ -92,8 +92,8 @@ export function MonthGrid({
                           : `${dayEvents.length} événement${dayEvents.length > 1 ? "s" : ""} : ${titles.join(", ")}`
                       }`}
                       className={cn(
-                        "flex min-h-[4.75rem] min-w-0 flex-col items-stretch gap-1 bg-card px-1 pb-1.5 pt-1.5 text-left transition-colors duration-150 hover:bg-secondary/60 sm:min-h-[7.5rem] sm:px-1.5",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                        "flex min-h-19 min-w-0 flex-col items-stretch gap-1 bg-card px-1 pb-1.5 pt-1.5 text-left transition-colors duration-150 hover:bg-secondary/60 sm:min-h-30 sm:px-1.5",
+                        "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                         !inMonth && "bg-muted/50",
                         isSelected && "bg-tone-agenda-soft hover:bg-tone-agenda-soft"
                       )}
@@ -117,7 +117,7 @@ export function MonthGrid({
                             <span
                               key={e.id}
                               title={`${time ? `${time} ` : ""}${e.title}`}
-                              className={cn("ev-chip line-clamp-2 break-words rounded py-0.5 pl-2 pr-1 text-[0.8125rem] leading-[1.15rem]", evState(e, now, selectedId))}
+                              className={cn("ev-chip line-clamp-2 wrap-break-word rounded py-0.5 pl-2 pr-1 text-[0.8125rem] leading-[1.15rem]", evState(e, now, selectedId))}
                               style={evVars(e)}
                             >
                               {time && <span className="ev-time tabular-nums">{time} </span>}
@@ -129,7 +129,7 @@ export function MonthGrid({
                       </span>
                       <span aria-hidden className="flex flex-wrap items-center gap-1 px-0.5 sm:hidden">
                         {singles.slice(0, MAX_DOTS).map((e) => (
-                          <span key={e.id} className="ev-chip h-2.5 w-2.5 rounded-full !shadow-none ring-1 ring-foreground/20" style={{ ...evVars(e), backgroundColor: "var(--ev-base)" }} />
+                          <span key={e.id} className="ev-chip h-2.5 w-2.5 rounded-full shadow-none! ring-1 ring-foreground/20" style={{ ...evVars(e), backgroundColor: "var(--ev-base)" }} />
                         ))}
                         {moreM > 0 && <span className="text-xs font-bold leading-none text-muted-foreground">+{moreM}</span>}
                       </span>
@@ -141,7 +141,7 @@ export function MonthGrid({
               {bars.length > 0 && (
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute inset-x-0 top-[2.375rem] grid grid-cols-7 gap-x-px gap-y-0.5 [grid-auto-rows:1.375rem]"
+                  className="pointer-events-none absolute inset-x-0 top-9.5 grid grid-cols-7 gap-x-px gap-y-0.5 auto-rows-5.5"
                 >
                   {bars.map((b) => (
                     <span
@@ -186,7 +186,7 @@ export function YearGrid({
         <button
           type="button"
           key={month.toISOString()}
-          className="rounded-3xl border border-border/70 bg-card p-3.5 text-left transition-[transform,border-color] duration-150 hover:border-tone-agenda active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-3xl border border-border/70 bg-card p-3.5 text-left transition-[transform,border-color] duration-150 hover:border-tone-agenda active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => onSelectMonth(month)}
           aria-label={`Ouvrir ${month.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`}
         >

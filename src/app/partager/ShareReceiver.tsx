@@ -92,7 +92,7 @@ export function ShareReceiver() {
           <div className="space-y-1">
             <h1 className="text-2xl font-bold">Ajouter à MindDump</h1>
             {!nothing && (
-              <p className="text-sm text-muted-foreground break-words">{todoTitle(shared)}</p>
+              <p className="text-sm text-muted-foreground wrap-break-word">{todoTitle(shared)}</p>
             )}
           </div>
 

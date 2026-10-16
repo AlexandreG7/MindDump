@@ -146,18 +146,18 @@ export function Hero() {
             </span>
           </h1>
 
-          <p className="lp2-lead lp2-enter mt-6 max-w-[34rem]" style={{ ["--d" as string]: "450ms" }}>
+          <p className="lp2-lead lp2-enter mt-6 max-w-136" style={{ ["--d" as string]: "450ms" }}>
             MindDump range les repas, les courses, les tâches et le calendrier de toute la famille
             au même endroit. Et ton assistant IA les remplit à ta place, pour que plus personne
             n&apos;ait à tout retenir.
           </p>
 
           <div className="lp2-enter mt-9 flex flex-col gap-3 sm:flex-row sm:items-center" style={{ ["--d" as string]: "560ms" }}>
-            <Link href="/register" className="lp2-btn lp2-btn-or !min-h-[3.4rem] !px-8 !text-[1.02rem]">
+            <Link href="/register" className="lp2-btn lp2-btn-or min-h-[3.4rem]! px-8! text-[1.02rem]!">
               Demander un accès
               <ArrowRight className="arrow h-[1.1rem] w-[1.1rem]" aria-hidden="true" />
             </Link>
-            <Link href="/login" className="lp2-btn lp2-btn-ghost !min-h-[3.4rem]">
+            <Link href="/login" className="lp2-btn lp2-btn-ghost min-h-[3.4rem]!">
               Se connecter
             </Link>
           </div>

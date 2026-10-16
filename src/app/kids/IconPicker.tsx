@@ -55,7 +55,7 @@ export function IconPickerSheet({
       title={title}
       description="Choisis une image parmi les catégories. Elle n'a pas de sens propre : c'est ton libellé qui lui en donne un."
     >
-      <div ref={tabs} role="group" aria-label="Catégories d'images" className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+      <div ref={tabs} role="group" aria-label="Catégories d'images" className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none">
         {CATEGORIES.map((c) => (
           <button
             key={c}
@@ -64,7 +64,7 @@ export function IconPickerSheet({
             onClick={() => setCategory(c)}
             className={cn(
               "h-11 shrink-0 rounded-full px-4 text-sm font-bold transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
               c === category ? "bg-ink text-ink-foreground ring-2 ring-foreground/40" : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
             )}
           >
@@ -85,8 +85,8 @@ export function IconPickerSheet({
                   onOpenChange(false);
                 }}
                 className={cn(
-                  "relative flex min-h-[5.5rem] w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 py-2 text-center text-xs font-bold leading-tight",
-                  "transition-[transform,background-color] duration-150 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "relative flex min-h-22 w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 py-2 text-center text-xs font-bold leading-tight",
+                  "transition-[transform,background-color] duration-150 active:scale-[0.96] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                   on ? "border-tone-list-ink bg-tone-list-soft" : "border-transparent bg-secondary hover:bg-secondary/70"
                 )}
               >
@@ -131,7 +131,7 @@ export function IconPickerButton({
         aria-label={`${label} : ${known ? KID_ICON_LABELS[value] : "aucune"}. Changer`}
         className={cn(
           "flex shrink-0 items-center justify-center rounded-2xl bg-secondary transition-[transform,background-color] duration-150 hover:bg-secondary/70 active:scale-95",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
           className
         )}
         style={{ width: size + 8, height: size + 8 }}

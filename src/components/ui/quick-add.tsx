@@ -48,7 +48,7 @@ export function QuickAdd({
         aria-label={label}
         enterKeyHint="done"
         disabled={disabled}
-        className="h-full min-w-0 flex-1 bg-transparent text-[1.0625rem] font-medium text-ink-foreground outline-none placeholder:text-ink-foreground/60"
+        className="h-full min-w-0 flex-1 bg-transparent text-[1.0625rem] font-medium text-ink-foreground outline-hidden placeholder:text-ink-foreground/60"
       />
       <button
         type="submit"

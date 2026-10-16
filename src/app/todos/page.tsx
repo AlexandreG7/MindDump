@@ -265,7 +265,7 @@ function TodosPageContent() {
       return (
         <div className="space-y-2.5" aria-busy="true" aria-label="Chargement des tâches">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="flex items-center gap-3 rounded-[1.5rem] bg-card p-4 shadow-surface">
+            <div key={i} className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-surface">
               <Skeleton className="h-8 w-8 rounded-full" />
               <Skeleton className="h-4 flex-1 max-w-[60%]" />
             </div>
@@ -313,7 +313,7 @@ function TodosPageContent() {
           <button
             type="button"
             aria-label={`Ouvrir la tâche « ${todo.title} »`}
-            className="min-w-0 flex-1 rounded-sm py-0.5 pl-1.5 text-left focus-visible:outline-none"
+            className="min-w-0 flex-1 rounded-sm py-0.5 pl-1.5 text-left focus-visible:outline-hidden"
           >
             <div className={cn("text-[1.0625rem] font-bold leading-snug text-pretty", todo.completed && "font-semibold text-muted-foreground")}>
               <span className="strike" data-done={todo.completed}>{todo.title}</span>
@@ -341,7 +341,7 @@ function TodosPageContent() {
                     {RECURRENCE_LABELS[todo.recurrence]}
                   </span>
                 )}
-                <AssigneeAvatars ids={todo.assigneeIds} byId={profiles.byId} className="[&>*]:h-6 [&>*]:w-6 [&>*]:text-xs" />
+                <AssigneeAvatars ids={todo.assigneeIds} byId={profiles.byId} className="*:h-6 *:w-6 *:text-xs" />
               </div>
             )}
           </button>

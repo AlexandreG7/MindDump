@@ -91,7 +91,7 @@ export function SwipeRow({
 
   const t = TONE_CLASSES[tone];
   return (
-    <div className={cn("relative overflow-hidden rounded-[1.5rem]", className)} {...rest}>
+    <div className={cn("relative overflow-hidden rounded-3xl", className)} {...rest}>
       {enabled && (
         <>
           <div ref={backRight} aria-hidden className={cn("absolute inset-y-0 left-0 flex w-1/2 items-center pl-6 opacity-0", t.block)}>

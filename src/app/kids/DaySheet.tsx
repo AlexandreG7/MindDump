@@ -35,7 +35,7 @@ export function DaySheet({
   const day = date ? parseISO(date) : null;
   const prev = day ? iso(addDays(day, -1)) : null;
   const next = day ? iso(addDays(day, 1)) : null;
-  const nav = "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30";
+  const nav = "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30";
   return (
     <KidsSheet
       open={!!date}

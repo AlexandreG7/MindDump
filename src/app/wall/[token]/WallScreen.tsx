@@ -254,7 +254,7 @@ export function WallScreen({ token }: { token: string }) {
 
   if (revoked) {
     return (
-      <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-8 text-center">
+      <div className="fixed inset-0 z-100 bg-background flex items-center justify-center p-8 text-center">
         <div className="space-y-2 max-w-md">
           <p className="text-2xl font-semibold">Écran déconnecté</p>
           <p className="text-muted-foreground">
@@ -268,7 +268,7 @@ export function WallScreen({ token }: { token: string }) {
   if (night) {
     return (
       <button
-        className="fixed inset-0 z-[100] bg-black text-neutral-500 flex flex-col items-center justify-center w-full cursor-default"
+        className="fixed inset-0 z-100 bg-black text-neutral-500 flex flex-col items-center justify-center w-full cursor-default"
         onClick={() => setWokeAt(Date.now())}
         aria-label="Rallumer l'écran"
       >
@@ -287,7 +287,7 @@ export function WallScreen({ token }: { token: string }) {
     : (snapshot?.meals ?? []);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background text-foreground overflow-y-auto">
+    <div className="fixed inset-0 z-100 bg-background text-foreground overflow-y-auto">
       <div className="min-h-full flex flex-col gap-4 p-4 md:p-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
         {/* En-tête : heure, date, météo, foyer */}
         <header className="flex flex-wrap items-end justify-between gap-4">
@@ -338,7 +338,7 @@ export function WallScreen({ token }: { token: string }) {
                   <div
                     key={day.toISOString()}
                     className={cn(
-                      "rounded-2xl border p-3 flex flex-col gap-2 min-h-[10rem]",
+                      "rounded-2xl border p-3 flex flex-col gap-2 min-h-40",
                       today ? "border-primary bg-primary/5" : "border-border bg-card"
                     )}
                   >

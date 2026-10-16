@@ -84,7 +84,7 @@ export function EventList({
               <button
                 type="button"
                 onClick={() => onOpen(event)}
-                className="flex min-h-11 w-full items-center gap-2.5 rounded-2xl border border-dashed border-border px-3 text-left text-sm transition-[transform,background-color] duration-150 hover:bg-secondary/60 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-11 w-full items-center gap-2.5 rounded-2xl border border-dashed border-border px-3 text-left text-sm transition-[transform,background-color] duration-150 hover:bg-secondary/60 active:scale-[0.99] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span
                   aria-hidden
@@ -107,10 +107,10 @@ export function EventList({
               <button
                 type="button"
                 onClick={() => onOpen(event)}
-                className="flex min-h-14 min-w-0 flex-1 items-stretch gap-3 rounded-lg py-2.5 pl-4 pr-3 text-left transition-transform duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-14 min-w-0 flex-1 items-stretch gap-3 rounded-lg py-2.5 pl-4 pr-3 text-left transition-transform duration-150 active:scale-[0.99] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block break-words text-base font-medium leading-snug">{event.title}</span>
+                  <span className="block wrap-break-word text-base font-medium leading-snug">{event.title}</span>
                   {(time || span || event.subscriptionName || (event.assigneeIds?.length ?? 0) > 0) && (
                     <span className="ev-time block text-sm">
                       {[
@@ -154,7 +154,7 @@ export function EventList({
                           title="Pour qui ?"
                           aria-label="Choisir les personnes"
                           className={cn(
-                            "rounded-md p-1.5 text-[color:var(--c-time)] transition-all hover:bg-foreground/10",
+                            "rounded-md p-1.5 text-(--c-time) transition-all hover:bg-foreground/10",
                             peopleMenuFor === event.id ? "opacity-100" : "opacity-0 focus:opacity-100 group-hover/card:opacity-100"
                           )}
                         >
@@ -182,7 +182,7 @@ export function EventList({
                       title="Couleur"
                       aria-label="Choisir la couleur"
                       className={cn(
-                        "rounded-md p-1.5 text-[color:var(--c-time)] transition-all hover:bg-foreground/10",
+                        "rounded-md p-1.5 text-(--c-time) transition-all hover:bg-foreground/10",
                         colorMenuFor === event.id ? "opacity-100" : "opacity-0 focus:opacity-100 group-hover/card:opacity-100"
                       )}
                     >
@@ -235,7 +235,7 @@ export function EventList({
                     onClick={() => onDelete(event)}
                     title="Supprimer"
                     aria-label="Supprimer l'événement"
-                    className="rounded-md p-1.5 text-[color:var(--c-time)] opacity-0 transition-all hover:bg-foreground/10 hover:text-destructive focus:opacity-100 group-hover/card:opacity-100"
+                    className="rounded-md p-1.5 text-(--c-time) opacity-0 transition-all hover:bg-foreground/10 hover:text-destructive focus:opacity-100 group-hover/card:opacity-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

@@ -109,11 +109,11 @@ export function RecipeView({
     <button
       type="button"
       onClick={() => setCooking(true)}
-      className="group/cook flex h-14 w-full items-center justify-center gap-3 rounded-full bg-tone-meal px-8 text-xl font-extrabold text-on-tone shadow-surface transition-[transform,filter] duration-150 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:w-auto"
+      className="group/cook flex h-14 w-full items-center justify-center gap-3 rounded-full bg-tone-meal px-8 text-xl font-extrabold text-on-tone shadow-surface transition-[transform,filter] duration-150 hover:brightness-95 active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:w-auto"
     >
       <ChefHat className="h-6 w-6" strokeWidth={2.5} />
       Cuisiner
-      <span className="rounded-full bg-on-tone/[0.12] px-2.5 py-0.5 text-sm font-bold tabular-nums">
+      <span className="rounded-full bg-on-tone/12 px-2.5 py-0.5 text-sm font-bold tabular-nums">
         {steps.length} étape{steps.length > 1 ? "s" : ""}
       </span>
     </button>
@@ -122,9 +122,9 @@ export function RecipeView({
   return (
     <article className="mx-auto w-full max-w-5xl space-y-5 md:space-y-6">
       {/* Photo (ou aplat safran sans photo) */}
-      <div className="group/hero relative isolate overflow-hidden rounded-[1.75rem] md:rounded-[2rem]">
+      <div className="group/hero relative isolate overflow-hidden rounded-[1.75rem] md:rounded-4xl">
         {recipe.image ? (
-          <div className="aspect-[4/3] w-full bg-tone-meal-soft sm:aspect-[16/9] md:aspect-[21/9]">
+          <div className="aspect-4/3 w-full bg-tone-meal-soft sm:aspect-video md:aspect-21/9">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={thumbnailUrl(recipe.image, 1400)}
@@ -133,7 +133,7 @@ export function RecipeView({
               decoding="async"
               className="h-full w-full object-cover"
             />
-            <div aria-hidden className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/35 to-transparent" />
+            <div aria-hidden className="absolute inset-x-0 top-0 h-28 bg-linear-to-b from-black/35 to-transparent" />
           </div>
         ) : (
           <div className="relative flex h-44 w-full items-center justify-center bg-tone-meal text-on-tone md:h-56">
@@ -155,7 +155,7 @@ export function RecipeView({
             type="button"
             aria-label="Retour"
             onClick={onBack}
-            className="absolute left-3 top-3 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-card/90 text-foreground shadow-surface backdrop-blur-sm transition-[transform,background-color] duration-150 hover:bg-card active:scale-90 md:left-4 md:top-4"
+            className="absolute left-3 top-3 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-card/90 text-foreground shadow-surface backdrop-blur-xs transition-[transform,background-color] duration-150 hover:bg-card active:scale-90 md:left-4 md:top-4"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -166,7 +166,7 @@ export function RecipeView({
       {/* Titre, repères, Cuisiner */}
       <header className="space-y-3 px-1">
         <h1 className="font-display text-balance text-[2.25rem] leading-[1.02] md:text-[3.25rem]">{recipe.title}</h1>
-        {recipe.description && <p className="max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">{recipe.description}</p>}
+        {recipe.description && <p className="max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg md:leading-7">{recipe.description}</p>}
         <ul className="flex flex-wrap gap-2 pt-1">
           {total > 0 && (
             <li className="inline-flex h-9 items-center gap-1.5 rounded-full bg-tone-meal-soft px-3.5 text-sm font-bold tabular-nums text-tone-meal-ink">
@@ -197,7 +197,7 @@ export function RecipeView({
 
       <div className="grid gap-5 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] md:items-start md:gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         {/* Ingrédients */}
-        <section aria-labelledby="ingredients-title" className="rounded-[1.5rem] bg-card p-4 shadow-surface sm:p-5 md:sticky md:top-6">
+        <section aria-labelledby="ingredients-title" className="rounded-3xl bg-card p-4 shadow-surface sm:p-5 md:sticky md:top-6">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="ingredients-title" className="font-display text-[1.75rem] leading-none">
               Ingrédients
@@ -292,7 +292,7 @@ export function RecipeView({
                     <p className="max-w-[65ch] text-pretty text-[1.0625rem] leading-relaxed text-foreground">{step.text}</p>
                     {step.image && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={step.image} alt={`Étape ${i + 1}`} loading="lazy" decoding="async" className="aspect-[16/10] w-full max-w-md rounded-2xl object-cover" />
+                      <img src={step.image} alt={`Étape ${i + 1}`} loading="lazy" decoding="async" className="aspect-16/10 w-full max-w-md rounded-2xl object-cover" />
                     )}
                   </div>
                 </li>

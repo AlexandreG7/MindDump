@@ -112,7 +112,7 @@ export function PeopleFilter({
 }) {
   if (profiles.length < 2) return null;
   return (
-    <div className="flex flex-nowrap sm:flex-wrap items-center gap-1.5 touch:gap-3 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]" role="group" aria-label="Filtrer par personne">
+    <div className="flex flex-nowrap sm:flex-wrap items-center gap-1.5 touch:gap-3 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none" role="group" aria-label="Filtrer par personne">
       <button
         type="button"
         onClick={() => onChange([])}

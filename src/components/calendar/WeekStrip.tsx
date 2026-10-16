@@ -70,7 +70,7 @@ export function WeekStrip({
               type="button"
               onClick={() => onSelectDay(day)}
               aria-label={label}
-              className="flex min-h-[4.5rem] flex-col items-center gap-1 rounded-2xl py-1.5 transition-[transform,background-color] duration-150 hover:bg-secondary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-18 flex-col items-center gap-1 rounded-2xl py-1.5 transition-[transform,background-color] duration-150 hover:bg-secondary active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className={cn("text-[0.6875rem] font-extrabold uppercase leading-none tracking-wide", today ? "text-tone-agenda-ink" : "text-muted-foreground")}>
                 {format(day, "EEEEE", { locale: fr })}
@@ -113,7 +113,7 @@ export function WeekStrip({
               )}
               style={{ ...evVars(b.event), gridColumn: `${b.startCol + 1} / span ${b.span}`, gridRow: b.lane + 1 }}
             >
-              <span className="line-clamp-2 break-words">{b.event.title}</span>
+              <span className="line-clamp-2 wrap-break-word">{b.event.title}</span>
             </span>
           ))}
         </div>

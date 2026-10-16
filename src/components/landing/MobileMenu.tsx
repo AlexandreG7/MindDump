@@ -160,11 +160,11 @@ export function MobileMenu({ items, guides }: { items: Item[]; guides: GuideLink
       </nav>
 
       <div className="lp2-menu-cta" style={{ "--i": items.length } as React.CSSProperties}>
-        <Link href="/register" className="lp2-btn lp2-btn-or !min-h-[3.4rem] w-full" onClick={() => close(false)}>
+        <Link href="/register" className="lp2-btn lp2-btn-or min-h-[3.4rem]! w-full" onClick={() => close(false)}>
           Demander un accès
           <ArrowRight className="arrow h-5 w-5" aria-hidden="true" />
         </Link>
-        <Link href="/login" className="lp2-btn lp2-btn-ghost !min-h-[3.4rem] w-full" onClick={() => close(false)}>
+        <Link href="/login" className="lp2-btn lp2-btn-ghost min-h-[3.4rem]! w-full" onClick={() => close(false)}>
           Se connecter
         </Link>
       </div>

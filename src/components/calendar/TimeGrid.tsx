@@ -65,8 +65,8 @@ export function TimeGrid({
   const minWidth = single ? undefined : `calc(${GUTTER} + (100% - ${GUTTER}) * ${days.length} / 3)`;
 
   return (
-    <div ref={scrollRef} className="max-h-[70vh] overflow-auto overscroll-x-contain rounded-3xl border border-border/60 bg-card [container-type:inline-size]">
-      <div className={single ? undefined : "sm:!min-w-0"} style={{ minWidth }}>
+    <div ref={scrollRef} className="max-h-[70vh] overflow-auto overscroll-x-contain rounded-3xl border border-border/60 bg-card @container">
+      <div className={single ? undefined : "sm:min-w-0!"} style={{ minWidth }}>
         {/* En-têtes et journées entières */}
         <div className="sticky top-0 z-30 border-b border-border/60 bg-card">
           <div className="grid" style={cols}>
@@ -116,7 +116,7 @@ export function TimeGrid({
                   style={{ ...evVars(b.event), gridColumn: `${b.startCol + 2} / span ${b.span}`, gridRow: b.lane + 1 }}
                 >
                   <span
-                    className="sticky line-clamp-2 min-w-0 max-w-full break-words"
+                    className="sticky line-clamp-2 min-w-0 max-w-full wrap-break-word"
                     style={{ left: `calc(${GUTTER} + 0.5rem)`, maxWidth: `min(100%, calc(100cqw - ${GUTTER} - 1.25rem))` }}
                   >
                     {b.event.title}
@@ -173,7 +173,7 @@ export function TimeGrid({
                         }}
                       >
                         <span
-                          className="block break-words"
+                          className="block wrap-break-word"
                           style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: lines, overflow: "hidden" }}
                         >
                           {event.title}

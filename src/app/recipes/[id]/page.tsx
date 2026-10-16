@@ -138,11 +138,11 @@ export default function RecipeDetailPage() {
   };
 
   const pill =
-    "inline-flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold transition-[background-color,transform] duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+    "inline-flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold transition-[background-color,transform] duration-150 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring";
   const pillOff = "bg-secondary text-secondary-foreground hover:bg-accent";
   const pillOn = "bg-tone-meal-soft text-tone-meal-ink hover:brightness-95";
   const round =
-    "flex h-12 w-12 items-center justify-center rounded-full bg-card/90 text-foreground shadow-surface backdrop-blur-sm transition-[transform,background-color] duration-150 hover:bg-card active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+    "flex h-12 w-12 items-center justify-center rounded-full bg-card/90 text-foreground shadow-surface backdrop-blur-xs transition-[transform,background-color] duration-150 hover:bg-card active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
     <>
@@ -161,7 +161,7 @@ export default function RecipeDetailPage() {
                 uploadingImage ? "animate-pulse opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover/hero:opacity-100 touch:opacity-100"
               )}
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-xs">
                 <Camera className="h-3.5 w-3.5" />
               </span>
             </button>

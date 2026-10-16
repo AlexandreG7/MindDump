@@ -38,15 +38,15 @@ function OptionButton({
       className={cn(
         "relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 px-1.5 text-center font-bold leading-tight",
         "transition-[transform,background-color,border-color] duration-150 ease-out active:scale-[0.96]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-        kid ? "min-h-[7.5rem] py-3 text-base" : "min-h-[5.5rem] py-2 text-sm",
+        "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+        kid ? "min-h-30 py-3 text-base" : "min-h-22 py-2 text-sm",
         selected
           ? "border-tone-list-ink bg-tone-list-soft text-foreground"
           : "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/70"
       )}
     >
       <TrackerIcon id={option.icon} size={kid ? 56 : 44} />
-      <span className="max-w-full break-words [overflow-wrap:anywhere]">{option.label}</span>
+      <span className="max-w-full wrap-break-word wrap-anywhere">{option.label}</span>
       {selected && (
         <span
           aria-hidden
@@ -121,9 +121,9 @@ export function DayForm({ trackers, values, onChange, kid = false, focusTrackerI
             aria-labelledby={headingId}
             className="scroll-mt-2"
           >
-            <div className="mb-2 flex min-h-[2.75rem] items-center gap-2.5">
+            <div className="mb-2 flex min-h-11 items-center gap-2.5">
               <TrackerIcon id={t.icon} size={kid ? 36 : 28} />
-              <h3 id={headingId} className={cn("min-w-0 flex-1 font-extrabold [overflow-wrap:anywhere]", kid ? "text-2xl" : "text-lg")}>
+              <h3 id={headingId} className={cn("min-w-0 flex-1 font-extrabold wrap-anywhere", kid ? "text-2xl" : "text-lg")}>
                 {t.label}
               </h3>
               {!kid && filled && (
@@ -148,7 +148,7 @@ export function DayForm({ trackers, values, onChange, kid = false, focusTrackerI
                   aria-label={`Un de moins pour ${t.label}`}
                   className={cn(
                     "flex items-center justify-center rounded-full bg-card shadow-surface transition-transform active:scale-90 disabled:opacity-40",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                     kid ? "h-16 w-16" : "h-12 w-12"
                   )}
                 >
@@ -168,7 +168,7 @@ export function DayForm({ trackers, values, onChange, kid = false, focusTrackerI
                   aria-label={`Un de plus pour ${t.label}`}
                   className={cn(
                     "flex items-center justify-center rounded-full bg-tone-list text-on-tone shadow-surface transition-transform active:scale-90 disabled:opacity-40",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                     kid ? "h-16 w-16" : "h-12 w-12"
                   )}
                 >

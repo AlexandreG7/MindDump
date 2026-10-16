@@ -121,7 +121,7 @@ export function GuidePage({ guide }: { guide: Guide }) {
           </dl>
         </section>
 
-        <section className="mt-16 rounded-3xl bg-gradient-to-br from-orange-500 to-amber-500 px-6 py-12 sm:px-10 sm:py-14 text-center">
+        <section className="mt-16 rounded-3xl bg-linear-to-br from-orange-500 to-amber-500 px-6 py-12 sm:px-10 sm:py-14 text-center">
           <h2 className="text-primary-foreground font-bold tracking-tight text-[clamp(1.6rem,3.6vw,2.3rem)] leading-tight">
             Arrête d&apos;être le seul cerveau du foyer.
           </h2>

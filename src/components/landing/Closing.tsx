@@ -8,7 +8,7 @@ export function Closing() {
     <section className="py-16 md:py-28" aria-labelledby="lp2-cta-h">
       <div className="lp2-shell">
         <div className="lp2-cta" data-reveal>
-          <p className="lp2-eyebrow justify-center !text-[hsl(var(--ink))]">Prêt ?</p>
+          <p className="lp2-eyebrow justify-center text-[hsl(var(--ink))]!">Prêt ?</p>
           <h2 id="lp2-cta-h" className="mx-auto mt-5 max-w-[14ch]">
             Arrête d&apos;être le seul cerveau du foyer.
           </h2>
@@ -16,11 +16,11 @@ export function Closing() {
             Demande ton accès à la bêta, invite ta famille, et vide ta charge mentale une bonne fois.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/register" className="lp2-btn lp2-btn-ink !min-h-[3.6rem] !px-9 !text-[1.05rem]">
+            <Link href="/register" className="lp2-btn lp2-btn-ink min-h-[3.6rem]! px-9! text-[1.05rem]!">
               Demander un accès
               <ArrowRight className="arrow h-5 w-5" aria-hidden="true" />
             </Link>
-            <Link href="/login" className="lp2-btn lp2-btn-ghost !min-h-[3.6rem] !border-[hsl(var(--ink)/0.4)]">
+            <Link href="/login" className="lp2-btn lp2-btn-ghost min-h-[3.6rem]! border-[hsl(var(--ink)/0.4)]!">
               Se connecter
             </Link>
           </div>

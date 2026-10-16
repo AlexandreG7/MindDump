@@ -80,7 +80,7 @@ export function ModuleHero({
 }) {
   const t = TONE_CLASSES[tone];
   return (
-    <header className={cn("relative isolate overflow-hidden rounded-[1.75rem] px-5 pb-4 pt-3.5 md:rounded-[2rem] md:px-8 md:pb-5 md:pt-5", t.block, className)}>
+    <header className={cn("relative isolate overflow-hidden rounded-[1.75rem] px-5 pb-4 pt-3.5 md:rounded-4xl md:px-8 md:pb-5 md:pt-5", t.block, className)}>
       <Shapes tone={tone} />
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
@@ -92,11 +92,11 @@ export function ModuleHero({
       <div className="relative mt-1 flex flex-wrap items-center gap-x-3 gap-y-2.5 md:mt-2">
         <div className="flex items-center gap-2">
           {count === null ? (
-            <span className="font-display h-[3.25rem] w-14 rounded-2xl bg-on-tone/10 md:h-[4.5rem]" aria-hidden="true" />
+            <span className="font-display h-13 w-14 rounded-2xl bg-on-tone/10 md:h-18" aria-hidden="true" />
           ) : (
             <AnimatedNumber value={count} className="font-display text-[3.25rem] leading-none md:text-[4.5rem]" />
           )}
-          <p className="text-base font-bold leading-tight md:text-xl">{countLabel}</p>
+          <p className="text-base font-bold leading-tight md:text-xl md:leading-7">{countLabel}</p>
         </div>
         {children && <div className="flex flex-wrap items-center gap-2 md:ml-auto">{children}</div>}
       </div>
@@ -107,7 +107,7 @@ export function ModuleHero({
 /** Pastille de contexte posée sur un aplat (encre sur voile clair). */
 export function HeroChip({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex h-8 items-center gap-1.5 rounded-full bg-on-tone/[0.12] px-3 text-sm font-bold tabular-nums", className)}>
+    <span className={cn("inline-flex h-8 items-center gap-1.5 rounded-full bg-on-tone/12 px-3 text-sm font-bold tabular-nums", className)}>
       {children}
     </span>
   );
@@ -120,8 +120,8 @@ export const HeroIconButton = React.forwardRef<HTMLButtonElement, React.ButtonHT
       ref={ref}
       type="button"
       className={cn(
-        "flex h-12 w-12 items-center justify-center rounded-full bg-on-tone/[0.12] text-on-tone transition-[transform,background-color] duration-150",
-        "hover:bg-on-tone/20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-tone",
+        "flex h-12 w-12 items-center justify-center rounded-full bg-on-tone/12 text-on-tone transition-[transform,background-color] duration-150",
+        "hover:bg-on-tone/20 active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-on-tone",
         className
       )}
       {...props}

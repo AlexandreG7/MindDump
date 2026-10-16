@@ -69,7 +69,7 @@ export function EventSheet({
     <Dialog open={!!current} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 outline-none",
+          "flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 outline-hidden",
           "[&>button:last-child]:right-2 [&>button:last-child]:top-3 [&>button:last-child]:p-3.5",
           "max-sm:bottom-0 max-sm:top-auto max-sm:translate-y-0 max-sm:rounded-t-[1.75rem] max-sm:border-x-0 max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom"
         )}
@@ -82,7 +82,7 @@ export function EventSheet({
               style={color ? { backgroundColor: color } : undefined}
             />
             <DialogHeader className="px-6 pb-3 pr-14 pt-5 text-left">
-              <DialogTitle className="font-display break-words text-[1.75rem] leading-[1.1] tracking-normal">
+              <DialogTitle className="font-display wrap-break-word text-[1.75rem] leading-[1.1] tracking-normal">
                 {event.title}
               </DialogTitle>
               <DialogDescription className="text-base first-letter:uppercase">{formatEventRange(event)}</DialogDescription>

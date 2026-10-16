@@ -50,7 +50,7 @@ function Counter({ value }: { value: string }) {
 }
 
 const iconBtn =
-  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-70 transition-[opacity,background-color] hover:bg-secondary hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-25 disabled:hover:bg-transparent touch:opacity-100 touch:disabled:opacity-25";
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-70 transition-[opacity,background-color] hover:bg-secondary hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-25 disabled:hover:bg-transparent touch:opacity-100 touch:disabled:opacity-25";
 
 /**
  * Création et modification d'une rubrique : nom, image, type (à la création seulement,
@@ -309,8 +309,8 @@ export function TrackerForm({
                   onClick={() => setKind(k)}
                   onKeyDown={(e) => onRadioKey(e, i)}
                   className={cn(
-                    "flex min-h-[3.5rem] items-center gap-3 rounded-2xl border-2 px-3.5 py-2.5 text-left transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex min-h-14 items-center gap-3 rounded-2xl border-2 px-3.5 py-2.5 text-left transition-colors",
+                    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                     on ? "border-tone-list-ink bg-tone-list-soft" : "border-transparent bg-secondary hover:bg-secondary/70"
                   )}
                 >

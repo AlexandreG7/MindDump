@@ -397,10 +397,10 @@ export function Dashboard() {
   if (status === "loading" || flagsLoading) {
     return (
       <div className="space-y-6" aria-busy="true" aria-label="Chargement de l'accueil">
-        <Skeleton className="h-[21rem] rounded-[2rem]" />
+        <Skeleton className="h-84 rounded-4xl" />
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <Skeleton className="h-72 rounded-[2rem]" />
-          <Skeleton className="h-72 rounded-[2rem]" />
+          <Skeleton className="h-72 rounded-4xl" />
+          <Skeleton className="h-72 rounded-4xl" />
         </div>
       </div>
     );
@@ -439,7 +439,7 @@ export function Dashboard() {
     switch (id) {
       case "today":
         return (
-          <section aria-labelledby="today-title" className="overflow-hidden rounded-[2rem] bg-card shadow-surface">
+          <section aria-labelledby="today-title" className="overflow-hidden rounded-4xl bg-card shadow-surface">
             <div className="flex items-end justify-between gap-3 px-5 pb-2 pt-5">
               <h2 id="today-title" className="font-display text-[2rem] md:text-[2.5rem]">
                 Ta journée
@@ -501,7 +501,7 @@ export function Dashboard() {
                     <li key={l.id}>
                       <Link
                         href="/lists"
-                        className="flex min-h-12 items-center justify-between gap-3 rounded-full bg-on-tone/[0.12] px-4 text-base font-bold transition-[transform,background-color] hover:bg-on-tone/20 active:scale-[0.98]"
+                        className="flex min-h-12 items-center justify-between gap-3 rounded-full bg-on-tone/12 px-4 text-base font-bold transition-[transform,background-color] hover:bg-on-tone/20 active:scale-[0.98]"
                       >
                         <span className="truncate">{l.name}</span>
                         <span className="shrink-0 rounded-full bg-on-tone px-2.5 py-0.5 text-sm font-extrabold tabular-nums text-tone-list">
@@ -593,8 +593,8 @@ export function Dashboard() {
       </DayScene>
 
       {editing && (
-        <div className="sticky top-[calc(4.5rem+env(safe-area-inset-top))] md:top-4 z-30 flex flex-wrap items-center gap-3 rounded-[1.5rem] bg-card/95 backdrop-blur px-4 py-3 shadow-surface">
-          <div className="flex-1 min-w-[12rem]">
+        <div className="sticky top-[calc(4.5rem+env(safe-area-inset-top))] md:top-4 z-30 flex flex-wrap items-center gap-3 rounded-3xl bg-card/95 backdrop-blur-sm px-4 py-3 shadow-surface">
+          <div className="flex-1 min-w-48">
             <p className="text-base font-extrabold">Personnalise ton accueil</p>
             <p className="text-sm text-muted-foreground">
               <span className="hidden md:inline">Glisse un module ou utilise les flèches, choisis sa largeur, ou masque-le.</span>
@@ -613,7 +613,7 @@ export function Dashboard() {
       )}
 
       {shownCount === 0 && !editing ? (
-        <div className="rounded-[2rem] border-2 border-dashed border-border px-6 py-12 text-center">
+        <div className="rounded-4xl border-2 border-dashed border-border px-6 py-12 text-center">
           <p className="font-display text-2xl">Ton accueil est vide.</p>
           <p className="mt-1 text-base text-muted-foreground">Tous les modules sont masqués.</p>
           <Button className="mt-4 h-12 rounded-full px-6" onClick={() => setEditing(true)}>
@@ -653,7 +653,7 @@ function DayRow({
   const timed = /^\d{2}:\d{2}$/.test(entry.label);
 
   return (
-    <li data-flip={flipKey} className="flex min-h-[4rem] items-center gap-1 rounded-[1.25rem] py-2 pl-1 pr-3 transition-colors hover:bg-accent/50">
+    <li data-flip={flipKey} className="flex min-h-16 items-center gap-1 rounded-[1.25rem] py-2 pl-1 pr-3 transition-colors hover:bg-accent/50">
       {isTodo ? (
         <CheckCircle tone="todo" checked={false} onCheckedChange={() => onComplete(entry.todo)} aria-label={`Cocher « ${title} »`} />
       ) : (
@@ -681,7 +681,7 @@ function DayRow({
         </p>
       </div>
 
-      <AssigneeAvatars ids={assignees} byId={byId} className="[&>*]:h-8 [&>*]:w-8 [&>*]:text-sm" />
+      <AssigneeAvatars ids={assignees} byId={byId} className="*:h-8 *:w-8 *:text-sm" />
     </li>
   );
 }
@@ -703,14 +703,14 @@ function BlockCard({
   children: React.ReactNode;
 }) {
   return (
-    <section aria-label={title} className={cn("relative overflow-hidden rounded-[2rem] p-5", TONE_CLASSES[tone].block)}>
-      <Icon aria-hidden="true" className="pointer-events-none absolute -bottom-6 -right-5 h-36 w-36 rotate-[-12deg] opacity-[0.1]" strokeWidth={1.5} />
+    <section aria-label={title} className={cn("relative overflow-hidden rounded-4xl p-5", TONE_CLASSES[tone].block)}>
+      <Icon aria-hidden="true" className="pointer-events-none absolute -bottom-6 -right-5 h-36 w-36 -rotate-12 opacity-[0.1]" strokeWidth={1.5} />
       <div className="relative mb-3 flex items-center justify-between gap-3">
         <h2 className="font-display text-[1.75rem]">{title}</h2>
         <Link
           href={href}
           aria-label={linkLabel}
-          className="-mr-1 flex h-12 w-12 items-center justify-center rounded-full bg-on-tone/[0.12] transition-[transform,background-color] hover:bg-on-tone/20 active:scale-90"
+          className="-mr-1 flex h-12 w-12 items-center justify-center rounded-full bg-on-tone/12 transition-[transform,background-color] hover:bg-on-tone/20 active:scale-90"
         >
           <ArrowRight className="h-5 w-5" strokeWidth={2.5} />
         </Link>
@@ -731,7 +731,7 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
 
   if (!weather) {
     return (
-      <section aria-label="Météo" className="space-y-3 rounded-[2rem] bg-card px-5 py-5 shadow-surface">
+      <section aria-label="Météo" className="space-y-3 rounded-4xl bg-card px-5 py-5 shadow-surface">
         {header}
         <div className="flex items-center gap-4">
           <Skeleton className="h-11 w-11 rounded-full" />
@@ -748,7 +748,7 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
   const NowIcon = now.icon;
 
   return (
-    <section aria-label={`Météo${weather.city ? ` à ${weather.city}` : ""}`} className="space-y-4 rounded-[2rem] bg-card px-5 py-5 shadow-surface">
+    <section aria-label={`Météo${weather.city ? ` à ${weather.city}` : ""}`} className="space-y-4 rounded-4xl bg-card px-5 py-5 shadow-surface">
       {header}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="flex items-center gap-4">
@@ -771,7 +771,7 @@ function WeatherCard({ weather }: { weather: WeatherData | null }) {
           </div>
         </div>
 
-        <ul className="ml-auto grid min-w-[12rem] max-w-xs flex-1 grid-cols-3 gap-2" aria-label="Prévisions des 3 prochains jours">
+        <ul className="ml-auto grid min-w-48 max-w-xs flex-1 grid-cols-3 gap-2" aria-label="Prévisions des 3 prochains jours">
           {weather.daily.time.slice(1, 4).map((day, i) => {
             const idx = i + 1;
             const info = getWeatherInfo(weather.daily.weather_code[idx]);
@@ -828,7 +828,7 @@ function MealsCard({ meals }: { meals: Meal[] }) {
                   <Link
                     key={m.id}
                     href={`/recipes/${m.recipe.id}`}
-                    className="-mx-2 flex min-h-14 items-center gap-2 rounded-2xl px-2 font-display text-[1.625rem] leading-tight tracking-[-0.03em] transition-[transform,background-color] hover:bg-on-tone/[0.08] active:scale-[0.98]"
+                    className="-mx-2 flex min-h-14 items-center gap-2 rounded-2xl px-2 font-display text-[1.625rem] leading-tight tracking-[-0.03em] transition-[transform,background-color] hover:bg-on-tone/8 active:scale-[0.98]"
                   >
                     <span className="min-w-0 flex-1 text-balance">{m.recipe.title}</span>
                     <ChefHat className="h-5 w-5 shrink-0" aria-hidden="true" />

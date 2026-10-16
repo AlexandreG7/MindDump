@@ -94,7 +94,7 @@ function ExitLock({ onExit }: { onExit: () => void }) {
       title="Maintenir appuyé pour quitter le mode enfant"
       className={cn(
         "relative flex h-14 w-14 select-none items-center justify-center rounded-full bg-secondary text-muted-foreground [-webkit-touch-callout:none]",
-        "transition-[opacity,background-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "transition-[opacity,background-color,color] duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
         holding ? "bg-ink text-ink-foreground opacity-100" : "opacity-60 hover:opacity-100"
       )}
     >
@@ -201,16 +201,16 @@ export function KidMode({
     <div
       role="region"
       aria-label="Mode enfant"
-      className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-background px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] md:px-8"
+      className="fixed inset-0 z-9999 overflow-y-auto overscroll-contain bg-background px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] md:px-8"
     >
       <div {...inertWhen(!!editing)} className="fixed right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-10">
         <ExitLock onExit={onExit} />
       </div>
 
       <div {...inertWhen(!!editing)} className="mx-auto max-w-5xl">
-        <header className="mb-5 pr-[4.5rem] text-center md:pr-0">
+        <header className="mb-5 pr-18 text-center md:pr-0">
           <p className="text-base font-bold text-muted-foreground">Semainier</p>
-          <h1 ref={pageTitle} tabIndex={-1} className="font-display text-4xl outline-none md:text-5xl">{childName}</h1>
+          <h1 ref={pageTitle} tabIndex={-1} className="font-display text-4xl outline-hidden md:text-5xl">{childName}</h1>
           <p className="mt-1 text-base text-muted-foreground">{rangeLabel}</p>
         </header>
 
@@ -220,7 +220,7 @@ export function KidMode({
             <button
               type="button"
               onClick={onRetry}
-              className="mt-4 h-14 rounded-full bg-ink px-8 text-lg font-extrabold text-ink-foreground transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring"
+              className="mt-4 h-14 rounded-full bg-ink px-8 text-lg font-extrabold text-ink-foreground transition-transform active:scale-[0.97] focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-ring"
             >
               Réessayer
             </button>
@@ -244,8 +244,8 @@ export function KidMode({
                     }}
                     aria-label={`${format(d.day, "EEEE d MMMM", { locale: fr })}${d.today ? ", aujourd'hui" : ""}${shown.length === 0 ? ", à remplir" : ""}`}
                     className={cn(
-                      "flex min-h-[10.5rem] w-full flex-col overflow-hidden rounded-3xl text-left shadow-surface",
-                      "transition-transform duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring",
+                      "flex min-h-42 w-full flex-col overflow-hidden rounded-3xl text-left shadow-surface",
+                      "transition-transform duration-150 ease-out active:scale-[0.97] focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-ring",
                       d.today && "ring-4 ring-ink ring-offset-2 ring-offset-background"
                     )}
                   >
@@ -266,7 +266,7 @@ export function KidMode({
                           p.icon ? (
                             <TrackerIcon key={p.key} id={p.icon} size={40} />
                           ) : (
-                            <span key={p.key} className="flex h-10 min-w-[2.5rem] items-center justify-center rounded-full bg-card px-2 text-xl font-extrabold tabular-nums">
+                            <span key={p.key} className="flex h-10 min-w-10 items-center justify-center rounded-full bg-card px-2 text-xl font-extrabold tabular-nums">
                               {p.number}
                             </span>
                           )
@@ -288,17 +288,17 @@ export function KidMode({
             role="dialog"
             aria-modal="true"
             aria-labelledby="kid-day-title"
-            className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] bg-card shadow-xl animate-[sheet-in_200ms_ease-out] sm:max-h-[90dvh] sm:rounded-[2rem]"
+            className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-4xl bg-card shadow-xl animate-[sheet-in_200ms_ease-out] sm:max-h-[90dvh] sm:rounded-4xl"
           >
             <div className={cn("flex shrink-0 items-center gap-3 px-5 py-3 text-on-tone", editTone.solid)}>
-              <h2 id="kid-day-title" ref={panelTitle} tabIndex={-1} className="min-w-0 flex-1 truncate font-display text-3xl outline-none first-letter:uppercase">
+              <h2 id="kid-day-title" ref={panelTitle} tabIndex={-1} className="min-w-0 flex-1 truncate font-display text-3xl outline-hidden first-letter:uppercase">
                 {format(days[editIndex].day, "EEEE d MMMM", { locale: fr })}
               </h2>
               <button
                 type="button"
                 onClick={close}
                 aria-label="Fermer"
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-on-tone/15 transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-tone"
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-on-tone/15 transition-transform active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-on-tone"
               >
                 <X className="h-6 w-6" strokeWidth={3} />
               </button>
@@ -317,7 +317,7 @@ export function KidMode({
                 onClick={close}
                 className={cn(
                   "h-14 w-full rounded-full text-xl font-extrabold text-on-tone transition-transform active:scale-[0.98]",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                  "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                   editTone.solid
                 )}
               >
