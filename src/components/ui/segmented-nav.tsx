@@ -47,7 +47,12 @@ export function SegmentedNav<T extends string>({
     refs.current[to]?.focus();
   };
   return (
-    <div role="tablist" aria-label={label} className={cn("flex w-full gap-1 rounded-full bg-secondary p-1.5 sm:inline-flex sm:w-auto", className)}>
+    <div role="tablist" aria-label={label} className={cn(
+        // max-w-full + défilement : si les onglets ne tiennent pas (colonne étroite à côté de la barre
+        // latérale), la barre défile au lieu de faire déborder la page (le contenu se retrouvait rogné).
+        "flex w-full max-w-full gap-1 overflow-x-auto overscroll-x-contain rounded-full bg-secondary p-1.5 [scrollbar-width:none] sm:inline-flex sm:w-auto [&::-webkit-scrollbar]:hidden",
+        className
+      )}>
       {items.map((it, i) => {
         const on = it.value === value;
         return (

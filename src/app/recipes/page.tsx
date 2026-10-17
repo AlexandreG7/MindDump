@@ -782,7 +782,7 @@ export default function RecipesPage() {
 
       {/* Cartes */}
       {sortedRecipes.length > 0 && viewMode === "grid" && (
-        <ul className="grid gap-x-5 gap-y-8 pt-1 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-x-5 gap-y-8 pt-1">
           {sortedRecipes.map((recipe, i) => (
             <li key={recipe.id} className="min-w-0">
               <RecipeCard recipe={recipe} h={handlers} priority={i < 2} />

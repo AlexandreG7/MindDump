@@ -262,7 +262,7 @@ export function RecipeCard({
   const href = `/recipes/${recipe.id}`;
 
   return (
-    <article className="group/card flex min-w-0 flex-col">
+    <article className="group/card flex h-full min-w-0 flex-col">
       <div className="relative">
         <Link
           href={href}
@@ -303,10 +303,14 @@ export function RecipeCard({
         </button>
       </div>
 
-      <div className="min-w-0 px-1 pt-3">
-        <h2 className="font-display text-[1.5rem] leading-[1.04]">
-          <Link href={href} prefetch={false} className="-my-2.5 line-clamp-2 rounded-md py-2.5 outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
-            {recipe.title}
+      <div className="flex min-w-0 flex-1 flex-col px-1 pt-3">
+        {/* La coupure à 2 lignes est sur un <span> sans marge intérieure : un padding sur
+            l'élément coupé laisserait voir un bout de la 3e ligne. Son interligne (1.12) est posé
+            ici car .font-display force 0.95 et rognerait les queues des g, p, y. La zone d'appui de 44 px
+            est portée par le lien (bloc, padding vertical), pas par le texte coupé. */}
+        <h2 className="font-display text-[1.5rem]">
+          <Link href={href} prefetch={false} className="-my-2.5 block rounded-md py-2.5 outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="line-clamp-2 leading-[1.12]">{recipe.title}</span>
           </Link>
         </h2>
         <p className="mt-1.5 text-sm text-muted-foreground">
@@ -314,18 +318,21 @@ export function RecipeCard({
           {recipe.servings} pers. · {recipe.ingredients.length} ingrédient{recipe.ingredients.length > 1 ? "s" : ""}
         </p>
 
-        <div className="-ml-2.5 mt-1 flex items-center">
-          <RecipeActions recipe={recipe} h={h} reveal="group-hover/card:opacity-100" />
+        {/* Pied de carte : poussé en bas (mt-auto) pour que les barres d'actions s'alignent
+            d'une carte à l'autre quelle que soit la longueur du titre. « Cuisiner » a sa propre
+            ligne : la barre d'icônes (5 x 44 px au toucher) ne partage plus la largeur. */}
+        <div className="mt-auto flex flex-col items-start gap-1 pt-2">
           {hasSteps && (
             <Link
               href={`${href}?cook=1`}
               prefetch={false}
-              className="ml-auto mr-1 inline-flex h-11 items-center gap-2 rounded-full bg-tone-meal-soft px-4 text-sm font-extrabold text-tone-meal-ink transition-[filter,transform] duration-150 hover:brightness-95 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-tone-meal-soft px-4 text-sm font-extrabold text-tone-meal-ink transition-[filter,transform] duration-150 hover:brightness-95 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ChefHat className="h-4 w-4" aria-hidden />
               Cuisiner
             </Link>
           )}
+          <RecipeActions recipe={recipe} h={h} reveal="group-hover/card:opacity-100" className="-ml-1 max-w-[calc(100%+0.25rem)]" />
         </div>
       </div>
 
@@ -383,8 +390,8 @@ export function RecipeTile({ recipe, h }: { recipe: CatalogRecipe; h: CardHandle
         <TimePill recipe={recipe} className="absolute bottom-2 left-2 h-7 text-xs" />
       </div>
       <h2 className="mt-2 px-0.5 text-[0.9375rem] font-bold leading-snug tracking-tight">
-        <Link href={href} prefetch={false} className="-my-2.5 line-clamp-2 rounded-md py-2.5 outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
-          {recipe.title}
+        <Link href={href} prefetch={false} className="-my-2.5 block rounded-md py-2.5 outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+          <span className="line-clamp-2">{recipe.title}</span>
         </Link>
       </h2>
       <RecipeActions recipe={recipe} h={h} withPhoto reveal="group-hover/tile:opacity-100" className="-ml-2 flex-wrap" />
