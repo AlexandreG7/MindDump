@@ -51,7 +51,7 @@ export function RecipeView({
   heroOverlay?: ReactNode;
   /** Rangée d'actions sous le titre (planifier, courses…). */
   actions?: ReactNode;
-  /** Ouvre le mode cuisine dès l'affichage (lien « Cuisiner » du catalogue). */
+  /** Ouvre le mode cuisine dès l'affichage (lien profond ?cook=1). */
   autoCook?: boolean;
 }) {
   const [cooking, setCooking] = useState(false);
@@ -99,7 +99,7 @@ export function RecipeView({
   const closeCooking = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     setCooking(false);
-    // Le lien « Cuisiner » du catalogue ajoute ?cook=1 : on le retire pour qu'un rechargement ouvre la fiche.
+    // Le lien profond ?cook=1 : on le retire pour qu'un rechargement ouvre la fiche.
     if (new URLSearchParams(window.location.search).has("cook")) {
       window.history.replaceState(null, "", window.location.pathname);
     }

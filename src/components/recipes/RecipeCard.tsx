@@ -11,7 +11,6 @@ import {
   CalendarCheck,
   CalendarX2,
   Camera,
-  ChefHat,
   Clock,
   Download,
   Heart,
@@ -23,7 +22,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { CatalogRecipe } from "./RecipeEditor";
-import { formatMinutes, parseSteps, recipeSource, SOURCE_LABELS, totalMinutes } from "./meta";
+import { formatMinutes, recipeSource, SOURCE_LABELS, totalMinutes } from "./meta";
 
 /**
  * Lien vers une fiche : un vrai <a href> (clic droit, nouvel onglet, lecteur
@@ -258,7 +257,6 @@ export function RecipeCard({
   priority?: boolean;
 }) {
   const source = recipeSource(recipe.image);
-  const hasSteps = parseSteps(recipe.steps).length > 0;
   const href = `/recipes/${recipe.id}`;
 
   return (
@@ -319,19 +317,9 @@ export function RecipeCard({
         </p>
 
         {/* Pied de carte : poussé en bas (mt-auto) pour que les barres d'actions s'alignent
-            d'une carte à l'autre quelle que soit la longueur du titre. « Cuisiner » a sa propre
-            ligne : la barre d'icônes (5 x 44 px au toucher) ne partage plus la largeur. */}
+            d'une carte à l'autre quelle que soit la longueur du titre. « Cuisiner » n'est que
+            dans la fiche (/recipes/[id]) : la carte reste une vitrine. */}
         <div className="mt-auto flex flex-col items-start gap-1 pt-2">
-          {hasSteps && (
-            <Link
-              href={`${href}?cook=1`}
-              prefetch={false}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-tone-meal-soft px-4 text-sm font-extrabold text-tone-meal-ink transition-[filter,transform] duration-150 hover:brightness-95 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <ChefHat className="h-4 w-4" aria-hidden />
-              Cuisiner
-            </Link>
-          )}
           <RecipeActions recipe={recipe} h={h} reveal="group-hover/card:opacity-100" className="-ml-1 max-w-[calc(100%+0.25rem)]" />
         </div>
       </div>
