@@ -6,6 +6,9 @@
 /* `touch:` cible les écrans sans survol (téléphones, tablettes) : les actions
    révélées au survol y restent visibles. */
 @custom-variant touch (@media (hover: none));
+/* `sb-collapsed:` suit <html data-sidebar="collapsed">, posé avant le premier
+   rendu par sidebarInitScript (lib/sidebar.ts) : la barre se replie sans saut. */
+@custom-variant sb-collapsed (html[data-sidebar="collapsed"] &);
 
 /* `inline` : les utilitaires lisent directement `hsl(var(--x))` au point
    d'usage, donc suivent `.dark` et tout surcharge locale des variables. */

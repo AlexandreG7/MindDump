@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useState, useEffect } from "react";
+import { SIDEBAR_AUTO_COLLAPSE_QUERY, SIDEBAR_STORAGE_KEY } from "@/lib/sidebar";
 import { useIsoLayoutEffect } from "@/lib/motionUi";
 import { useGroupContext } from "./GroupContext";
 import { useFeaturesContext, type FeatureKey } from "./FeaturesContext";
@@ -81,20 +82,33 @@ export function Navbar() {
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [groupDropOpen, setGroupDropOpen] = useState(false);
+  // Reflet de data-sidebar (posé avant le rendu par sidebarInitScript) : sert aux
+  // titres et libellés ; la mise en page, elle, suit l'attribut en CSS (sb-collapsed:).
   const [collapsed, setCollapsed] = useState(false);
   const { groups, currentGroupId, currentGroup, setCurrentGroupId } = useGroupContext();
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("sidebarCollapsed");
-      if (saved === "true") setCollapsed(true);
-    } catch {}
+    const root = document.documentElement;
+    const sync = () => setCollapsed(root.getAttribute("data-sidebar") === "collapsed");
+    sync();
+    // Sans choix enregistré, la barre suit le seuil quand la fenêtre change de taille.
+    const mq = window.matchMedia(SIDEBAR_AUTO_COLLAPSE_QUERY);
+    const onChange = () => {
+      let saved: string | null = null;
+      try { saved = localStorage.getItem(SIDEBAR_STORAGE_KEY); } catch {}
+      if (saved === "true" || saved === "false") return;
+      root.setAttribute("data-sidebar", mq.matches ? "collapsed" : "expanded");
+      sync();
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   const toggleCollapsed = () => {
     const next = !collapsed;
     setCollapsed(next);
-    try { localStorage.setItem("sidebarCollapsed", String(next)); } catch {}
+    document.documentElement.setAttribute("data-sidebar", next ? "collapsed" : "expanded");
+    try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next)); } catch {}
   };
 
   const { flags } = useFeaturesContext();
@@ -146,20 +160,18 @@ export function Navbar() {
         aria-label="Navigation principale"
         className={cn(
           "hidden md:flex md:flex-col m-3 mr-0 mt-[calc(0.75rem+env(safe-area-inset-top))] rounded-4xl bg-ink text-ink-foreground overflow-y-auto shrink-0 transition-[width,padding] duration-200",
-          collapsed ? "md:w-18 p-2.5" : "md:w-64 p-4"
+          "md:w-64 p-4 sb-collapsed:md:w-18 sb-collapsed:p-2.5"
         )}
       >
-        <div className={cn("mb-8 flex items-center", collapsed ? "flex-col gap-3" : "justify-between")}>
-          {!collapsed && (
-            <div className="flex items-center gap-3">
+        <div className="mb-8 flex items-center justify-between sb-collapsed:flex-col sb-collapsed:gap-3 sb-collapsed:justify-start">
+          <div className="flex items-center gap-3 sb-collapsed:hidden">
               <BrandMark className="h-10 w-10 shrink-0 rounded-xl" />
               <div>
                 <p className="font-display text-[1.375rem]">MindDump</p>
                 <p className="mt-0.5 text-xs text-ink-foreground/70">Vide ta charge mentale</p>
               </div>
-            </div>
-          )}
-          {collapsed && <BrandMark className="h-10 w-10 shrink-0 rounded-xl" />}
+          </div>
+          <BrandMark className="hidden h-10 w-10 shrink-0 rounded-xl sb-collapsed:block" />
           <button
             onClick={toggleCollapsed}
             className={cn("flex h-11 w-11 items-center justify-center rounded-full transition-colors", sidebarLink)}
@@ -182,20 +194,20 @@ export function Navbar() {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex h-12 items-center rounded-full text-base font-bold transition-[background-color,color,transform] duration-150 active:scale-[0.98]",
-                  collapsed ? "justify-center" : "gap-3 px-4",
+                  "gap-3 px-4 sb-collapsed:justify-center sb-collapsed:gap-0 sb-collapsed:px-0",
                   active ? cn(a.bg, a.fg) : sidebarLink
                 )}
               >
                 <item.icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.5 : 2} />
-                {!collapsed && item.label}
+                <span className="sb-collapsed:hidden">{item.label}</span>
               </Link>
             );
           })}
         </div>
 
         {/* ── Group switcher ── */}
-        {groups.length > 0 && !collapsed && (
-          <div className="mt-4 border-t border-ink-foreground/15 pt-4 relative">
+        {groups.length > 0 && (
+          <div className="mt-4 border-t border-ink-foreground/15 pt-4 relative sb-collapsed:hidden">
             <p className="text-xs font-bold text-ink-foreground/70 px-4 mb-1.5">Groupe actif</p>
             <button
               onClick={() => setGroupDropOpen((o) => !o)}
@@ -232,8 +244,8 @@ export function Navbar() {
           </div>
         )}
 
-        {groups.length > 0 && collapsed && (
-          <div className="mt-4 border-t border-ink-foreground/15 pt-4 flex justify-center">
+        {groups.length > 0 && (
+          <div className="mt-4 hidden justify-center border-t border-ink-foreground/15 pt-4 sb-collapsed:flex">
             <Link
               href="/profile"
               title={currentGroup?.name ?? "Groupes"}
@@ -252,7 +264,7 @@ export function Navbar() {
             title={collapsed ? (userName ?? userEmail ?? "Profil") : undefined}
             className={cn(
               "flex items-center rounded-full mb-1 transition-colors group",
-              collapsed ? "justify-center h-12" : "gap-3 px-2 h-14",
+              "h-14 gap-3 px-2 sb-collapsed:h-12 sb-collapsed:justify-center sb-collapsed:gap-0 sb-collapsed:px-0",
               pathname === "/profile" ? "bg-ink-foreground text-ink" : sidebarLink
             )}
           >
@@ -264,19 +276,14 @@ export function Navbar() {
                 <span className="text-sm font-extrabold text-on-tone">{(userName ?? userEmail ?? "?")[0].toUpperCase()}</span>
               </div>
             )}
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1 sb-collapsed:hidden">
                 <p className="text-sm font-bold truncate">{userName ?? userEmail}</p>
                 {userName && <p className="text-xs truncate opacity-70">{userEmail}</p>}
-              </div>
-            )}
-            {!collapsed && (
-              <Settings className="h-3.5 w-3.5 mr-2 shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity" />
-            )}
+            </div>
+            <Settings className="h-3.5 w-3.5 mr-2 shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity sb-collapsed:hidden" />
           </Link>
 
-          {!collapsed && (
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 sb-collapsed:hidden">
               {!skipAuth && (
                 <button
                   type="button"
@@ -298,19 +305,16 @@ export function Navbar() {
                 </Link>
               )}
               <ThemeToggle className={cn("flex h-11 w-11 items-center justify-center rounded-full text-ink-foreground/75 hover:bg-ink-foreground/10 hover:text-ink-foreground", !isAdmin && "ml-auto")} />
-            </div>
-          )}
+          </div>
 
-          {collapsed && (
-            <ThemeToggle className="mx-auto flex h-11 w-11 items-center justify-center rounded-full text-ink-foreground/75 hover:bg-ink-foreground/10 hover:text-ink-foreground" iconClassName="h-5 w-5" />
-          )}
+          <ThemeToggle className="mx-auto hidden sb-collapsed:flex h-11 w-11 items-center justify-center rounded-full text-ink-foreground/75 hover:bg-ink-foreground/10 hover:text-ink-foreground" iconClassName="h-5 w-5" />
 
-          {!skipAuth && collapsed && (
+          {!skipAuth && (
             <button
               onClick={() => signOutAndClear()}
               title="Déconnexion"
               aria-label="Déconnexion"
-              className={cn("mx-auto flex h-11 w-11 items-center justify-center rounded-full transition-colors", sidebarLink)}
+              className={cn("mx-auto hidden h-11 w-11 items-center justify-center rounded-full transition-colors sb-collapsed:flex", sidebarLink)}
             >
               <LogOut className="h-5 w-5" />
             </button>

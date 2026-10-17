@@ -5,6 +5,7 @@ import "./app-skin.css";
 import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { THEME_COLORS, themeInitScript } from "@/lib/theme";
+import { sidebarInitScript } from "@/lib/sidebar";
 import { devServiceWorkerCleanupScript } from "@/lib/offlineCache";
 import { nativeAppCookieScript } from "@/lib/native";
 import { NativeDeviceSync } from "@/components/NativeDeviceSync";
@@ -92,6 +93,7 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: sidebarInitScript }} />
         <script dangerouslySetInnerHTML={{ __html: nativeAppCookieScript }} />
         <script dangerouslySetInnerHTML={{ __html: appIntroScript }} />
         {process.env.NODE_ENV !== "production" && (
