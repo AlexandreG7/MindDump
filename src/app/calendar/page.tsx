@@ -494,7 +494,7 @@ export default function CalendarPage() {
     "grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-[transform,background-color,color] duration-150 hover:bg-secondary hover:text-foreground active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5 md:mx-0">
+    <div className="mx-auto w-full max-w-5xl space-y-5 md:mx-0 2xl:mx-auto 2xl:max-w-7xl">
       <ModuleHero
         tone="agenda"
         title="Agenda"

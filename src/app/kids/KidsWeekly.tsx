@@ -157,7 +157,7 @@ export function KidsWeekly() {
 
   if (childrenError && !children) {
     return (
-      <div className="mx-auto w-full max-w-3xl md:mx-0">
+      <div className="mx-auto w-full max-w-3xl md:mx-0 2xl:mx-auto">
         <Surface className="p-6 text-center" role="alert">
           <p className="text-base font-bold">Les enfants ne se sont pas chargés.</p>
           <p className="mt-1 text-sm text-muted-foreground">Vérifie ta connexion, puis réessaie.</p>
@@ -171,7 +171,7 @@ export function KidsWeekly() {
 
   if (children && children.length === 0) {
     return (
-      <div className="mx-auto w-full max-w-3xl md:mx-0">
+      <div className="mx-auto w-full max-w-3xl md:mx-0 2xl:mx-auto">
         <Surface className="p-6">
           <EmptyState
             icon={RainbowIcon}
@@ -194,7 +194,7 @@ export function KidsWeekly() {
   const filledDays = summary?.filledDays ?? 0;
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5 md:mx-0">
+    <div className="mx-auto w-full max-w-5xl space-y-5 md:mx-0 2xl:mx-auto 2xl:max-w-7xl">
       {outdated && !kidMode && <OutdatedBanner />}
 
       <ModuleHero

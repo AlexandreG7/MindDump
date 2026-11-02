@@ -808,7 +808,7 @@ export default function RecipesPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-5 2xl:max-w-7xl">
       <ModuleHero
         tone="meal"
         title="Recettes"

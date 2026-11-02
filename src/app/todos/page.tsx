@@ -391,7 +391,7 @@ function TodosPageContent() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5 md:mx-0">
+    <div className="mx-auto w-full max-w-3xl space-y-5 md:mx-0 2xl:mx-auto 2xl:max-w-4xl">
       <div ref={heroRef}>
         <ModuleHero
           tone="todo"

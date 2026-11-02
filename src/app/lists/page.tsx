@@ -307,7 +307,7 @@ export default function ListsPage() {
   const toBuy = groceryLists.reduce((n, l) => n + l.items.filter((i) => !i.checked).length, 0);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5 md:mx-0">
+    <div className="mx-auto w-full max-w-3xl space-y-5 md:mx-0 2xl:mx-auto 2xl:max-w-7xl">
       <ModuleHero
         tone="list"
         title="Listes"
@@ -592,7 +592,7 @@ function ListGroup({
     "flex h-12 w-12 items-center justify-center rounded-full transition-[transform,background-color] hover:bg-on-tone/[0.14] active:scale-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-on-tone";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 2xl:grid 2xl:grid-cols-2 2xl:items-start 2xl:gap-5 2xl:space-y-0">
       {lists.map((list) => {
         const unchecked = list.items.filter((i) => !i.checked);
         const checked = list.items.filter((i) => i.checked);

@@ -396,7 +396,7 @@ export function Dashboard() {
 
   if (status === "loading" || flagsLoading) {
     return (
-      <div className="space-y-6" aria-busy="true" aria-label="Chargement de l'accueil">
+      <div className="mx-auto w-full max-w-[100rem] space-y-6" aria-busy="true" aria-label="Chargement de l'accueil">
         <Skeleton className="h-84 rounded-4xl" />
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Skeleton className="h-72 rounded-4xl" />
@@ -547,7 +547,7 @@ export function Dashboard() {
   const shownCount = layout.filter((s) => s.visible && available.has(s.id)).length;
 
   return (
-    <div className="relative space-y-5 md:space-y-6">
+    <div className="relative mx-auto w-full max-w-[100rem] space-y-5 md:space-y-6">
       <DayScene
         dateLabel={dateLabel}
         greeting={
