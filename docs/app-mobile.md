@@ -644,6 +644,15 @@ Symptôme : « plus rien ne charge », il faut fermer et relancer l'app.
 ### 4.1 App Store
 
 - [ ] Compte Apple Developer, app dans App Store Connect, TestFlight.
+- [x] Projet prêt pour l'envoi : `ITSAppUsesNonExemptEncryption = false` (app +
+      extension), manifeste `App/PrivacyInfo.xcprivacy` (e-mail, nom, ID
+      utilisateur, contenu, photos, position approximative pour la météo ;
+      aucun suivi ; `UserDefaults` CA92.1), script `npm run ios:bump` dans
+      `mobile/` (build + 1, ou `-- 1.1` pour une nouvelle version).
+- Envoi d'un build : `npm run ios:bump && npx cap sync ios` dans `mobile/`, puis
+  Xcode → Any iOS Device → Product → Archive → Distribute App → App Store
+  Connect. Équipe (DEVELOPMENT_TEAM) choisie dans Xcode, jamais committée.
+  Test interne d'abord (sans revue), externe ensuite (revue bêta).
 - [ ] Étiquettes de confidentialité : e-mail, nom, contenu utilisateur,
       identifiants d'appareil (push) ; aucun suivi publicitaire.
 - [ ] Déjà en place : Sign in with Apple (règle 4.8), suppression du compte
