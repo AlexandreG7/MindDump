@@ -9,6 +9,7 @@ Serveur MCP pour connecter Claude à ton app MindDump. Permet de gérer recettes
 | `create_recipe` | Créer une recette (photo → extraction → sauvegarde) |
 | `list_recipes` | Lister toutes les recettes |
 | `get_recipe` | Voir le détail d'une recette |
+| `update_recipe` | Modifier une recette (titre, temps, portions, étapes, ingrédients, favori, prévue, groupe) |
 | `set_recipe_photo` | Ajouter / remplacer la photo d'une recette (URL, base64 ou fichier local) |
 | `recipe_to_shopping_list` | Convertir une recette en liste de courses |
 | `create_todo` | Ajouter une tâche à faire |

@@ -13,6 +13,12 @@ const imageSourceShape = {
     .describe("Chemin d'un fichier image local (uniquement quand le MCP tourne en local)"),
 };
 
+const ingredientShape = z.object({
+  name: z.string().describe("Nom de l'ingrédient"),
+  quantity: z.string().describe("Quantité (ex: '200', '2', '1/2')"),
+  unit: z.string().optional().describe("Unité (ex: 'g', 'ml', 'pièce', 'cuillère à soupe')"),
+});
+
 // Aiguillage vers la bonne route d'import : sur le nom d'hôte (ancré), pas sur
 // une recherche dans toute l'URL. Le serveur MindDump revalide de toute façon
 // l'hôte avant de fetcher ; ceci évite seulement un mauvais routage.
@@ -231,6 +237,86 @@ export function registerRecipeTools(server: McpServer) {
             {
               type: "text" as const,
               text: JSON.stringify(recipe, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text" as const, text: `Erreur: ${(error as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // ─── Modifier une recette ──────────────────────────────────
+  server.tool(
+    "update_recipe",
+    "Modifier une recette existante. Seuls les champs fournis changent. " +
+      "`steps` et `ingredients` REMPLACENT toute la liste existante (lire la recette avec get_recipe avant) ; " +
+      "pour seulement ajouter des ingrédients, utiliser `addIngredients`. " +
+      "Pour la photo principale, utiliser set_recipe_photo.",
+    {
+      recipeId: z.string().describe("ID de la recette (donné par list_recipes)"),
+      title: z.string().min(1).optional().describe("Nouveau nom"),
+      description: z.string().optional().describe("Nouvelle description"),
+      servings: z.number().int().positive().optional().describe("Nombre de portions"),
+      prepTime: z.number().int().min(0).nullable().optional().describe("Temps de préparation en minutes (null pour l'effacer)"),
+      cookTime: z.number().int().min(0).nullable().optional().describe("Temps de cuisson en minutes (null pour l'effacer)"),
+      steps: z
+        .array(
+          z.union([
+            z.string(),
+            z.object({
+              text: z.string(),
+              image: z.string().nullable().optional(),
+            }),
+          ])
+        )
+        .optional()
+        .describe(
+          "Nouvelle liste complète des étapes. Pour garder la photo d'une étape, la repasser sous forme { text, image } telle que renvoyée par get_recipe"
+        ),
+      ingredients: z
+        .array(ingredientShape)
+        .optional()
+        .describe("Nouvelle liste complète des ingrédients (remplace l'existante)"),
+      addIngredients: z
+        .array(ingredientShape)
+        .optional()
+        .describe("Ingrédients à ajouter à la liste existante"),
+      favorite: z.boolean().optional().describe("Mettre en favori (pour toi uniquement) ou retirer des favoris"),
+      planned: z
+        .boolean()
+        .optional()
+        .describe("Marquer comme prévue ; false la retire aussi des jours à venir du planning"),
+      inCatalog: z.boolean().optional().describe("Afficher ou masquer dans le catalogue"),
+      groupId: z
+        .string()
+        .nullable()
+        .optional()
+        .describe("Partager dans un groupe (ID donné par list_groups), ou null pour la retirer du groupe"),
+    },
+    async (params) => {
+      try {
+        const { recipeId, ...updates } = params;
+        const body = Object.fromEntries(
+          Object.entries(updates).filter(([, value]) => value !== undefined)
+        );
+        if (Object.keys(body).length === 0) {
+          return {
+            content: [{ type: "text" as const, text: "Erreur: aucun champ à modifier." }],
+            isError: true,
+          };
+        }
+
+        await client.patch(`/api/recipes/${recipeId}`, body);
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Recette ${recipeId} mise à jour (${Object.keys(body).join(", ")}).`,
             },
           ],
         };
