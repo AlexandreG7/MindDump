@@ -10,15 +10,24 @@ import {
   Camera,
   Share2,
   Heart,
+  Pencil,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { RecipeView, type RecipeViewData } from "@/components/recipes/RecipeView";
 import { ShareRecipeDialog } from "@/components/recipes/ShareRecipeDialog";
 import { useFeedback } from "@/components/ui/feedback";
 import { prepareRecipePhoto } from "@/lib/image";
+import type { CatalogRecipe } from "@/components/recipes/RecipeEditor";
+
+const RecipeEditDialog = dynamic(
+  () => import("@/components/recipes/RecipeEditor").then((m) => m.RecipeEditDialog),
+  { ssr: false }
+);
 
 interface Recipe extends RecipeViewData {
   id: string;
+  createdAt: string;
   planned: boolean;
   inCatalog: boolean;
   favorite: boolean;
@@ -34,6 +43,9 @@ export default function RecipeDetailPage() {
   const [loadError, setLoadError] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  // Une fois ouvert, le dialogue reste monté (animation de fermeture).
+  const [editSeen, setEditSeen] = useState(false);
   // « Cuisiner » depuis le catalogue arrive ici avec ?cook=1 (lu une fois, sans Suspense).
   const [autoCook, setAutoCook] = useState(false);
   useEffect(() => {
@@ -137,6 +149,26 @@ export default function RecipeDetailPage() {
     fetchRecipe();
   };
 
+  const saveEdits = async (_recipeId: string, data: Record<string, unknown>) => {
+    const res = await fetch(`/api/recipes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) toast("Impossible d'enregistrer la recette", "error");
+    fetchRecipe();
+  };
+
+  const removeImage = async () => {
+    await fetch(`/api/recipes/${id}/image`, { method: "DELETE" });
+    fetchRecipe();
+  };
+
+  const editable: CatalogRecipe = {
+    ...recipe,
+    ingredients: recipe.ingredients.map((i) => ({ ...i, unit: i.unit ?? "" })),
+  };
+
   const pill =
     "inline-flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold transition-[background-color,transform] duration-150 active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring";
   const pillOff = "bg-secondary text-secondary-foreground hover:bg-accent";
@@ -211,9 +243,23 @@ export default function RecipeDetailPage() {
               <BookMarked className="h-4 w-4" />
               Catalogue
             </button>
+            <button onClick={() => { setEditSeen(true); setEditOpen(true); }} className={cn(pill, pillOff)}>
+              <Pencil className="h-4 w-4" />
+              Modifier
+            </button>
           </>
         }
       />
+      {editSeen && (
+        <RecipeEditDialog
+          recipe={editable}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onUpdate={saveEdits}
+          onUploadImage={(_recipeId, file) => uploadImage(file)}
+          onRemoveImage={removeImage}
+        />
+      )}
       <ShareRecipeDialog
         open={shareOpen}
         onOpenChange={setShareOpen}

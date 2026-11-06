@@ -35,10 +35,17 @@ export interface CatalogRecipe {
   ingredients: Ingredient[];
 }
 
-function stepTexts(raw: string): string[] {
+// Une étape garde sa photo (imports HelloFresh/Jow) : seul le texte est éditable,
+// la photo repart telle quelle à l'enregistrement.
+type EditStep = { text: string; image: string | null };
+
+function parseSteps(raw: string): EditStep[] {
   try {
     const parsed = JSON.parse(raw);
-    return parsed.map((s: string | { text: string }) => (typeof s === "string" ? s : s.text));
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((s: string | { text?: string; image?: string | null }) =>
+      typeof s === "string" ? { text: s, image: null } : { text: s?.text || "", image: s?.image || null }
+    );
   } catch {
     return [];
   }
@@ -65,7 +72,7 @@ export function RecipeEditDialog({
   const [editCookTime, setEditCookTime] = useState(String(recipe.cookTime || ""));
   const [editDescription, setEditDescription] = useState(recipe.description || "");
   const [editIngredients, setEditIngredients] = useState<Ingredient[]>(recipe.ingredients.map((i) => ({ ...i })));
-  const [editSteps, setEditSteps] = useState<string[]>(() => stepTexts(recipe.steps));
+  const [editSteps, setEditSteps] = useState<EditStep[]>(() => parseSteps(recipe.steps));
   const [pendingEditImage, setPendingEditImage] = useState<File | null>(null);
   const editImageRef = useRef<HTMLInputElement>(null);
 
@@ -78,7 +85,7 @@ export function RecipeEditDialog({
     setEditCookTime(String(recipe.cookTime || ""));
     setEditDescription(recipe.description || "");
     setEditIngredients(recipe.ingredients.map((i) => ({ ...i })));
-    setEditSteps(stepTexts(recipe.steps));
+    setEditSteps(parseSteps(recipe.steps));
     setPendingEditImage(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -95,7 +102,9 @@ export function RecipeEditDialog({
         quantity: i.quantity || "1",
         unit: i.unit || null,
       })),
-      steps: editSteps.filter((s) => s.trim()),
+      steps: editSteps
+        .filter((s) => s.text.trim())
+        .map((s) => (s.image ? { text: s.text, image: s.image } : s.text)),
     });
     if (pendingEditImage) {
       onUploadImage(recipe.id, pendingEditImage);
@@ -215,13 +224,17 @@ export function RecipeEditDialog({
               {editSteps.map((step, i) => (
                 <div key={i} className="flex gap-2 items-start">
                   <span className="text-xs text-muted-foreground mt-2 w-5 shrink-0">{i + 1}.</span>
-                  <Textarea value={step} onChange={(e) => { const u = [...editSteps]; u[i] = e.target.value; setEditSteps(u); }} rows={2} className="flex-1 text-sm" />
+                  <Textarea value={step.text} onChange={(e) => { const u = [...editSteps]; u[i] = { ...u[i], text: e.target.value }; setEditSteps(u); }} rows={2} className="flex-1 text-sm" />
+                  {step.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={step.image} alt="" className="h-14 w-14 shrink-0 rounded-md object-cover" />
+                  )}
                   <button aria-label="Retirer l'étape" onClick={() => setEditSteps(editSteps.filter((_, j) => j !== i))} className="p-1.5 rounded-md hover:bg-destructive/10 mt-1">
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 </div>
               ))}
-              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditSteps([...editSteps, ""])}>
+              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditSteps([...editSteps, { text: "", image: null }])}>
                 <Plus className="h-3 w-3 mr-1" />Étape
               </Button>
             </div>
