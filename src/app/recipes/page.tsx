@@ -485,69 +485,17 @@ export default function RecipesPage() {
 
       if (!isHelloFresh) throw new Error("URL non reconnue — colle un lien Jow ou HelloFresh");
 
-      const hfUrl = targetUrl.split("?")[0];
-      const idMatch = hfUrl.match(/([0-9a-f]{20,})(?:\?|$)/);
-      if (!idMatch) throw new Error("URL HelloFresh invalide — ID de recette introuvable");
-      const recipeHFId = idMatch[1];
-
-      const tokenRes = await fetch("/api/hellofresh-token");
-      const tokenData = await tokenRes.json();
-      if (!tokenData.token) throw new Error("Token HelloFresh non configure sur le serveur");
-
-      const apiRes = await fetch(
-        `https://gw.hellofresh.com/api/recipes/${recipeHFId}?country=FR&locale=fr-FR`,
-        { headers: { Authorization: `Bearer ${tokenData.token}`, Accept: "application/json" } }
-      );
-      if (!apiRes.ok) throw new Error(`HelloFresh API: ${apiRes.status}`);
-      const recipe = await apiRes.json();
-
-      const stripHtml = (t: string) => t.replace(/<[^>]*>/g, "").replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
-      const heroImage = recipe.imagePath
-        ? `https://img.hellofresh.com/q_auto,f_auto,w_1200/hellofresh_s3${recipe.imagePath}`
-        : recipe.imageLink || null;
-      const steps = (recipe.steps || [])
-        .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
-        .map((s: { instructionsMarkdown?: string; instructions?: string; images?: { path?: string; link?: string }[] }) => ({
-          text: stripHtml(s.instructionsMarkdown || s.instructions || ""),
-          image: s.images?.[0]?.path
-            ? `https://img.hellofresh.com/q_auto,f_auto,w_750/hellofresh_s3${s.images[0].path}`
-            : s.images?.[0]?.link || null,
-        }))
-        .filter((s: { text: string; image: string | null }) => s.text || s.image);
-
-      const servings = 4;
-      const yieldForServings = recipe.yields?.find((y: { yields: number }) => y.yields === servings) || recipe.yields?.[0];
-      const ingredients = (recipe.ingredients || []).map((ing: { id?: string; name?: string }) => {
-        const yieldIng = yieldForServings?.ingredients?.find((yi: { id?: string }) => yi.id === ing.id);
-        return {
-          name: ing.name || "",
-          quantity: yieldIng?.amount != null ? String(yieldIng.amount) : "",
-          unit: yieldIng?.unit || "",
-        };
-      }).filter((i: { name: string }) => i.name);
-
-      let totalTime: number | null = null;
-      const timeStr = recipe.prepTime || recipe.totalTime;
-      if (timeStr) {
-        const tm = timeStr.match(/PT(\d+)M/);
-        if (tm) totalTime = parseInt(tm[1]);
-      }
-
-      const res = await fetch("/api/recipes", {
+      // Import côté serveur : il gère le token HelloFresh (renouvelé s'il a
+      // expiré), le proxy et le repli sur la page HTML.
+      const res = await fetch("/api/recipes/import-hellofresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: recipe.name || "Recette HelloFresh",
-          description: stripHtml(recipe.headline || recipe.description || ""),
-          servings,
-          prepTime: totalTime ? Math.round(totalTime * 0.4) : null,
-          cookTime: totalTime ? Math.round(totalTime * 0.6) : null,
-          steps,
-          image: heroImage,
+          url: targetUrl,
+          servings: 4,
+          groupId: currentGroupId,
           planned: activeTab === "prevues",
           inCatalog: activeTab === "catalogue",
-          groupId: currentGroupId,
-          ingredients,
         }),
       });
       const data = await res.json().catch(() => ({ error: "Reponse invalide" }));

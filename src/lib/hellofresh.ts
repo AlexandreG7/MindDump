@@ -98,6 +98,7 @@ export interface HFRecipeAPI {
 }
 
 export interface EnrichedData {
+  title?: string | null;
   description: string | null;
   prepTime: number | null;
   cookTime: number | null;
@@ -106,27 +107,25 @@ export interface EnrichedData {
   heroImage: string | null;
 }
 
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-export async function getHelloFreshToken(
-  clientToken?: string
-): Promise<string | null> {
-  if (clientToken) return clientToken;
-  if (process.env.HELLOFRESH_TOKEN) return process.env.HELLOFRESH_TOKEN;
-  if (cachedToken && Date.now() < cachedToken.expiresAt)
+/**
+ * Token anonyme récupéré sur la page d'accueil HelloFresh (il expire au bout
+ * de quelques semaines). `force` ignore le cache, après un refus 401/403.
+ */
+async function scrapeHelloFreshToken(force = false): Promise<string | null> {
+  if (!force && cachedToken && Date.now() < cachedToken.expiresAt)
     return cachedToken.token;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const res = await fetch("https://www.hellofresh.fr/", {
       signal: controller.signal,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        Accept: "text/html",
-      },
+      headers: { "User-Agent": BROWSER_UA, Accept: "text/html" },
     });
-    clearTimeout(timeout);
     if (!res.ok) return null;
     const html = await res.text();
     const match = html.match(/__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/);
@@ -140,9 +139,22 @@ export async function getHelloFreshToken(
     };
     return cachedToken.token;
   } catch {
-    clearTimeout(timeout);
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+/**
+ * Token HelloFresh : celui fourni par l'appelant, sinon un token frais
+ * récupéré sur le site, et seulement en dernier recours HELLOFRESH_TOKEN
+ * (une valeur figée qui finit toujours par expirer → 401).
+ */
+export async function getHelloFreshToken(
+  clientToken?: string
+): Promise<string | null> {
+  if (clientToken) return clientToken;
+  return (await scrapeHelloFreshToken()) ?? process.env.HELLOFRESH_TOKEN ?? null;
 }
 
 async function fetchViaProxy(recipeId: string): Promise<HFRecipeAPI | null> {
@@ -166,39 +178,91 @@ async function fetchViaProxy(recipeId: string): Promise<HFRecipeAPI | null> {
   }
 }
 
+// Pays HelloFresh déduit du domaine du lien (hellofresh.lu → LU…).
+const COUNTRY_BY_TLD: Record<string, { country: string; locale: string }> = {
+  fr: { country: "FR", locale: "fr-FR" },
+  lu: { country: "LU", locale: "fr-LU" },
+  be: { country: "BE", locale: "fr-BE" },
+  ch: { country: "CH", locale: "fr-CH" },
+  de: { country: "DE", locale: "de-DE" },
+  at: { country: "AT", locale: "de-AT" },
+  nl: { country: "NL", locale: "nl-NL" },
+  it: { country: "IT", locale: "it-IT" },
+  es: { country: "ES", locale: "es-ES" },
+  "co.uk": { country: "GB", locale: "en-GB" },
+  com: { country: "US", locale: "en-US" },
+  ca: { country: "CA", locale: "en-CA" },
+  "com.au": { country: "AU", locale: "en-AU" },
+};
+
+/** Marchés à interroger : la France d'abord (recettes en français), puis celui du lien. */
+export function helloFreshMarkets(sourceUrl?: string): { country: string; locale: string }[] {
+  const markets = [COUNTRY_BY_TLD.fr];
+  if (!sourceUrl) return markets;
+  try {
+    const tld = new URL(sourceUrl).hostname.toLowerCase().replace(/^(?:www\.)?hellofresh\./, "");
+    const market = COUNTRY_BY_TLD[tld];
+    if (market && market.country !== "FR") markets.push(market);
+  } catch {
+    /* URL invalide : la France seule */
+  }
+  return markets;
+}
+
+async function callHelloFreshAPI(
+  recipeId: string,
+  token: string,
+  market: { country: string; locale: string }
+): Promise<{ status: number; data: HFRecipeAPI | null }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const url = `https://gw.hellofresh.com/api/recipes/${recipeId}?country=${market.country}&locale=${market.locale}`;
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Accept-Language": `${market.locale},fr;q=0.9`,
+        "User-Agent": BROWSER_UA,
+      },
+    });
+    if (!res.ok) return { status: res.status, data: null };
+    return { status: res.status, data: await res.json() };
+  } catch {
+    return { status: 0, data: null };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function fetchFromHelloFreshAPI(
   recipeId: string,
-  clientToken?: string
+  clientToken?: string,
+  sourceUrl?: string
 ): Promise<HFRecipeAPI | null> {
   // Try Cloudflare proxy first (bypasses IP blocks)
   const proxied = await fetchViaProxy(recipeId);
   if (proxied?.name) return proxied;
 
-  // Fallback: direct call
-  const token = await getHelloFreshToken(clientToken);
+  // Fallback : appel direct. Un token refusé (401/403) est remplacé par un
+  // token fraîchement récupéré, puis par HELLOFRESH_TOKEN.
+  let token = await getHelloFreshToken(clientToken);
   if (!token) return null;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  try {
-    const url = `https://gw.hellofresh.com/api/recipes/${recipeId}?country=FR&locale=fr-FR`;
-    const res = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-          "Accept-Language": "fr-FR,fr;q=0.9",
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        },
-      }
-    );
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    clearTimeout(timeout);
-    return null;
+  const tried = new Set<string>();
+  for (const market of helloFreshMarkets(sourceUrl)) {
+    for (;;) {
+      tried.add(token);
+      const { status, data } = await callHelloFreshAPI(recipeId, token, market);
+      if (data?.name) return data;
+      if (status !== 401 && status !== 403) break;
+      const fresh = await scrapeHelloFreshToken(true);
+      const next = [fresh, process.env.HELLOFRESH_TOKEN].find((t) => t && !tried.has(t));
+      if (!next) return null;
+      token = next;
+    }
   }
+  return null;
 }
 
 export function parseAPIResponse(
@@ -257,6 +321,7 @@ export function parseAPIResponse(
   }
 
   return {
+    title: data.name ? stripHtml(data.name) : null,
     description: data.headline || data.description || null,
     prepTime: totalTime ? Math.round(totalTime * 0.4) : null,
     cookTime: totalTime ? Math.round(totalTime * 0.6) : null,
@@ -463,7 +528,7 @@ export async function fetchEnrichedData(
   const recipeHFId = extractRecipeId(targetUrl);
 
   if (recipeHFId) {
-    const apiData = await fetchFromHelloFreshAPI(recipeHFId, clientToken);
+    const apiData = await fetchFromHelloFreshAPI(recipeHFId, clientToken, targetUrl);
     if (apiData?.name) return parseAPIResponse(apiData, targetServings);
   }
 

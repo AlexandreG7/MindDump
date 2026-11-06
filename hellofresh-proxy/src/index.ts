@@ -13,8 +13,8 @@ const UA =
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-async function getToken(): Promise<string | null> {
-  if (cachedToken && Date.now() < cachedToken.expiresAt) return cachedToken.token;
+async function getToken(force = false): Promise<string | null> {
+  if (!force && cachedToken && Date.now() < cachedToken.expiresAt) return cachedToken.token;
 
   const res = await fetch("https://www.hellofresh.fr/", {
     headers: { "User-Agent": UA, Accept: "text/html" },
@@ -65,20 +65,25 @@ export default {
         return json({ error: "Invalid recipe ID" }, 400);
       }
 
-      const token = await getToken();
-      if (!token) return json({ error: "Cannot get HelloFresh token" }, 502);
-
-      const apiRes = await fetch(
-        `https://gw.hellofresh.com/api/recipes/${recipeId}?country=FR&locale=fr-FR`,
-        {
+      const callApi = (token: string) =>
+        fetch(`https://gw.hellofresh.com/api/recipes/${recipeId}?country=FR&locale=fr-FR`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
             "Accept-Language": "fr-FR,fr;q=0.9",
             "User-Agent": UA,
           },
-        }
-      );
+        });
+
+      const token = await getToken();
+      if (!token) return json({ error: "Cannot get HelloFresh token" }, 502);
+
+      let apiRes = await callApi(token);
+      // Token en cache expiré : on en récupère un neuf et on réessaie une fois.
+      if (apiRes.status === 401 || apiRes.status === 403) {
+        const fresh = await getToken(true);
+        if (fresh) apiRes = await callApi(fresh);
+      }
 
       if (!apiRes.ok) {
         return json({ error: `HelloFresh API returned ${apiRes.status}` }, apiRes.status);

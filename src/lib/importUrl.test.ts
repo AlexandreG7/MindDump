@@ -152,3 +152,16 @@ test("recipeSource : liens http des hôtes autorisés acceptés, le reste refus�
   assert.equal(recipeSource(`https://user:pass@www.hellofresh.fr/recipes/x-${HF_ID}`), null);
   assert.equal(recipeSource(`http://www.hellofresh.fr:8080/recipes/x-${HF_ID}`), null);
 });
+
+test("helloFreshMarkets : France d'abord, puis le pays du lien", async () => {
+  const { helloFreshMarkets } = await import("./hellofresh");
+  assert.deepEqual(
+    helloFreshMarkets("https://www.hellofresh.lu/recipes/x-6728f043d49f300fd61638e1").map((m) => m.country),
+    ["FR", "LU"]
+  );
+  assert.deepEqual(
+    helloFreshMarkets("https://www.hellofresh.fr/recipes/x-6728f043d49f300fd61638e1").map((m) => m.country),
+    ["FR"]
+  );
+  assert.deepEqual(helloFreshMarkets("pas une url").map((m) => m.country), ["FR"]);
+});

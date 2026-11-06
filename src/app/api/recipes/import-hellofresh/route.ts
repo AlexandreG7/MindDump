@@ -63,10 +63,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Extract title from URL slug or API data
-    let title = "Recette HelloFresh";
+    // Titre : celui de HelloFresh (API ou page), sinon déduit du slug de l'URL.
+    let title = enriched.title && enriched.title !== "Recette sans titre"
+      ? enriched.title
+      : "Recette HelloFresh";
     const slugMatch = targetUrl.match(/\/recipes\/([^/]+?)(?:-[0-9a-f]{20,})?$/);
-    if (slugMatch) {
+    if (title === "Recette HelloFresh" && slugMatch) {
       title = slugMatch[1]
         .replace(/-and-/g, " & ")
         .replace(/-/g, " ")

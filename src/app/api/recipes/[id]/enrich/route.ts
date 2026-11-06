@@ -50,7 +50,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     } else {
       const recipeHFId = extractRecipeId(targetUrl);
       if (recipeHFId) {
-        const apiData = await fetchFromHelloFreshAPI(recipeHFId);
+        const apiData = await fetchFromHelloFreshAPI(recipeHFId, undefined, targetUrl);
         if (apiData?.name) scraped = parseAPIResponse(apiData, recipe.servings);
       }
       if (!scraped) {
